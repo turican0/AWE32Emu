@@ -130,41 +130,79 @@ namespace Emu8000
 
     // -- Vyznam bitu -----------------------------------------------------
 
-    // Pitch: 0xE000 = jednotkovy prirustek (prehravani rychlosti 44100 Hz),
-    // 0x1000 (4096) na oktavu. [DOC, k overeni v SBAWE32.DRV]
+    // IP (Initial Pitch): 0xE000 = bez posunu vysky, 0x1000 = jedna oktava.
+    // Logaritmicka skala. [PG]
     inline constexpr uint16_t kPitchUnity = 0xE000;
     inline constexpr int kPitchPerOctave  = 4096;
 
-    // CCCA
-    inline constexpr uint32_t kCccaAddressMask = 0x00FFFFFFu;
-    inline constexpr int      kCccaQShift      = 28;          // bity 31..28 = filter Q
-    inline constexpr uint32_t kCccaControlMask = 0x0F000000u; // bity 27..24 [?]
-    inline constexpr uint32_t kCccaDmaActive   = 0x08000000u; // [?]
-    inline constexpr uint32_t kCccaDmaWrite    = 0x04000000u; // [?]
+    // CPF (Current Pitch): narozdil od IP je LINEARNI prirustek,
+    // 0x4000 = bez posunu (tj. prirustek 1.0). [PG]
+    inline constexpr uint16_t kCpfUnity = 0x4000;
 
-    // PSST / CSL: horni bajt = pan / chorus send, spodnich 24 bitu = adresa
+    // CCCA: bity 31..28 = Q (0 = bez rezonance, 15 = cca 24 dB),
+    // bit 27 vzdy 0, bit 26 = DMA, bit 25 = WR (1 = zapis), bit 24 = RIGHT. [PG]
+    inline constexpr uint32_t kCccaAddressMask = 0x00FFFFFFu;
+    inline constexpr int      kCccaQShift      = 28;
+    inline constexpr uint32_t kCccaDma         = 0x04000000u;
+    inline constexpr uint32_t kCccaDmaWrite    = 0x02000000u;
+    inline constexpr uint32_t kCccaDmaRight    = 0x01000000u;
+    inline constexpr int      kCccaQMax        = 15;
+    inline constexpr double   kResonanceMaxDb  = 24.0;
+
+    // PSST: bity 31..24 = pan, POZOR 0 = zcela vpravo, 0xFF = zcela vlevo. [PG]
+    // CSL:  bity 31..24 = chorus send (0 = nic, 0xFF = maximum). [PG]
     inline constexpr uint32_t kLoopAddressMask = 0x00FFFFFFu;
     inline constexpr int      kPanShift        = 24;
     inline constexpr int      kChorusShift     = 24;
 
-    // PTRX: hi16 = pitch target, bity 15..8 = reverb send
+    // PTRX: bity 31..16 = pitch target, 15..8 = reverb send, 7..0 = aux. [PG]
     inline constexpr int kReverbShift = 8;
 
-    // DCYSUSV / DCYSUS: bit 15 = spusteni release faze (envelope engine),
-    // bity 14..8 = sustain level, bity 6..0 = decay/release rate. [DOC/?]
-    inline constexpr uint16_t kDcysusvRelease   = 0x8000;
+    // DCYSUSV / DCYSUS [PG]:
+    //   bit 15    = 0 zapisuje decay, 1 zapisuje release
+    //   bity 14-8 = sustain level po 0.75 dB (0x7F = bez utlumu, 0 = ticho)
+    //   bit 7     = envelope generator vypnut (u DCYSUS vzdy 0)
+    //   bity 6-0  = kodovany decay/release rate (0 = bez decay)
+    inline constexpr uint16_t kDcysusvRelease     = 0x8000;
     inline constexpr uint16_t kDcysusvSustainMask = 0x7F00;
-    inline constexpr uint16_t kDcysusvRateMask  = 0x007F;
-    // Hodnota zapisovana pri inicializaci (envelope engine vypnuty).
-    inline constexpr uint16_t kDcysusvOff       = 0x0080;
+    inline constexpr uint16_t kDcysusvOff         = 0x0080;
+    inline constexpr uint16_t kDcysusvRateMask    = 0x007F;
+    inline constexpr double   kSustainDbPerStep   = 0.75;
 
-    // ATKHLDV / ATKHLD: bity 14..8 = hold, bity 6..0 = attack rate,
-    // bit 15 = "attack modulation off" [?]
+    // ATKHLDV / ATKHLD [PG]:
+    //   bit 15    = 0 spousti attack
+    //   bity 14-8 = hold po 92 ms (0x7F = bez prodlevy, 0 = 11.68 s)
+    //   bit 7     = vzdy 0
+    //   bity 6-0  = kodovany attack (0 = nikdy, 1 = 11.88 s, 0x7F = 6 ms)
     inline constexpr uint16_t kAtkhldHoldMask   = 0x7F00;
     inline constexpr uint16_t kAtkhldAttackMask = 0x007F;
+    inline constexpr double   kHoldSecPerStep   = 0.092;
+
+    // IFATN [PG]: bity 15-8 = pocatecni mezni kmitocet filtru po ctvrt
+    // pultonu od 125 Hz, bity 7-0 = utlum po 0.375 dB (0xFF = 96 dB).
+    inline constexpr double kAttenDbPerStep  = 0.375;
+    inline constexpr double kAttenMaxDb      = 96.0;
+    inline constexpr double kCutoffBaseHz    = 125.0;
+    inline constexpr int    kCutoffPerOctave = 48;    // ctvrt pultonu
+
+    // ENVVOL / ENVVAL / LFO1VAL / LFO2VAL [PG]: 0x8000 = bez prodlevy,
+    // nizsi hodnoty = rostouci prodleva po 725 us.
+    inline constexpr uint16_t kDelayNone      = 0x8000;
+    inline constexpr double   kDelaySecPerStep = 0.000725;
+
+    // Hloubky modulaci [PG]. Vsechny jsou znamenkove bajty, kde 0x7F
+    // odpovida plne kladne hloubce a 0x80 plne zaporne.
+    inline constexpr double kPefePitchOctaves  = 1.0;   // PEFE hi:  env -> pitch
+    inline constexpr double kPefeFilterOctaves = 6.0;   // PEFE lo:  env -> filtr
+    inline constexpr double kFmmodPitchOctaves = 1.0;   // FMMOD hi: LFO1 vibrato
+    inline constexpr double kFmmodFilterOctaves = 3.0;  // FMMOD lo: LFO1 -> filtr
+    inline constexpr double kTremoloMaxDb      = 12.0;  // TREMFRQ hi: LFO1 tremolo
+    inline constexpr double kFm2PitchOctaves   = 1.0;   // FM2FRQ2 hi: LFO2 vibrato
+    inline constexpr double kLfoHzPerStep      = 0.042; // 0xFF = 10.72 Hz
 
     // Adresni prostor zvukove pameti. ROM karty lezi pod 0x200000,
     // uzivatelska DRAM zacina na 0x200000 (adresy jsou ve vzorcich,
-    // ne v bajtech). [DOC]
+    // ne v bajtech).
     inline constexpr uint32_t kDramOffset = 0x200000u;
+
 }

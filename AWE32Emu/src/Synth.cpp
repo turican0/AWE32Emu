@@ -141,8 +141,9 @@ void Synth::ProgramVoice(int voice, uint8_t channel, uint8_t note, uint8_t veloc
     // parametry, obalky, a DCYSUSV az uplne nakonec - ten spousti
     // envelope engine, tedy samotnou notu.
 
-    // Pan (PSST bity 31..24) + zacatek smycky
-    const uint32_t pan = static_cast<uint32_t>(std::clamp(ch.pan * 2, 0, 255));
+    // Pan (PSST bity 31..24). Pozor na orientaci: v EMU8000 je 0 = zcela
+    // vpravo a 0xFF = zcela vlevo, tedy opacne nez MIDI CC10.
+    const uint32_t pan = static_cast<uint32_t>(255 - std::clamp(ch.pan * 2, 0, 255));
     m_core.Write(Reg::PSST, voice,
                  (pan << Emu8000::kPanShift) | (smp.loopStart & Emu8000::kLoopAddressMask));
 
@@ -167,8 +168,10 @@ void Synth::ProgramVoice(int voice, uint8_t channel, uint8_t note, uint8_t veloc
     m_core.Write(Reg::TREMFRQ, voice, 0);
     m_core.Write(Reg::FM2FRQ2, voice, 0);
 
-    m_core.Write(Reg::CVCF, voice, 0xFFFFFFFFu);
-    m_core.Write(Reg::VTFT, voice, 0xFFFFFFFFu);
+    // Stejne jako SBAWE32.DRV pri note-on: hlasitost 0, filtr plne otevreny.
+    // Envelope engine si obe pulky vzapeti prepise sam.
+    m_core.Write(Reg::CVCF, voice, 0x0000FFFFu);
+    m_core.Write(Reg::VTFT, voice, 0x0000FFFFu);
 
     // Modulacni obalka - nahradni patch ji nepouziva.
     m_core.Write(Reg::ENVVAL,  voice, 0x8000);
@@ -255,7 +258,7 @@ void Synth::RefreshChannel(uint8_t channel)
 
         m_core.Write(Reg::IFATN, i, ComputeIfatn(channel, a.velocity));
 
-        const uint32_t pan = static_cast<uint32_t>(std::clamp(m_channels[channel].pan * 2, 0, 255));
+        const uint32_t pan = static_cast<uint32_t>(255 - std::clamp(m_channels[channel].pan * 2, 0, 255));
         const uint32_t psst = m_core.Read(Reg::PSST, i);
         m_core.Write(Reg::PSST, i,
                      (pan << Emu8000::kPanShift) | (psst & Emu8000::kLoopAddressMask));
