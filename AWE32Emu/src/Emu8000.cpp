@@ -31,6 +31,10 @@ Emu8000Core::Emu8000Core(uint32_t sampleRate)
         v.words[static_cast<size_t>(Emu8000Reg::VolEnvReleaseRate)] = 55000;
         v.words[static_cast<size_t>(Emu8000Reg::Pan)] = 8192;
         v.words[static_cast<size_t>(Emu8000Reg::InitialAttenuation)] = 0;
+        // Filtr defaultne "otevreny" (vysoky cutoff, zadna rezonance), aby
+        // neusekaval zvuk, dokud ho Synth/sequencer vyslovne nenastavi.
+        v.words[static_cast<size_t>(Emu8000Reg::FilterCutoff)] = 65535;
+        v.words[static_cast<size_t>(Emu8000Reg::FilterResonance)] = 0;
     }
 }
 
@@ -74,6 +78,29 @@ double Emu8000Core::NoteOffsetToFreqHz(uint16_t pitchOffset) const
     // cipu (semitone/cent rozliseni dle manualu).
     double semitoneOffset = (static_cast<double>(pitchOffset) - 8192.0) / (4096.0 / 12.0);
     return 440.0 * std::pow(2.0, semitoneOffset / 12.0);
+}
+
+double Emu8000Core::ApplyFilter(EnvRuntime& env, double input, uint16_t cutoffReg, uint16_t resonanceReg) const
+{
+    // Placeholder mapovani registru na cutoff (Hz) / Q - realny EMU8000
+    // pouziva jinou (pravdepodobne logaritmickou) krivku definovanou v Tech
+    // Ref Manualu (TODO sekce 4 "Low-pass filtr ... klicove misto pro
+    // doladeni sluchem/merenim"). Tady jde jen o to, aby registry ovlivnovaly
+    // zvuk smysluplnym/spojitym zpusobem, ne o bit-presnou shodu.
+    double cutoffHz = 200.0 + (cutoffReg / 65535.0) * 8000.0;
+    double resonanceQ = 0.55 + (resonanceReg / 65535.0) * 6.0;
+
+    cutoffHz = std::min(cutoffHz, m_sampleRate * 0.45); // ochrana proti nestabilite SVF pri Nyquistu
+
+    double f = 2.0 * std::sin(kPi * cutoffHz / m_sampleRate);
+    double q = 1.0 / resonanceQ;
+
+    // Chamberlin state-variable filter, lowpass vystup.
+    double high = input - env.filterLow - q * env.filterBand;
+    env.filterBand += f * high;
+    env.filterLow += f * env.filterBand;
+
+    return env.filterLow;
 }
 
 void Emu8000Core::RenderBlock(int16_t* out, uint32_t numFrames)
@@ -121,9 +148,12 @@ void Emu8000Core::RenderBlock(int16_t* out, uint32_t numFrames)
             const double atten = regs.words[static_cast<size_t>(Emu8000Reg::InitialAttenuation)] / 65535.0;
 
             // TODO (TODO sekce 5): sample playback ze SoundFont/SBK dat misto sinusu.
-            // TODO (TODO sekce 4): low-pass filtr (FilterCutoff/FilterResonance) se
-            // zatim nikde neaplikuje - registry se nactou, ale nepouzivaji.
             double sample = std::sin(env.phase) * env.level * (1.0 - atten);
+
+            sample = ApplyFilter(env, sample,
+                                  regs.words[static_cast<size_t>(Emu8000Reg::FilterCutoff)],
+                                  regs.words[static_cast<size_t>(Emu8000Reg::FilterResonance)]);
+
             mix += sample;
 
             env.phase += 2.0 * kPi * freqHz / m_sampleRate;

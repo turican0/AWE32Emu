@@ -72,15 +72,23 @@ private:
     uint32_t m_sampleRate;
     std::array<Emu8000VoiceRegs, kMaxVoices> m_regs;
 
-    // Interni stav enveloparu na hlas (odvozeny z registru pri kazdem
-    // RenderBlock - neni soucasti registrove mapy cipu).
+    // Interni stav enveloparu a filtru na hlas (odvozeny z registru pri
+    // kazdem RenderBlock - neni soucasti registrove mapy cipu).
     struct EnvRuntime
     {
         enum class Stage { Idle, Attack, Decay, Sustain, Release } stage = Stage::Idle;
         double level = 0.0;
         double phase = 0.0;
+
+        // Stav resonantniho low-pass filtru (Chamberlin state-variable
+        // filter - zvoleny pro jednoduchost a stabilitu pri modulaci
+        // cutoff/resonance za behu, ne proto, ze by presne odpovidal
+        // topologii realneho EMU8000 filtru - TODO overit proti manualu).
+        double filterLow = 0.0;
+        double filterBand = 0.0;
     };
     std::array<EnvRuntime, kMaxVoices> m_env;
 
     double NoteOffsetToFreqHz(uint16_t pitchOffset) const;
+    double ApplyFilter(EnvRuntime& env, double input, uint16_t cutoffReg, uint16_t resonanceReg) const;
 };
