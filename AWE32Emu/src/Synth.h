@@ -1,24 +1,27 @@
 #pragma once
 #include <cstdint>
 #include <array>
+#include "Emu8000.h"
 
-// DOCASNY zvukovy engine.
+// MIDI/MPU-401 interpretacni vrstva (TODO seznam, sekce 3) nad register-level
+// jadrem Emu8000Core (sekce 4, krok 3 "minimalni EMU8000 jadro bez efektu").
 //
-// Toto NENI emulace EMU8000 - je to jednoduchy sinusovy 32-hlasy syntetizator
-// se zakladni ADSR obalkou, ktery slouzi jako funkcni zaslepka, aby bylo mozne
-// hned od zacatku prehravat .mid/.xmi soubory a slyset spravny rytmus/melodii.
+// Synth preklada MIDI udalosti (NoteOn/NoteOff/...) na zapisy do registru
+// Emu8000Core - nedrzi uz vlastni zvukovy stav primo, jen alokaci hlasu a
+// mapovani MIDI kanal/nota -> cislo hlasu. Skutecna syntéza (obalka, filtr,
+// v budoucnu sample playback a efekty) zije v Emu8000Core.
 //
-// Realna nahrada patri do projektoveho TODO seznamu, sekce 4 "Jadro emulace
-// EMU8000 (register-level)":
-//   - voice engine podle registrove mapy EMU8000 (misto teto zjednodusene tridy)
-//   - sample playback ze SoundFont/SBK dat (viz SoundFontSbk.h) misto sinusu
-//   - envelope generatory s presnymi casovymi konstantami cipu
-//   - LFO1/LFO2, low-pass filtr s rezonanci
-//   - chorus/reverb efektovy blok
+// Stale chybi (viz hlavni TODO):
+//   - sample playback ze SoundFont/SBK dat (sekce 5) misto sinusu v Emu8000Core
+//   - presne casove konstanty envelope a format filter registru (sekce 4)
+//   - LFO1/LFO2, chorus/reverb (sekce 4)
+//   - Program Change -> vyber patch/instrument (zavisi na sekci 5)
+//   - Control Change (sustain, volume, pan, RPN/NRPN) (sekce 3)
+//   - Pitch Bend napojeny na PitchOffset registr podle bend range (sekce 3)
 //
-// API teto tridy je navrzeno tak, aby se dalo nahradit realnou implementaci
-// beze zmeny Sequenceru/main.cpp - vsechny volajici mista pouzivaji jen
-// NoteOn/NoteOff/ProgramChange/ControlChange/PitchBend/RenderBlock.
+// API teto tridy zustava beze zmeny (NoteOn/NoteOff/ProgramChange/
+// ControlChange/PitchBend/RenderBlock), takze Sequencer/main.cpp se
+// touto zmenou nemuseji upravovat.
 class Synth
 {
 public:
@@ -33,31 +36,19 @@ public:
     // Vyrenderuje numFrames stereo snimku (interleaved L/R int16) do out.
     void RenderBlock(int16_t* out, uint32_t numFrames);
 
-    static constexpr int kMaxVoices = 32; // EMU8000 ma 32 hardwarovych hlasu
+    static constexpr int kMaxVoices = Emu8000Core::kMaxVoices;
 
 private:
-    enum class EnvStage { Idle, Attack, Sustain, Release };
-
-    struct Voice
+    struct VoiceAlloc
     {
-        bool active = false;
+        bool inUse = false;
         uint8_t channel = 0;
         uint8_t note = 0;
-        double phase = 0.0;
-        double freqHz = 0.0;
-        double velocityGain = 0.0;
-        EnvStage stage = EnvStage::Idle;
-        double envLevel = 0.0;
     };
 
     int FindFreeVoiceOrSteal();
-    double NoteToFreqHz(uint8_t note) const;
+    uint16_t NoteToPitchOffset(uint8_t note) const;
 
-    uint32_t m_sampleRate;
-    std::array<Voice, kMaxVoices> m_voices;
-
-    // Jednoduche pevne casove konstanty obalky (v sekundach) - placeholder,
-    // realna implementace bude cist tyto hodnoty z EMU8000 envelope registru.
-    static constexpr double kAttackSeconds = 0.005;
-    static constexpr double kReleaseSeconds = 0.08;
+    Emu8000Core m_core;
+    std::array<VoiceAlloc, kMaxVoices> m_alloc;
 };

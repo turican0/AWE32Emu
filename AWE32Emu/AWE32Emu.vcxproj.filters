@@ -11,21 +11,55 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="src\main.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="src\MidiFile.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="src\XmiFile.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="src\Sequencer.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="src\Synth.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="src\SoundFontSbk.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="src\AudioOutputWin.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="src\main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\MidiFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\XmiFile.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Sequencer.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Synth.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\SoundFontSbk.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\AudioOutputWin.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="src\Emu8000.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="src\MidiTypes.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\MidiFile.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\XmiFile.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\Sequencer.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\Synth.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\SoundFontSbk.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="src\AudioOutputWin.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="src\MidiTypes.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\MidiFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\XmiFile.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Sequencer.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Synth.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\SoundFontSbk.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\AudioOutputWin.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="src\Emu8000.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
 </Project>
