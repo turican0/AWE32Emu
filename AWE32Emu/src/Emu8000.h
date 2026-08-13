@@ -2,93 +2,135 @@
 #include <cstdint>
 #include <cstddef>
 #include <array>
+#include <vector>
+#include "Emu8000Regs.h"
 
-// Emu8000Core - zaklad register-level jadra EMU8000 (TODO seznam, sekce 4,
-// krok 3 "Minimalni EMU8000 jadro bez efektu: jen voice+envelope+filtr").
+// ---------------------------------------------------------------------------
+// Emu8000Core - register-level emulace cipu EMU8000 (Sound Blaster AWE32).
 //
-// Toto je PUVODNI implementace navrzena podle:
-//   - obecne zname architektury cipu (32 hlasu, pristup pres Pointer +
-//     Data0/Data1 registry)
-//   - mechanismu pristupu k registrum potvrzeneho analyzou AWEUTIL.COM,
-//     viz docs/re-notes/aweutil_register_access_notes.md (POUZE mechanismus
-//     - "jak se pristupuje", ne konkretni cisla registru ani zadny kod
-//     prevzaty z ovladace)
+// Registrova mapa i inicializacni sekvence jsou odvozene z disassembly
+// ovladace AWEUTIL.COM, viz docs/re-notes/emu8000_register_map.md.
 //
-// Presna cisla/vyznam jednotlivych registru (RegId nize) jsou zatim interni
-// a POTREBUJI OVERENI proti EMU8000 Tech Ref Manualu (TODO sekce 0) - dokud
-// se neprovede, jde o architekturu "register-driven voice", ne o bit-presnou
-// shodu s realnym cipem. Waveform je zatim porad sinusovy placeholder
-// (nahrada sample playbackem ze SoundFont je TODO sekce 5); chorus/reverb/LFO
-// chybi umyslne (dalsi krok podle TODO poradi praci).
-
-enum class Emu8000Reg : uint8_t
-{
-    // -- potvrzeno mechanismem (word registr) --
-    PitchOffset,      // 16bit posun vysky tonu vuci zakladni note (placeholder jednotky)
-
-    // -- volume envelope (TODO: presne casove konstanty z manualu, sekce 4) --
-    VolEnvAttackRate,
-    VolEnvDecayRate,
-    VolEnvSustainLevel,
-    VolEnvReleaseRate,
-
-    // -- low-pass filtr (TODO: format cutoff/Q dle registru, sekce 4) --
-    FilterCutoff,
-    FilterResonance,
-
-    // -- mixing --
-    Pan,               // 0 = vlevo, 8192 = stred, 16383 = vpravo (placeholder skala)
-    InitialAttenuation,
-
-    Count
-};
-
-struct Emu8000VoiceRegs
-{
-    std::array<uint16_t, static_cast<size_t>(Emu8000Reg::Count)> words{};
-    bool gate = false;   // TODO: nahradit skutecnym stavem envelope generatoru z manualu
-};
+// Trida ma zamerne DVE urovne rozhrani:
+//
+//   1) Portova uroven (PortOut16/PortIn16) - presne to, co dela realny
+//      ovladac: OUT na pointer registr + OUT na datovy port. Tohle je
+//      cesta pro napojeni reversed DOS hry, ktera si registry nastavuje
+//      sama (viz README, pouziti 2).
+//
+//   2) Registrova uroven (WriteReg16/32, Write/Read s enumem Reg) - pro
+//      nas vlastni MIDI prehravac (Synth.cpp), ktery nemusi simulovat
+//      I/O porty.
+//
+// Cip bezi nativne na 44100 Hz; RenderBlock umi vystup i na jinou
+// frekvenci (linearni resampling), ale vnitrni casovani je vzdy 44100.
+// ---------------------------------------------------------------------------
 
 class Emu8000Core
 {
 public:
-    static constexpr int kMaxVoices = 32; // EMU8000 ma 32 hardwarovych hlasu
+    static constexpr int kMaxVoices = Emu8000::kMaxVoices;
+    static constexpr uint32_t kNativeSampleRate = 44100;
 
-    explicit Emu8000Core(uint32_t sampleRate);
+    explicit Emu8000Core(uint32_t outputSampleRate);
 
-    // Register-level rozhrani - napodobuje pristupovy vzor Pointer+Data
-    // potvrzeny v aweutil_register_access_notes.md (logicky, ne bit-presne).
-    void WriteWordRegister(int voice, Emu8000Reg reg, uint16_t value);
-    uint16_t ReadWordRegister(int voice, Emu8000Reg reg) const;
+    // ---- portova uroven -------------------------------------------------
+    void SetBasePort(uint16_t sbBasePort);          // default 0x220
+    uint16_t BasePort() const { return m_basePort; }
+    bool OwnsPort(uint16_t port) const;
+    void PortOut16(uint16_t port, uint16_t value);
+    uint16_t PortIn16(uint16_t port);
 
-    // Gate - zapnuti/vypnuti hlasu (skutecny cip ma na tohle vlastni
-    // registr/mechanismus spousteni envelope, viz TODO - zjednoduseno).
-    void SetGate(int voice, bool on);
-    bool IsActive(int voice) const;
+    // ---- registrova uroven ----------------------------------------------
+    void WriteReg16(uint16_t sel, uint16_t value);
+    uint16_t ReadReg16(uint16_t sel) const;
+    void WriteReg32(uint16_t sel, uint32_t value);   // low word, pak high word
+    uint32_t ReadReg32(uint16_t sel) const;
 
+    void Write(Emu8000::Reg r, int voice, uint32_t value);
+    uint32_t Read(Emu8000::Reg r, int voice) const;
+
+    // Inicializacni sekvence prevzata z AWEUTIL.COM (sub_12B40 a jeho
+    // podrutiny). Init pole INIT1..INIT4 se do emulace neprenaseji, viz
+    // poznamka v docs/re-notes/emu8000_register_map.md.
+    void PowerOnInit();
+
+    // ---- zvukova pamet ---------------------------------------------------
+    // Adresy v registrech CCCA/PSST/CSL jsou 24bit a pocitaji se ve vzorcich.
+    // Uzivatelska DRAM zacina na Emu8000::kDramOffset; nize lezi ROM karty,
+    // kterou nemame (cteni vraci 0).
+    void ResizeDram(size_t numSamples);
+    size_t DramSize() const { return m_dram.size(); }
+    int16_t* DramData() { return m_dram.data(); }
+    const int16_t* DramData() const { return m_dram.data(); }
+    int16_t ReadSample(uint32_t address) const;
+
+    // ---- render ----------------------------------------------------------
+    // out = interleaved stereo int16, numFrames snimku na vystupni frekvenci.
     void RenderBlock(int16_t* out, uint32_t numFrames);
 
+    bool IsVoiceActive(int voice) const;
+
 private:
-    uint32_t m_sampleRate;
-    std::array<Emu8000VoiceRegs, kMaxVoices> m_regs;
+    // Registrove pole: [port][reg][voice], vse jako 16bit slova.
+    // 32bit registry = dvojice (Data0,Data0Hi) resp. (Data1,Data1Hi).
+    using RegFile = std::array<std::array<std::array<uint16_t, kMaxVoices>,
+                                          8>,
+                               static_cast<size_t>(Emu8000::Port::Count)>;
 
-    // Interni stav enveloparu a filtru na hlas (odvozeny z registru pri
-    // kazdem RenderBlock - neni soucasti registrove mapy cipu).
-    struct EnvRuntime
+    enum class EnvStage { Off, Delay, Attack, Hold, Decay, Sustain, Release };
+
+    struct VoiceState
     {
-        enum class Stage { Idle, Attack, Decay, Sustain, Release } stage = Stage::Idle;
-        double level = 0.0;
-        double phase = 0.0;
+        // prehravani vzorku
+        uint32_t address = 0;      // celociselna cast (vzorky)
+        uint32_t frac = 0;         // 16bit zlomkova cast
+        bool     playing = false;
 
-        // Stav resonantniho low-pass filtru (Chamberlin state-variable
-        // filter - zvoleny pro jednoduchost a stabilitu pri modulaci
-        // cutoff/resonance za behu, ne proto, ze by presne odpovidal
-        // topologii realneho EMU8000 filtru - TODO overit proti manualu).
-        double filterLow = 0.0;
-        double filterBand = 0.0;
+        // volume envelope
+        EnvStage volStage = EnvStage::Off;
+        double   volDb = 96.0;     // aktualni utlum v dB (0 = plna hlasitost)
+        double   volLin = 0.0;     // linearni zisk behem attack faze
+        double   stageTime = 0.0;  // sekundy stravene v aktualni fazi
+
+        // modulation envelope
+        EnvStage modStage = EnvStage::Off;
+        double   modLevel = 0.0;
+        double   modStageTime = 0.0;
+
+        // LFO
+        double lfo1Phase = 0.0;
+        double lfo2Phase = 0.0;
+        double lfo1Delay = 0.0;
+        double lfo2Delay = 0.0;
+
+        // low-pass filtr (Chamberlin SVF, viz poznamka v .cpp)
+        double filtLow = 0.0;
+        double filtBand = 0.0;
     };
-    std::array<EnvRuntime, kMaxVoices> m_env;
 
-    double NoteOffsetToFreqHz(uint16_t pitchOffset) const;
-    double ApplyFilter(EnvRuntime& env, double input, uint16_t cutoffReg, uint16_t resonanceReg) const;
+    void RenderNative(float* outL, float* outR, uint32_t numFrames);
+    void RenderVoice(int v, float* outL, float* outR, uint32_t numFrames);
+    void UpdateRegistersFromState(int v);
+
+    uint16_t& RegRef(Emu8000::Port p, int reg, int voice);
+    uint16_t  RegVal(Emu8000::Port p, int reg, int voice) const;
+
+    uint32_t m_outputRate;
+    uint16_t m_basePort = 0x220;
+    uint16_t m_pointer = 0;      // posledni zapis do pointer registru
+
+    RegFile m_regs{};
+    std::array<VoiceState, kMaxVoices> m_voices{};
+    std::vector<int16_t> m_dram;
+
+    // Wave counter (registr WC) - volne bezici citac vzorku. Ovladace ho
+    // pouzivaji jako casovou zakladnu v cekacich smyckach (viz AWEUTIL
+    // sub_127AE), takze ho musime tikat, jinak by se ovladac zasekl.
+    uint32_t m_waveCounter = 0;
+
+    // resampling na vystupni frekvenci
+    std::vector<float> m_nativeL, m_nativeR;
+    double m_resamplePos = 0.0;
+    float m_lastL = 0.0f, m_lastR = 0.0f;
 };

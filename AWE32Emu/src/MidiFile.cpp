@@ -174,7 +174,9 @@ namespace MidiFile
         }
         seq.ticksPerQuarterNote = division;
 
-        size_t pos = 6 + headerLen; // za MThd hlavickou (headerLen je typicky 6)
+        // Za MThd chunkem: 4 bajty ID + 4 bajty delky + headerLen dat
+        // (headerLen je typicky 6, tj. prvni MTrk zacina na offsetu 14).
+        size_t pos = 8 + headerLen;
         std::vector<MidiEvent> merged;
 
         for (uint16_t t = 0; t < numTracks && pos + 8 <= buffer.size(); ++t)

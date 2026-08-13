@@ -95,6 +95,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Emu8000.h" />
+    <ClInclude Include="src\Emu8000Regs.h" />
     <ClInclude Include="src\MidiTypes.h" />
     <ClInclude Include="src\MidiFile.h" />
     <ClInclude Include="src\XmiFile.h" />
@@ -102,6 +103,7 @@
     <ClInclude Include="src\Synth.h" />
     <ClInclude Include="src\SoundFontSbk.h" />
     <ClInclude Include="src\AudioOutputWin.h" />
+    <ClInclude Include="src\WavWriter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

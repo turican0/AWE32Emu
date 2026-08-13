@@ -1,171 +1,705 @@
 #include "Emu8000.h"
-#include <cmath>
+
 #include <algorithm>
+#include <cmath>
+
+using namespace Emu8000;
 
 namespace
 {
     constexpr double kPi = 3.14159265358979323846;
 
-    // Placeholder prevodni tabulka rate -> sekundy. Skutecny EMU8000 pouziva
-    // exponencialni casove konstanty definovane v Tech Ref Manualu (TODO
-    // sekce 4 - "Envelope generatory ... presne casove konstanty"). Tady je
-    // jen rozumna aproximace, aby jadro fungovalo end-to-end uz ted.
-    double RateToSeconds(uint16_t rate)
+    // Plny rozsah utlumu obalky. EMU8000 pracuje s utlumem po 0.375 dB
+    // (IFATN) resp. 0.75 dB (sustain level), coz pri 7/8 bitech dava
+    // prakticky 96 dB dynamiky. Casove konstanty nize jsou definovane
+    // pro prubeh pres cely tento rozsah.
+    constexpr double kFullScaleDb = 96.0;
+
+    // --- prevody registrovych hodnot na cas -----------------------------
+    // [DOC] Hodnoty odpovidaji tabulkam publikovanym k EMU8000; nejsou
+    // zatim potvrzene disassembly (viz docs/re-notes, sekce "Co jeste
+    // chybi" - overit proti SBAWE32.DRV).
+
+    // ATKHLDV/ATKHLD, bity 6..0: attack rate.
+    double AttackSeconds(int rate)
     {
-        if (rate == 0) return 0.001;
-        return std::clamp(1.0 - (static_cast<double>(rate) / 65535.0), 0.001, 1.0) * 2.0;
+        if (rate <= 0)  return 32.767;   // prakticky nekonecno
+        if (rate >= 127) return 0.0;     // okamzity nabeh
+        return 11.878 / static_cast<double>(rate);
+    }
+
+    // ATKHLDV/ATKHLD, bity 14..8: hold.
+    double HoldSeconds(int hold)
+    {
+        return (127 - std::clamp(hold, 0, 127)) * 0.092;
+    }
+
+    // DCYSUSV/DCYSUS, bity 6..0: decay resp. release rate.
+    // Cas je definovan pro prubeh pres cely rozsah kFullScaleDb.
+    double DecaySeconds(int rate)
+    {
+        if (rate <= 1) return 0.0;       // 0/1 = bez decay (nekonecno)
+        return 45.0 / static_cast<double>(rate - 1);
+    }
+
+    // ENVVOL/ENVVAL/LFO1VAL/LFO2VAL: zpozdeni, 0x8000 = bez zpozdeni,
+    // jednotka 725 us smerem dolu.
+    double DelaySeconds(uint16_t value)
+    {
+        int units = 0x8000 - static_cast<int>(value);
+        if (units <= 0) return 0.0;
+        return units * 0.000725;
+    }
+
+    // DCYSUSV bity 14..8: sustain level jako utlum po 0.75 dB.
+    double SustainDb(int level)
+    {
+        return (0x7F - std::clamp(level, 0, 0x7F)) * 0.75;
+    }
+
+    // IFATN bity 7..0: pocatecni utlum po 0.375 dB.
+    double AttenuationDb(int value)
+    {
+        return std::clamp(value, 0, 255) * 0.375;
+    }
+
+    // IFATN bity 15..8: pocatecni mezni kmitocet filtru.
+    // [?] Rozsah 100 Hz - 8000 Hz je z dokumentace, presna krivka je odhad.
+    double CutoffHz(double value)
+    {
+        const double v = std::clamp(value, 0.0, 255.0) / 255.0;
+        return 100.0 * std::pow(80.0, v);
+    }
+
+    // TREMFRQ/FM2FRQ2 bity 7..0: frekvence LFO, jednotka 0.042 Hz. [DOC]
+    double LfoHz(int value)
+    {
+        return std::clamp(value, 0, 255) * 0.042;
+    }
+
+    double DbToLinear(double db)
+    {
+        if (db >= kFullScaleDb) return 0.0;
+        return std::pow(10.0, -db / 20.0);
+    }
+
+    inline int8_t HiSigned(uint16_t w)  { return static_cast<int8_t>(w >> 8); }
+    inline int8_t LoSigned(uint16_t w)  { return static_cast<int8_t>(w & 0xFF); }
+    inline int    HiByte(uint16_t w)    { return (w >> 8) & 0xFF; }
+    inline int    LoByte(uint16_t w)    { return w & 0xFF; }
+}
+
+// ===========================================================================
+// konstrukce, registrove pole
+// ===========================================================================
+
+Emu8000Core::Emu8000Core(uint32_t outputSampleRate)
+    : m_outputRate(outputSampleRate ? outputSampleRate : kNativeSampleRate)
+{
+    PowerOnInit();
+}
+
+uint16_t& Emu8000Core::RegRef(Port p, int reg, int voice)
+{
+    return m_regs[static_cast<size_t>(p)][reg & 7][voice & 0x1F];
+}
+
+uint16_t Emu8000Core::RegVal(Port p, int reg, int voice) const
+{
+    return m_regs[static_cast<size_t>(p)][reg & 7][voice & 0x1F];
+}
+
+// ===========================================================================
+// portova uroven - presne to, co dela ovladac (viz AWEUTIL sub_10EAC)
+// ===========================================================================
+
+void Emu8000Core::SetBasePort(uint16_t sbBasePort)
+{
+    m_basePort = sbBasePort;
+}
+
+bool Emu8000Core::OwnsPort(uint16_t port) const
+{
+    const uint16_t off = static_cast<uint16_t>(port - m_basePort);
+    return off == kPortData0 || off == kPortData0Hi
+        || off == kPortData1 || off == kPortData1Hi
+        || off == kPortData3 || off == kPortPointer;
+}
+
+void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
+{
+    const uint16_t off = static_cast<uint16_t>(port - m_basePort);
+    if (off == kPortPointer)
+    {
+        m_pointer = value;
+        return;
+    }
+
+    Port p;
+    switch (off)
+    {
+    case kPortData0:   p = Port::Data0;   break;
+    case kPortData0Hi: p = Port::Data0Hi; break;
+    case kPortData1:   p = Port::Data1;   break;
+    case kPortData1Hi: p = Port::Data1Hi; break;
+    case kPortData3:   p = Port::Data3;   break;
+    default: return;
+    }
+
+    const int reg   = (m_pointer >> 5) & 7;
+    const int voice = m_pointer & 0x1F;
+    RegRef(p, reg, voice) = value;
+
+    // Zapis DCYSUSV je podle ovladacu ten, ktery spousti envelope engine
+    // ("decay/sustain parameter must be set at last"), takze na nej
+    // reagujeme zmenou stavu hlasu.
+    if (p == Port::Data1 && reg == 5)
+    {
+        auto& vs = m_voices[voice];
+        if (value & kDcysusvOff)
+        {
+            vs.volStage = EnvStage::Off;
+            vs.modStage = EnvStage::Off;
+            vs.playing = false;
+        }
+        else if (value & kDcysusvRelease)
+        {
+            if (vs.volStage != EnvStage::Off)
+                vs.volStage = EnvStage::Release;
+            if (vs.modStage != EnvStage::Off)
+                vs.modStage = EnvStage::Release;
+            vs.stageTime = 0.0;
+            vs.modStageTime = 0.0;
+        }
+        else
+        {
+            // start noty
+            vs.address   = Read(Reg::CCCA, voice) & kCccaAddressMask;
+            vs.frac      = 0;
+            vs.playing   = true;
+            vs.volStage  = EnvStage::Delay;
+            vs.volDb     = kFullScaleDb;
+            vs.volLin    = 0.0;
+            vs.stageTime = 0.0;
+            vs.modStage  = EnvStage::Delay;
+            vs.modLevel  = 0.0;
+            vs.modStageTime = 0.0;
+            vs.lfo1Phase = 0.0;
+            vs.lfo2Phase = 0.0;
+            vs.lfo1Delay = DelaySeconds(RegVal(Port::Data1Hi, 5, voice));
+            vs.lfo2Delay = DelaySeconds(RegVal(Port::Data1Hi, 7, voice));
+            vs.filtLow   = 0.0;
+            vs.filtBand  = 0.0;
+        }
     }
 }
 
-Emu8000Core::Emu8000Core(uint32_t sampleRate)
-    : m_sampleRate(sampleRate)
+uint16_t Emu8000Core::PortIn16(uint16_t port)
 {
-    // Rozumne vychozi hodnoty registru, dokud sequencer/synth vrstva
-    // nezapise realne (viz Synth.cpp) - odpovida chovani "power-on defaults"
-    // u realneho cipu, jen s placeholder cisly.
-    for (auto& v : m_regs)
+    const uint16_t off = static_cast<uint16_t>(port - m_basePort);
+    if (off == kPortPointer)
     {
-        v.words[static_cast<size_t>(Emu8000Reg::VolEnvAttackRate)] = 60000;
-        v.words[static_cast<size_t>(Emu8000Reg::VolEnvDecayRate)] = 60000;
-        v.words[static_cast<size_t>(Emu8000Reg::VolEnvSustainLevel)] = 65535;
-        v.words[static_cast<size_t>(Emu8000Reg::VolEnvReleaseRate)] = 55000;
-        v.words[static_cast<size_t>(Emu8000Reg::Pan)] = 8192;
-        v.words[static_cast<size_t>(Emu8000Reg::InitialAttenuation)] = 0;
-        // Filtr defaultne "otevreny" (vysoky cutoff, zadna rezonance), aby
-        // neusekaval zvuk, dokud ho Synth/sequencer vyslovne nenastavi.
-        v.words[static_cast<size_t>(Emu8000Reg::FilterCutoff)] = 65535;
-        v.words[static_cast<size_t>(Emu8000Reg::FilterResonance)] = 0;
+        // Ovladace cekaji ve smyckach na prepnuti bitu 12 pointer registru
+        // (AWEUTIL sub_12A20). Odvozujeme ho od wave counteru, aby se
+        // hostitelsky kod nezasekl.
+        return static_cast<uint16_t>((m_pointer & ~0x1000u)
+                                     | ((m_waveCounter & 0x100u) ? 0x1000u : 0u));
+    }
+
+    Port p;
+    switch (off)
+    {
+    case kPortData0:   p = Port::Data0;   break;
+    case kPortData0Hi: p = Port::Data0Hi; break;
+    case kPortData1:   p = Port::Data1;   break;
+    case kPortData1Hi: p = Port::Data1Hi; break;
+    case kPortData3:   p = Port::Data3;   break;
+    default: return 0xFFFF;
+    }
+
+    const int reg   = (m_pointer >> 5) & 7;
+    const int voice = m_pointer & 0x1F;
+
+    // Detekcni registr - ovladac ocekava spodni nibble 0x0C.
+    if (p == Port::Data3 && reg == 7 && voice == 0)
+        return 0x000C;
+
+    // Wave counter - volne bezici citac.
+    if (p == Port::Data1Hi && reg == 1 && voice == Hwcf::kWC)
+        return static_cast<uint16_t>(m_waveCounter);
+
+    return RegVal(p, reg, voice);
+}
+
+// ===========================================================================
+// registrova uroven
+// ===========================================================================
+
+namespace
+{
+    // sel bity 11..9 -> index v Emu8000::Port; mimo rozsah = neplatne
+    inline bool PortFromSel(uint16_t sel, Port& out)
+    {
+        const int portSel = (sel >> 9) & 7;
+        if (portSel < 2 || portSel > 6) return false;
+        out = static_cast<Port>(portSel - 2);
+        return true;
     }
 }
 
-void Emu8000Core::WriteWordRegister(int voice, Emu8000Reg reg, uint16_t value)
+void Emu8000Core::WriteReg16(uint16_t sel, uint16_t value)
 {
-    if (voice < 0 || voice >= kMaxVoices) return;
-    m_regs[voice].words[static_cast<size_t>(reg)] = value;
+    Port p;
+    if (!PortFromSel(sel, p)) return;
+    m_pointer = SelToPointer(sel);
+    PortOut16(static_cast<uint16_t>(m_basePort + (p == Port::Data0   ? kPortData0
+                                                : p == Port::Data0Hi ? kPortData0Hi
+                                                : p == Port::Data1   ? kPortData1
+                                                : p == Port::Data1Hi ? kPortData1Hi
+                                                                     : kPortData3)),
+              value);
 }
 
-uint16_t Emu8000Core::ReadWordRegister(int voice, Emu8000Reg reg) const
+uint16_t Emu8000Core::ReadReg16(uint16_t sel) const
 {
-    if (voice < 0 || voice >= kMaxVoices) return 0;
-    return m_regs[voice].words[static_cast<size_t>(reg)];
+    Port p;
+    if (!PortFromSel(sel, p)) return 0;
+    if (p == Port::Data3 && SelRegIndex(sel) == 7 && SelVoice(sel) == 0)
+        return 0x000C;
+    if (p == Port::Data1Hi && SelRegIndex(sel) == 1 && SelVoice(sel) == Hwcf::kWC)
+        return static_cast<uint16_t>(m_waveCounter);
+    return RegVal(p, SelRegIndex(sel), SelVoice(sel));
 }
 
-void Emu8000Core::SetGate(int voice, bool on)
+void Emu8000Core::WriteReg32(uint16_t sel, uint32_t value)
 {
-    if (voice < 0 || voice >= kMaxVoices) return;
-    m_regs[voice].gate = on;
-    auto& env = m_env[voice];
-    if (on)
+    // Realny zapis posle low word na datovy port a high word na port+2,
+    // coz u Data0 znamena Data0Hi a u Data1 pak Data1Hi ("Data2").
+    Port p;
+    if (!PortFromSel(sel, p)) return;
+
+    Port hi;
+    if (p == Port::Data0)      hi = Port::Data0Hi;
+    else if (p == Port::Data1) hi = Port::Data1Hi;
+    else { WriteReg16(sel, static_cast<uint16_t>(value)); return; }
+
+    const int reg   = SelRegIndex(sel);
+    const int voice = SelVoice(sel);
+    RegRef(hi, reg, voice) = static_cast<uint16_t>(value >> 16);
+    WriteReg16(sel, static_cast<uint16_t>(value & 0xFFFF));
+}
+
+uint32_t Emu8000Core::ReadReg32(uint16_t sel) const
+{
+    Port p;
+    if (!PortFromSel(sel, p)) return 0;
+
+    Port hi;
+    if (p == Port::Data0)      hi = Port::Data0Hi;
+    else if (p == Port::Data1) hi = Port::Data1Hi;
+    else return ReadReg16(sel);
+
+    const int reg   = SelRegIndex(sel);
+    const int voice = SelVoice(sel);
+    return (static_cast<uint32_t>(RegVal(hi, reg, voice)) << 16)
+         | static_cast<uint32_t>(RegVal(p, reg, voice));
+}
+
+void Emu8000Core::Write(Reg r, int voice, uint32_t value)
+{
+    const uint16_t sel = Sel(r, voice);
+    const int portSel = (sel >> 9) & 7;
+    // Data0 (2) a Data1 (4) jsou 32bitove, zbytek 16bitovy.
+    if (portSel == 2 || portSel == 4) WriteReg32(sel, value);
+    else                              WriteReg16(sel, static_cast<uint16_t>(value));
+}
+
+uint32_t Emu8000Core::Read(Reg r, int voice) const
+{
+    const uint16_t sel = Sel(r, voice);
+    const int portSel = (sel >> 9) & 7;
+    if (portSel == 2 || portSel == 4) return ReadReg32(sel);
+    return ReadReg16(sel);
+}
+
+// ===========================================================================
+// inicializace - prepis sekvence z AWEUTIL.COM (sub_12B40)
+// ===========================================================================
+
+void Emu8000Core::PowerOnInit()
+{
+    m_regs = RegFile{};
+    m_voices = {};
+    m_pointer = 0;
+    m_waveCounter = 0;
+
+    // krok 2-4: HWCF1/2/3
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kHWCF1), 0x0059);
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kHWCF2), 0x0020);
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kHWCF3), 0x0004);
+
+    // krok 5 (sub_126E8): 16bitove registry vsech hlasu
+    for (int v = 0; v < kMaxVoices; ++v)
     {
-        env.stage = EnvRuntime::Stage::Attack;
+        Write(Reg::DCYSUSV, v, kDcysusvOff);
+        Write(Reg::ATKHLD,  v, 0);
+        Write(Reg::DCYSUS,  v, 0);
+        Write(Reg::IP,      v, 0);
+        Write(Reg::IFATN,   v, 0xFF00);
+        Write(Reg::PEFE,    v, 0);
+        Write(Reg::FMMOD,   v, 0);
+        Write(Reg::TREMFRQ, v, 0x0018);
+        Write(Reg::FM2FRQ2, v, 0x0018);
+        Write(Reg::Unk6C,   v, 0);
+        Write(Reg::LFO2VAL, v, 0);
+        Write(Reg::LFO1VAL, v, 0);
+        Write(Reg::ATKHLDV, v, 0);
+        Write(Reg::ENVVOL,  v, 0);
+        Write(Reg::ENVVAL,  v, 0);
     }
-    else if (env.stage != EnvRuntime::Stage::Idle)
+
+    // krok 6 (sub_127AE): 32bitove registry vsech hlasu
+    for (int v = 0; v < kMaxVoices; ++v)
     {
-        env.stage = EnvRuntime::Stage::Release;
+        Write(Reg::PTRX,    v, 0);
+        Write(Reg::VTFT,    v, 0xFFFFFFFFu);
+        Write(Reg::PSST,    v, 0);
+        Write(Reg::CSL,     v, 0);
+        Write(Reg::CPF,     v, 0);
+        Write(Reg::CVCF,    v, 0xFFFFFFFFu);
+        Write(Reg::CCCA,    v, 0);
+        Write(Reg::Unk0088, v, 0);
+        Write(Reg::Unk0080, v, 0);
     }
+
+    // krok 7 (sub_1288C): SMALR/SMARR/SMALW + init pole.
+    // Init pole INIT1..INIT4 konfiguruji interni DSP realneho cipu
+    // (reverb/chorus microcode) a do softwarove emulace se neprenaseji -
+    // viz docs/re-notes/emu8000_register_map.md, sekce 4.
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kSMALR), 0);
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kSMARR), 0);
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kSMALW), 0);
+    WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF4), 0x00000000u);
+    WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF5), 0x00000083u);
+    WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF6), 0x00008000u);
+    WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF7), 0x00000000u);
+
+    // krok 8 (sub_12A20): hlasy 30 a 31 slouzi jako "DRAM refresh" kanaly.
+    Write(Reg::PSST, 30, 0x0000FFE0u);
+    Write(Reg::CSL,  30, 0x00FFFFE8u);
+    Write(Reg::PTRX, 30, 0x00000000u);
+    Write(Reg::CPF,  30, 0x00000000u);
+    Write(Reg::CCCA, 30, 0x00FFFFE3u);
+    Write(Reg::PSST, 31, 0x00FFFFF0u);
+    Write(Reg::CSL,  31, 0x00FFFFF8u);
+    Write(Reg::PTRX, 31, 0x000000FFu);
+    Write(Reg::CPF,  31, 0x00008000u);
+    Write(Reg::CCCA, 31, 0x00FFFFF3u);
+    Write(Reg::VTFT, 30, 0xFFFFFFFFu);
+    Write(Reg::VTFT, 31, 0xFFFFFFFFu);
+
+    // krok 9
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kHWCF3), 0x0004);
 }
 
-bool Emu8000Core::IsActive(int voice) const
+// ===========================================================================
+// zvukova pamet
+// ===========================================================================
+
+void Emu8000Core::ResizeDram(size_t numSamples)
+{
+    m_dram.assign(numSamples, 0);
+}
+
+int16_t Emu8000Core::ReadSample(uint32_t address) const
+{
+    if (address < kDramOffset) return 0;   // ROM karty nemame
+    const size_t idx = address - kDramOffset;
+    if (idx >= m_dram.size()) return 0;
+    return m_dram[idx];
+}
+
+bool Emu8000Core::IsVoiceActive(int voice) const
 {
     if (voice < 0 || voice >= kMaxVoices) return false;
-    return m_env[voice].stage != EnvRuntime::Stage::Idle;
+    return m_voices[voice].volStage != EnvStage::Off;
 }
 
-double Emu8000Core::NoteOffsetToFreqHz(uint16_t pitchOffset) const
+// ===========================================================================
+// render
+// ===========================================================================
+
+void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrames)
 {
-    // Placeholder: pitchOffset je stred na 8192 = A4 (440 Hz), 4096 jednotek
-    // na oktavu. TODO: nahradit skutecnou pitch-wheel/pitch-registr logikou
-    // cipu (semitone/cent rozliseni dle manualu).
-    double semitoneOffset = (static_cast<double>(pitchOffset) - 8192.0) / (4096.0 / 12.0);
-    return 440.0 * std::pow(2.0, semitoneOffset / 12.0);
+    VoiceState& vs = m_voices[v];
+    if (vs.volStage == EnvStage::Off) return;
+
+    const uint16_t atkhldv = RegVal(Port::Data1Hi, 4, v);
+    const uint16_t dcysusv = RegVal(Port::Data1,   5, v);
+    const uint16_t envvol  = RegVal(Port::Data1,   4, v);
+    const uint16_t atkhld  = RegVal(Port::Data1Hi, 6, v);
+    const uint16_t dcysus  = RegVal(Port::Data1,   7, v);
+    const uint16_t envval  = RegVal(Port::Data1,   6, v);
+    const uint16_t ifatn   = RegVal(Port::Data3,   1, v);
+    const uint16_t pefe    = RegVal(Port::Data3,   2, v);
+    const uint16_t fmmod   = RegVal(Port::Data3,   3, v);
+    const uint16_t tremfrq = RegVal(Port::Data3,   4, v);
+    const uint16_t fm2frq2 = RegVal(Port::Data3,   5, v);
+    const uint16_t ipReg   = RegVal(Port::Data3,   0, v);
+
+    const uint32_t ccca = Read(Reg::CCCA, v);
+    const uint32_t psst = Read(Reg::PSST, v);
+    const uint32_t csl  = Read(Reg::CSL,  v);
+
+    const uint32_t loopStart = psst & kLoopAddressMask;
+    const uint32_t loopEnd   = csl  & kLoopAddressMask;
+    const int      panReg    = static_cast<int>(psst >> kPanShift) & 0xFF;
+    const int      filterQ   = static_cast<int>(ccca >> kCccaQShift) & 0x0F;
+
+    // Konstanty obalek (rate registry se za behu obvykle nemeni, takze je
+    // staci prevest jednou na blok).
+    const double volDelay   = DelaySeconds(envvol);
+    const double volAttack  = AttackSeconds(atkhldv & kAtkhldAttackMask);
+    const double volHold    = HoldSeconds((atkhldv & kAtkhldHoldMask) >> 8);
+    const double volDecay   = DecaySeconds(dcysusv & kDcysusvRateMask);
+    const double volSustain = SustainDb((dcysusv & kDcysusvSustainMask) >> 8);
+
+    const double modDelay   = DelaySeconds(envval);
+    const double modAttack  = AttackSeconds(atkhld & kAtkhldAttackMask);
+    const double modHold    = HoldSeconds((atkhld & kAtkhldHoldMask) >> 8);
+    const double modDecay   = DecaySeconds(dcysus & kDcysusvRateMask);
+    const double modSustain = 1.0 - SustainDb((dcysus & kDcysusvSustainMask) >> 8) / kFullScaleDb;
+
+    const double initialAtten = AttenuationDb(LoByte(ifatn));
+    const double initialCutoff = static_cast<double>(HiByte(ifatn));
+
+    const double lfo1Hz = LfoHz(LoByte(tremfrq));
+    const double lfo2Hz = LfoHz(LoByte(fm2frq2));
+
+    const double dt = 1.0 / kNativeSampleRate;
+
+    // Pan: PSST bity 31..24. [?] Predpokladame 0 = vlevo, 255 = vpravo -
+    // pokud se pri A/B srovnani ukaze opak, staci prohodit gainL/gainR.
+    const double panNorm = panReg / 255.0;
+    const float gainL = static_cast<float>(std::cos(panNorm * kPi * 0.5));
+    const float gainR = static_cast<float>(std::sin(panNorm * kPi * 0.5));
+
+    // Rezonance filtru: CCCA bity 31..28, 0 = bez rezonance,
+    // 15 = cca 24 dB zdvih. [?]
+    const double resonanceDb = filterQ * (24.0 / 15.0);
+    const double qFactor = std::max(0.7071, std::pow(10.0, resonanceDb / 20.0));
+
+    for (uint32_t i = 0; i < numFrames; ++i)
+    {
+        // ---- volume envelope ------------------------------------------
+        switch (vs.volStage)
+        {
+        case EnvStage::Delay:
+            vs.volDb = kFullScaleDb;
+            if ((vs.stageTime += dt) >= volDelay) { vs.stageTime = 0.0; vs.volStage = EnvStage::Attack; }
+            break;
+        case EnvStage::Attack:
+            if (volAttack <= 0.0) { vs.volLin = 1.0; }
+            else                  { vs.volLin += dt / volAttack; }
+            if (vs.volLin >= 1.0) { vs.volLin = 1.0; vs.stageTime = 0.0; vs.volStage = EnvStage::Hold; }
+            vs.volDb = (vs.volLin > 0.0) ? -20.0 * std::log10(vs.volLin) : kFullScaleDb;
+            break;
+        case EnvStage::Hold:
+            vs.volDb = 0.0;
+            if ((vs.stageTime += dt) >= volHold) { vs.stageTime = 0.0; vs.volStage = EnvStage::Decay; }
+            break;
+        case EnvStage::Decay:
+            if (volDecay <= 0.0) { vs.volStage = EnvStage::Sustain; break; }
+            vs.volDb += (kFullScaleDb / volDecay) * dt;
+            if (vs.volDb >= volSustain) { vs.volDb = volSustain; vs.volStage = EnvStage::Sustain; }
+            break;
+        case EnvStage::Sustain:
+            vs.volDb = volSustain;
+            break;
+        case EnvStage::Release:
+            if (volDecay <= 0.0) { vs.volDb = kFullScaleDb; }
+            else                 { vs.volDb += (kFullScaleDb / volDecay) * dt; }
+            if (vs.volDb >= kFullScaleDb)
+            {
+                vs.volDb = kFullScaleDb;
+                vs.volStage = EnvStage::Off;
+                vs.playing = false;
+                return;
+            }
+            break;
+        default:
+            return;
+        }
+
+        // ---- modulation envelope --------------------------------------
+        switch (vs.modStage)
+        {
+        case EnvStage::Delay:
+            if ((vs.modStageTime += dt) >= modDelay) { vs.modStageTime = 0.0; vs.modStage = EnvStage::Attack; }
+            break;
+        case EnvStage::Attack:
+            if (modAttack <= 0.0) vs.modLevel = 1.0;
+            else                  vs.modLevel += dt / modAttack;
+            if (vs.modLevel >= 1.0) { vs.modLevel = 1.0; vs.modStageTime = 0.0; vs.modStage = EnvStage::Hold; }
+            break;
+        case EnvStage::Hold:
+            if ((vs.modStageTime += dt) >= modHold) { vs.modStageTime = 0.0; vs.modStage = EnvStage::Decay; }
+            break;
+        case EnvStage::Decay:
+            if (modDecay <= 0.0) { vs.modStage = EnvStage::Sustain; break; }
+            vs.modLevel -= dt / modDecay;
+            if (vs.modLevel <= modSustain) { vs.modLevel = modSustain; vs.modStage = EnvStage::Sustain; }
+            break;
+        case EnvStage::Release:
+            if (modDecay > 0.0) vs.modLevel = std::max(0.0, vs.modLevel - dt / modDecay);
+            break;
+        default:
+            break;
+        }
+
+        // ---- LFO -------------------------------------------------------
+        double lfo1 = 0.0, lfo2 = 0.0;
+        if (vs.lfo1Delay > 0.0) vs.lfo1Delay -= dt;
+        else { lfo1 = std::sin(vs.lfo1Phase); vs.lfo1Phase += 2.0 * kPi * lfo1Hz * dt; }
+        if (vs.lfo2Delay > 0.0) vs.lfo2Delay -= dt;
+        else { lfo2 = std::sin(vs.lfo2Phase); vs.lfo2Phase += 2.0 * kPi * lfo2Hz * dt; }
+        if (vs.lfo1Phase > 2.0 * kPi) vs.lfo1Phase -= 2.0 * kPi;
+        if (vs.lfo2Phase > 2.0 * kPi) vs.lfo2Phase -= 2.0 * kPi;
+
+        // ---- vyska tonu ------------------------------------------------
+        // [?] Meritka modulaci jsou odhad - k overeni proti SBAWE32.DRV.
+        double pitch = static_cast<double>(ipReg);
+        pitch += vs.modLevel * HiSigned(pefe)   * 32.0;   // PEFE -> pitch
+        pitch += lfo1        * HiSigned(fmmod)  * 4.0;    // LFO1 vibrato
+        pitch += lfo2        * HiSigned(fm2frq2) * 4.0;   // LFO2 vibrato
+
+        const double increment = std::pow(2.0,
+            (pitch - static_cast<double>(kPitchUnity)) / static_cast<double>(kPitchPerOctave));
+
+        // ---- vzorek ----------------------------------------------------
+        float sample = 0.0f;
+        if (vs.playing)
+        {
+            const int16_t s0 = ReadSample(vs.address);
+            const int16_t s1 = ReadSample(vs.address + 1);
+            const double f = vs.frac / 65536.0;
+            sample = static_cast<float>((s0 + (s1 - s0) * f) / 32768.0);
+
+            const uint64_t step = static_cast<uint64_t>(increment * 65536.0);
+            uint64_t pos = (static_cast<uint64_t>(vs.address) << 16) | vs.frac;
+            pos += step;
+            vs.address = static_cast<uint32_t>(pos >> 16);
+            vs.frac = static_cast<uint32_t>(pos & 0xFFFF);
+
+            if (loopEnd > loopStart && vs.address >= loopEnd)
+                vs.address -= (loopEnd - loopStart);
+        }
+
+        // ---- filtr -----------------------------------------------------
+        double cutoff = initialCutoff;
+        cutoff += vs.modLevel * LoSigned(pefe);
+        cutoff += lfo1        * LoSigned(fmmod);
+        const double cutoffHz = std::min(CutoffHz(cutoff), kNativeSampleRate * 0.45);
+
+        const double fCoef = 2.0 * std::sin(kPi * cutoffHz / kNativeSampleRate);
+        const double qCoef = 1.0 / qFactor;
+        const double high = sample - vs.filtLow - qCoef * vs.filtBand;
+        vs.filtBand += fCoef * high;
+        vs.filtLow  += fCoef * vs.filtBand;
+        double filtered = vs.filtLow;
+
+        // ---- hlasitost --------------------------------------------------
+        double db = vs.volDb + initialAtten;
+        db -= lfo1 * HiSigned(tremfrq) * 0.1875;   // tremolo, 0.1875 dB/jednotka
+        const double gain = DbToLinear(db);
+
+        const float out = static_cast<float>(filtered * gain);
+        outL[i] += out * gainL;
+        outR[i] += out * gainR;
+    }
 }
 
-double Emu8000Core::ApplyFilter(EnvRuntime& env, double input, uint16_t cutoffReg, uint16_t resonanceReg) const
+void Emu8000Core::UpdateRegistersFromState(int v)
 {
-    // Placeholder mapovani registru na cutoff (Hz) / Q - realny EMU8000
-    // pouziva jinou (pravdepodobne logaritmickou) krivku definovanou v Tech
-    // Ref Manualu (TODO sekce 4 "Low-pass filtr ... klicove misto pro
-    // doladeni sluchem/merenim"). Tady jde jen o to, aby registry ovlivnovaly
-    // zvuk smysluplnym/spojitym zpusobem, ne o bit-presnou shodu.
-    double cutoffHz = 200.0 + (cutoffReg / 65535.0) * 8000.0;
-    double resonanceQ = 0.55 + (resonanceReg / 65535.0) * 6.0;
+    // Aby hostitelsky kod, ktery si registry cte (napr. reversed hra),
+    // videl smysluplny aktualni stav.
+    const VoiceState& vs = m_voices[v];
+    const uint32_t ccca = Read(Reg::CCCA, v);
+    Write(Reg::CCCA, v, (ccca & ~kCccaAddressMask) | (vs.address & kCccaAddressMask));
 
-    cutoffHz = std::min(cutoffHz, m_sampleRate * 0.45); // ochrana proti nestabilite SVF pri Nyquistu
+    const uint16_t ifatn = RegVal(Port::Data3, 1, v);
+    const double gain = DbToLinear(vs.volDb + AttenuationDb(LoByte(ifatn)));
+    const uint16_t curVol = static_cast<uint16_t>(std::clamp(gain, 0.0, 1.0) * 65535.0);
+    RegRef(Port::Data0Hi, 2, v) = curVol;   // CVCF hi16 = current volume
+}
 
-    double f = 2.0 * std::sin(kPi * cutoffHz / m_sampleRate);
-    double q = 1.0 / resonanceQ;
+void Emu8000Core::RenderNative(float* outL, float* outR, uint32_t numFrames)
+{
+    std::fill(outL, outL + numFrames, 0.0f);
+    std::fill(outR, outR + numFrames, 0.0f);
 
-    // Chamberlin state-variable filter, lowpass vystup.
-    double high = input - env.filterLow - q * env.filterBand;
-    env.filterBand += f * high;
-    env.filterLow += f * env.filterBand;
+    for (int v = 0; v < kMaxVoices; ++v)
+    {
+        RenderVoice(v, outL, outR, numFrames);
+        UpdateRegistersFromState(v);
+    }
 
-    return env.filterLow;
+    m_waveCounter += numFrames;
 }
 
 void Emu8000Core::RenderBlock(int16_t* out, uint32_t numFrames)
 {
-    for (uint32_t frame = 0; frame < numFrames; ++frame)
+    if (numFrames == 0) return;
+
+    auto emit = [&](uint32_t i, float l, float r)
     {
-        double mix = 0.0;
+        const float sl = std::clamp(l, -1.0f, 1.0f);
+        const float sr = std::clamp(r, -1.0f, 1.0f);
+        out[i * 2 + 0] = static_cast<int16_t>(sl * 32767.0f);
+        out[i * 2 + 1] = static_cast<int16_t>(sr * 32767.0f);
+    };
 
-        for (int i = 0; i < kMaxVoices; ++i)
-        {
-            auto& env = m_env[i];
-            if (env.stage == EnvRuntime::Stage::Idle)
-                continue;
+    if (m_outputRate == kNativeSampleRate)
+    {
+        m_nativeL.resize(numFrames);
+        m_nativeR.resize(numFrames);
+        RenderNative(m_nativeL.data(), m_nativeR.data(), numFrames);
+        for (uint32_t i = 0; i < numFrames; ++i)
+            emit(i, m_nativeL[i], m_nativeR[i]);
+        return;
+    }
 
-            const auto& regs = m_regs[i];
-            const double attackSec = RateToSeconds(regs.words[static_cast<size_t>(Emu8000Reg::VolEnvAttackRate)]);
-            const double decaySec = RateToSeconds(regs.words[static_cast<size_t>(Emu8000Reg::VolEnvDecayRate)]);
-            const double releaseSec = RateToSeconds(regs.words[static_cast<size_t>(Emu8000Reg::VolEnvReleaseRate)]);
-            const double sustainLevel = regs.words[static_cast<size_t>(Emu8000Reg::VolEnvSustainLevel)] / 65535.0;
+    // Linearni resampling z nativnich 44100 Hz na vystupni frekvenci.
+    // m_nativeL/R slouzi jako carry buffer mezi volanimi.
+    const double ratio = static_cast<double>(kNativeSampleRate) / m_outputRate;
+    const size_t needed = static_cast<size_t>(
+        std::ceil(m_resamplePos + ratio * numFrames)) + 2;
 
-            switch (env.stage)
-            {
-            case EnvRuntime::Stage::Attack:
-                env.level += 1.0 / (attackSec * m_sampleRate);
-                if (env.level >= 1.0) { env.level = 1.0; env.stage = EnvRuntime::Stage::Decay; }
-                break;
-            case EnvRuntime::Stage::Decay:
-                env.level -= (1.0 - sustainLevel) / (decaySec * m_sampleRate);
-                if (env.level <= sustainLevel) { env.level = sustainLevel; env.stage = EnvRuntime::Stage::Sustain; }
-                break;
-            case EnvRuntime::Stage::Sustain:
-                break;
-            case EnvRuntime::Stage::Release:
-                env.level -= 1.0 / (releaseSec * m_sampleRate);
-                if (env.level <= 0.0) { env.level = 0.0; env.stage = EnvRuntime::Stage::Idle; }
-                break;
-            default:
-                break;
-            }
+    if (m_nativeL.size() < needed)
+    {
+        const size_t have = m_nativeL.size();
+        m_nativeL.resize(needed);
+        m_nativeR.resize(needed);
+        RenderNative(m_nativeL.data() + have, m_nativeR.data() + have,
+                     static_cast<uint32_t>(needed - have));
+    }
 
-            if (env.stage == EnvRuntime::Stage::Idle)
-                continue;
+    for (uint32_t i = 0; i < numFrames; ++i)
+    {
+        const double q = m_resamplePos + ratio * i;
+        const size_t i0 = static_cast<size_t>(q);
+        const float f = static_cast<float>(q - i0);
+        const float l = m_nativeL[i0] + (m_nativeL[i0 + 1] - m_nativeL[i0]) * f;
+        const float r = m_nativeR[i0] + (m_nativeR[i0 + 1] - m_nativeR[i0]) * f;
+        emit(i, l, r);
+    }
 
-            const double freqHz = NoteOffsetToFreqHz(regs.words[static_cast<size_t>(Emu8000Reg::PitchOffset)]);
-            const double atten = regs.words[static_cast<size_t>(Emu8000Reg::InitialAttenuation)] / 65535.0;
-
-            // TODO (TODO sekce 5): sample playback ze SoundFont/SBK dat misto sinusu.
-            double sample = std::sin(env.phase) * env.level * (1.0 - atten);
-
-            sample = ApplyFilter(env, sample,
-                                  regs.words[static_cast<size_t>(Emu8000Reg::FilterCutoff)],
-                                  regs.words[static_cast<size_t>(Emu8000Reg::FilterResonance)]);
-
-            mix += sample;
-
-            env.phase += 2.0 * kPi * freqHz / m_sampleRate;
-            if (env.phase > 2.0 * kPi)
-                env.phase -= 2.0 * kPi;
-        }
-
-        mix *= 0.2; // jednoduchy soft-limiter, viz puvodni Synth.cpp
-        mix = std::clamp(mix, -1.0, 1.0);
-
-        int16_t sampleI16 = static_cast<int16_t>(mix * 32767.0);
-        out[frame * 2 + 0] = sampleI16; // L
-        out[frame * 2 + 1] = sampleI16; // R (pan registr zatim nepouzity - TODO)
+    m_resamplePos += ratio * numFrames;
+    const size_t consumed = static_cast<size_t>(m_resamplePos);
+    if (consumed > 0)
+    {
+        m_nativeL.erase(m_nativeL.begin(), m_nativeL.begin() + consumed);
+        m_nativeR.erase(m_nativeR.begin(), m_nativeR.begin() + consumed);
+        m_resamplePos -= static_cast<double>(consumed);
     }
 }

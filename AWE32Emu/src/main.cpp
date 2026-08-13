@@ -1,12 +1,12 @@
-// AWE32Emu - zakladni CLI pro prehravani .mid/.xmi
+// AWE32Emu - CLI pro prehravani .mid/.xmi pres emulaci EMU8000
 //
-// Tohle je zakladni kostra projektu popsaneho v projektovem TODO seznamu.
-// Synth.h/.cpp je zatim jen placeholder sinusovy generator (viz komentare
-// tamtez) - realna register-accurate emulace EMU8000 je hlavni prace, ktera
-// na tomto zakladu teprve prijde (sekce 4 TODO seznamu).
+// Zvukove jadro (Emu8000.cpp) uz je register-level emulace podle registrove
+// mapy odvozene z ovladace AWEUTIL.COM, viz docs/re-notes. Co zatim chybi je
+// obsah zvukove pameti - dokud neni napojena SoundFont/SBK banka, hraje se
+// generovana sinusova tabulka nahrana do emulovane DRAM.
 //
 // Pouziti:
-//   AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>]
+//   AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>] [--wav <out.wav>]
 //
 #include "MidiFile.h"
 #include "XmiFile.h"
@@ -14,6 +14,7 @@
 #include "Synth.h"
 #include "SoundFontSbk.h"
 #include "AudioOutputWin.h"
+#include "WavWriter.h"
 
 #include <iostream>
 #include <string>
@@ -39,12 +40,13 @@ namespace
     void PrintUsage()
     {
         std::cout <<
-            "AWE32Emu - zakladni prehravac .mid/.xmi (placeholder synth, ne realna EMU8000 emulace)\n\n"
+            "AWE32Emu - prehravac .mid/.xmi pres emulaci EMU8000 (Sound Blaster AWE32)\n\n"
             "Pouziti:\n"
-            "  AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>]\n\n"
+            "  AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>] [--wav <out.wav>]\n\n"
             "Volby:\n"
             "  --sbk <soubor>   Nacte SoundFont/SBK banku (zatim jen informativne - vypise\n"
-            "                   seznam RIFF chunku, napojeni na synth je TODO, viz README)\n";
+            "                   seznam RIFF chunku, napojeni na synth je TODO, viz README)\n"
+            "  --wav <soubor>   Misto prehrani v realnem case zapise vystup do .wav\n";
     }
 }
 
@@ -58,6 +60,7 @@ int main(int argc, char** argv)
 
     std::string inputPath;
     std::string sbkPath;
+    std::string wavPath;
 
     for (int i = 1; i < argc; ++i)
     {
@@ -65,6 +68,10 @@ int main(int argc, char** argv)
         if (arg == "--sbk" && i + 1 < argc)
         {
             sbkPath = argv[++i];
+        }
+        else if (arg == "--wav" && i + 1 < argc)
+        {
+            wavPath = argv[++i];
         }
         else if (arg == "-h" || arg == "--help")
         {
@@ -126,8 +133,8 @@ int main(int argc, char** argv)
                 << "', " << bank.chunks.size() << " chunku nalezeno.\n";
             if (!bank.errorMessage.empty())
                 std::cout << "  Poznamka: " << bank.errorMessage << "\n";
-            std::cout << "  (Poznamka: data banky se zatim pri prehravani nepouzivaji - synth "
-                "je placeholder, viz Synth.h)\n";
+            std::cout << "  (Poznamka: vzorky z banky se zatim nenahravaji do emulovane DRAM - "
+                "hraje se nahradni sinusova tabulka, viz Synth::BuildDefaultWaveform)\n";
         }
     }
 
@@ -139,6 +146,37 @@ int main(int argc, char** argv)
     Sequencer sequencer;
     sequencer.Load(sequence);
 
+    std::vector<int16_t> block(static_cast<size_t>(kFramesPerBuffer) * 2);
+    const uint32_t tailBlocks =
+        static_cast<uint32_t>((kTailSeconds * kSampleRate) / kFramesPerBuffer) + 1;
+
+    // Offline render do .wav - pro regresni testy a A/B srovnani
+    // s referencnimi nahravkami (TODO sekce 8) je realny cas nepouzitelny.
+    if (!wavPath.empty())
+    {
+        WavWriter wav;
+        if (!wav.Open(wavPath, kSampleRate))
+        {
+            std::cerr << "Nepodarilo se otevrit vystupni soubor '" << wavPath << "'.\n";
+            return 1;
+        }
+
+        std::cout << "Renderuji do '" << wavPath << "'...\n";
+        while (sequencer.HasMoreEvents())
+        {
+            sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
+            wav.Write(block.data(), kFramesPerBuffer);
+        }
+        for (uint32_t i = 0; i < tailBlocks; ++i)
+        {
+            sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
+            wav.Write(block.data(), kFramesPerBuffer);
+        }
+        wav.Close();
+        std::cout << "Hotovo.\n";
+        return 0;
+    }
+
     AudioOutputWin audioOut;
     if (!audioOut.Open(kSampleRate, kFramesPerBuffer))
     {
@@ -148,8 +186,6 @@ int main(int argc, char** argv)
 
     std::cout << "Prehravam... (Ctrl+C pro preruseni)\n";
 
-    std::vector<int16_t> block(static_cast<size_t>(kFramesPerBuffer) * 2);
-
     while (sequencer.HasMoreEvents())
     {
         sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
@@ -158,7 +194,6 @@ int main(int argc, char** argv)
 
     // "Tail" - dorenderovat jeste kus ticha/doznivani po posledni udalosti,
     // aby se release faze obalky (viz Synth.h) nezarizla.
-    uint32_t tailBlocks = static_cast<uint32_t>((kTailSeconds * kSampleRate) / kFramesPerBuffer) + 1;
     for (uint32_t i = 0; i < tailBlocks; ++i)
     {
         sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
