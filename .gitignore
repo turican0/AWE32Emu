@@ -30,19 +30,6 @@ CMakeCache.txt
 cmake_install.cmake
 build/
 
-# Testovaci/vystupni WAV soubory generovane pri lokalnim testovani prehravace
-*.wav
-
-# Vstupni MIDI/XMI/SBK data - zamerne nevkladat do repozitare (viz README):
-# .mid/.xmi z DOS her a .sbk/.sf2 banky mohou byt autorskopravne chranene
-*.mid
-*.midi
-*.xmi
-*.sbk
-*.sf2
-!tests/**/*.mid
-!tests/**/*.xmi
-
 # Ostatni
 *.tmp
 *~
