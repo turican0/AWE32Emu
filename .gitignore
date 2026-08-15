@@ -29,7 +29,13 @@ x86/
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
+install_manifest.txt
+Makefile
 build/
+AWE32Emu
+AWE32Emu.exe
+*.so
+*.a
 
 # Ostatni
 *.tmp

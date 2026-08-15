@@ -8,19 +8,19 @@
 // Pouziti:
 //   AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>] [--wav <out.wav>]
 //
+
+#include <iostream>
+#include <vector>
+#include <algorithm>
+
+#include "Util.h"
 #include "MidiFile.h"
 #include "XmiFile.h"
 #include "Sequencer.h"
 #include "Synth.h"
 #include "SoundFontSbk.h"
-#include "AudioOutputWin.h"
+#include "AudioOutput.h"
 #include "WavWriter.h"
-
-#include <iostream>
-#include <string>
-#include <vector>
-#include <algorithm>
-#include <cctype>
 
 namespace
 {
@@ -37,16 +37,15 @@ namespace
         return ToLower(path.substr(dot + 1));
     }
 
-    void PrintUsage()
+    void PrintUsage(std::string arg0 = "AWE32Emu")
     {
-        std::cout <<
-            "AWE32Emu - prehravac .mid/.xmi pres emulaci EMU8000 (Sound Blaster AWE32)\n\n"
-            "Pouziti:\n"
-            "  AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>] [--wav <out.wav>]\n\n"
-            "Volby:\n"
-            "  --sbk <soubor>   Nacte SoundFont/SBK banku (zatim jen informativne - vypise\n"
-            "                   seznam RIFF chunku, napojeni na synth je TODO, viz README)\n"
-            "  --wav <soubor>   Misto prehrani v realnem case zapise vystup do .wav\n";
+        std::cout << _("AWE32Emu - .mid/.xmi player via EMU8000 emulation (Sound Blaster AWE32)") << std::endl << std::endl
+                  << _("Usage:") << std::endl
+                  << _("  ") << arg0 << _(" <file.mid|file.xmi> [--sbk <bank.sbk>] [--wav <out.wav>]") << std::endl
+                  << _("Options:") << std::endl
+                  << _("  --sbk <file>   Load SoundFont/SBK bank (for now just informative - prints") << std::endl
+                  << _("                 RIFF chunks, connecting to synth is TODO, see README)") << std::endl
+                  << _("  --wav <file>   Write output to .wav instead of realtime playback") << std::endl;
     }
 }
 
@@ -86,7 +85,7 @@ int main(int argc, char** argv)
 
     if (inputPath.empty())
     {
-        std::cerr << "Chybi vstupni soubor.\n\n";
+        std::cerr << _("Input file missing.") << std::endl << std::endl;
         PrintUsage();
         return 1;
     }
@@ -104,43 +103,43 @@ int main(int argc, char** argv)
     }
     else
     {
-        std::cerr << "Nerozpoznana pripona '" << ext << "' - ocekavam .mid nebo .xmi\n";
+        std::cerr << _("Unrecognized extension '") << ext << _("' - expecting .mid or .xmi") << std::endl;
         return 1;
     }
 
     if (!sequence.valid)
     {
-        std::cerr << "Chyba pri nacitani '" << inputPath << "': " << sequence.errorMessage << "\n";
+        std::cerr << _("Error loading '") << inputPath << "': " << sequence.errorMessage << std::endl;
         return 1;
     }
 
-    std::cout << "Nacteno: " << inputPath << " (" << sequence.events.size() << " udalosti, "
-        << sequence.ticksPerQuarterNote << " ticku/ctvrtovou notu)\n";
+    std::cout << _("Loaded: ") << inputPath << " (" << sequence.events.size() << _(" events, ")
+        << sequence.ticksPerQuarterNote << _(" tick/quarter note)") << std::endl;
 
-    // SoundFont/SBK banka - zatim jen informativni nacteni. Realne napojeni na
-    // Synth (vyber sample dat podle Program Change) je TODO, viz README a
-    // projektovy TODO seznam sekce 5.
+    // SoundFont/SBK bank - just an informative load for now. The actual
+    // connection to Synth (choosing sample data according to Program Change)
+    // is TODO, see README and project TODO list section 5.
     if (!sbkPath.empty())
     {
         SoundFontSbk::SbkBank bank = SoundFontSbk::Load(sbkPath);
         if (!bank.valid)
         {
-            std::cerr << "Varovani: SBK banku se nepodarilo nacist: " << bank.errorMessage << "\n";
+            std::cerr << _("Warning: SBK Bank not found: ") << bank.errorMessage << std::endl;
         }
         else
         {
-            std::cout << "SBK banka '" << sbkPath << "' nactena, form type '" << bank.formType
-                << "', " << bank.chunks.size() << " chunku nalezeno.\n";
+            std::cout << _("SBK Bank '") << sbkPath << _("' loaded, form type '") << bank.formType
+                      << "', " << bank.chunks.size() << _(" chunk found.") << std::endl;
             if (!bank.errorMessage.empty())
-                std::cout << "  Poznamka: " << bank.errorMessage << "\n";
-            std::cout << "  (Poznamka: vzorky z banky se zatim nenahravaji do emulovane DRAM - "
-                "hraje se nahradni sinusova tabulka, viz Synth::BuildDefaultWaveform)\n";
+                std::cout << _("  Note: ") << bank.errorMessage << std::endl;
+            std::cout << _("  (Note: samples from the bank are not yet loaded into the emulated DRAM - ")
+                      << _("a replacement sine table is being played, see Synth::BuildDefaultWaveform)") << std::endl;
         }
     }
 
     constexpr uint32_t kSampleRate = 44100;
     constexpr uint32_t kFramesPerBuffer = 1024;
-    constexpr double kTailSeconds = 1.5; // cas navic po posledni udalosti, aby dozneli release hlasy
+    constexpr double kTailSeconds = 1.5; // extra time after the last event to let the release voices die down
 
     Synth synth(kSampleRate);
     Sequencer sequencer;
@@ -150,18 +149,18 @@ int main(int argc, char** argv)
     const uint32_t tailBlocks =
         static_cast<uint32_t>((kTailSeconds * kSampleRate) / kFramesPerBuffer) + 1;
 
-    // Offline render do .wav - pro regresni testy a A/B srovnani
-    // s referencnimi nahravkami (TODO sekce 8) je realny cas nepouzitelny.
+    // Offline render to .wav - for regression tests and A/B comparisons
+    // with reference recordings (TODO section 8) real time is unusable.
     if (!wavPath.empty())
     {
         WavWriter wav;
         if (!wav.Open(wavPath, kSampleRate))
         {
-            std::cerr << "Nepodarilo se otevrit vystupni soubor '" << wavPath << "'.\n";
+            std::cerr << _("Failed to open output file '") << wavPath << "'." << std::endl;
             return 1;
         }
 
-        std::cout << "Renderuji do '" << wavPath << "'...\n";
+        std::cout << _("Rendering to '") << wavPath << "'..." << std::endl;
         while (sequencer.HasMoreEvents())
         {
             sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
@@ -173,18 +172,23 @@ int main(int argc, char** argv)
             wav.Write(block.data(), kFramesPerBuffer);
         }
         wav.Close();
-        std::cout << "Hotovo.\n";
+        std::cout << _("Done.") << std::endl;
         return 0;
     }
 
+#ifdef _WIN32
     AudioOutputWin audioOut;
+#else
+    AudioOutputNull audioOut;
+#endif
+
     if (!audioOut.Open(kSampleRate, kFramesPerBuffer))
     {
-        std::cerr << "Nepodarilo se otevrit audio vystup (waveOutOpen selhal).\n";
-        return 1;
+        std::cerr << _("Failed to open audio output (waveOutOpen failed).") << std::endl;
+        exit(EXIT_FAILURE);
     }
 
-    std::cout << "Prehravam... (Ctrl+C pro preruseni)\n";
+    std::cout << _("Playing... (Ctrl+C to interrupt)") << std::endl;
 
     while (sequencer.HasMoreEvents())
     {
@@ -192,8 +196,8 @@ int main(int argc, char** argv)
         audioOut.Write(block.data(), kFramesPerBuffer);
     }
 
-    // "Tail" - dorenderovat jeste kus ticha/doznivani po posledni udalosti,
-    // aby se release faze obalky (viz Synth.h) nezarizla.
+    // "Tail" - still render a bit of silence/fading after the last event,
+    // so that the release phase of the wrapper (see Synth.h) doesn't get stuck.
     for (uint32_t i = 0; i < tailBlocks; ++i)
     {
         sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
@@ -201,6 +205,6 @@ int main(int argc, char** argv)
     }
 
     audioOut.Close();
-    std::cout << "Hotovo.\n";
-    return 0;
+    std::cout << _("Done.") << std::endl;
+    exit(EXIT_SUCCESS);
 }

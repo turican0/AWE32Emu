@@ -1,14 +1,14 @@
 #include "MidiFile.h"
+#include "Util.h"
 #include <fstream>
 #include <algorithm>
-#include <cstring>
 
 namespace
 {
     uint32_t ReadBE32(const uint8_t* p) { return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]; }
     uint16_t ReadBE16(const uint8_t* p) { return (p[0] << 8) | p[1]; }
 
-    // Variable-length quantity dle SMF specifikace (7 bitu na byte, MSB = "pokracuje")
+    // Variable-length quantity according to SMF specification (7 bits per byte, MSB = "continues")
     uint32_t ReadVLQ(const std::vector<uint8_t>& data, size_t& pos)
     {
         uint32_t value = 0;
@@ -47,7 +47,7 @@ namespace
 
             if (statusByte < 0x80)
             {
-                // Running status - opakuje se predchozi status byte, tohle je uz data1
+                // Running status - repeats the previous status byte, this is already data1
                 statusByte = runningStatus;
             }
             else
@@ -86,14 +86,14 @@ namespace
             }
             else if (statusByte == 0xF0 || statusByte == 0xF7)
             {
-                // SysEx - preskocit obsah (TODO: zpracovat AWE/GS/GM reset zpravy, viz sekce 1.1 v TODO)
+                // SysEx - skip content (TODO: handle AWE/GS/GM reset messages, see section 1.1 in TODO)
                 uint32_t len = ReadVLQ(data, pos);
                 pos += len;
             }
             else if (hiNibble == 0x80 || hiNibble == 0x90 || hiNibble == 0xA0 ||
                      hiNibble == 0xB0 || hiNibble == 0xE0)
             {
-                // 2-bytove zpravy: Note Off/On, Poly Pressure, Control Change, Pitch Bend
+                // 2-byte messages: Note Off/On, Poly Pressure, Control Change, Pitch Bend
                 if (pos + 2 > data.size()) break;
                 uint8_t d1 = data[pos++];
                 uint8_t d2 = data[pos++];
@@ -116,7 +116,7 @@ namespace
             }
             else if (hiNibble == 0xC0 || hiNibble == 0xD0)
             {
-                // 1-bytove zpravy: Program Change, Channel Pressure
+                // 1-byte messages: Program Change, Channel Pressure
                 if (pos + 1 > data.size()) break;
                 uint8_t d1 = data[pos++];
 
@@ -129,8 +129,8 @@ namespace
             }
             else
             {
-                // Neznama/nepodporovana status byte - ukoncit parsovani teto stopy,
-                // radeji nez pokracovat s desynchronizovanym streamem
+                // Unknown/unsupported byte status - stop parsing this trace,
+                // rather than continue with a desynchronized stream
                 break;
             }
         }
@@ -161,21 +161,21 @@ namespace MidiFile
         }
 
         uint32_t headerLen = ReadBE32(&buffer[4]);
-        // format (SMF 0/1/2) se z hlavicky cte, ale zatim se nikde nevyuziva -
-        // slouceni vice stop funguje stejne pro format 0 i 1 (viz merge nize).
+        // format (SMF 0/1/2) is read from the header, but is not used anywhere yet -
+        // merging multiple tracks works the same for format 0 and 1 (see merge below).
         uint16_t numTracks = ReadBE16(&buffer[10]);
         uint16_t division = ReadBE16(&buffer[12]);
 
         if (division & 0x8000)
         {
-            // SMPTE format (frames/sec + ticks/frame) - TODO: podpora, viz sekce 1.1
+            // SMPTE format (frames/sec + ticks/frame) - TODO: support, see section 1.1
             seq.errorMessage = "SMPTE division neni zatim podporovana";
             return seq;
         }
         seq.ticksPerQuarterNote = division;
 
-        // Za MThd chunkem: 4 bajty ID + 4 bajty delky + headerLen dat
-        // (headerLen je typicky 6, tj. prvni MTrk zacina na offsetu 14).
+        // After MThd chunk: 4 bytes ID + 4 bytes length + headerLen data
+        // (headerLen is typically 6, i.e. the first MTrk starts at offset 14).
         size_t pos = 8 + headerLen;
         std::vector<MidiEvent> merged;
 
@@ -202,8 +202,8 @@ namespace MidiFile
             pos = trackEnd;
         }
 
-        // Stabilni razeni podle absoluteTick - udalosti ze stejneho ticku ze stejne stopy
-        // si zachovaji puvodni poradi, coz je dulezite napr. pro CC pred Note On.
+        // Stable stamping by absoluteTick - events from the same tick from the same track
+        // retain the original order, which is important for example for CC before Note On.
         std::stable_sort(merged.begin(), merged.end(),
             [](const MidiEvent& a, const MidiEvent& b) { return a.absoluteTick < b.absoluteTick; });
 
