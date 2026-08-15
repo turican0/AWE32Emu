@@ -8,6 +8,7 @@ x86/
 *.ilk
 *.pdb
 *.obj
+*.o
 *.exe
 *.dll
 *.exp
