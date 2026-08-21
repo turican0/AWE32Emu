@@ -34,3 +34,32 @@ build/
 # Ostatni
 *.tmp
 *~
+__pycache__/
+*.pyc
+
+# Zaznamy portovych zapisu a obrazy DRAM pro ref86box (velke, generovane)
+*.trace
+*.trace.dram.raw
+
+# ---------------------------------------------------------------------------
+# V repozitari je jen zdrojak emulatoru a dokumentace. Vzorky, banky, ROM,
+# nahravky, obrazy virtualnich stroju, zdrojak 86Boxu i nase merici a
+# testovaci nastroje lezi v sousednim C:/prenos/AWE32EmuData.
+# Mapa a prikazy s aktualnimi cestami jsou v docs/DATA.md.
+#
+# Nasledujici radky jsou tu jen pro pripad, ze by si nekdo neco nakopiroval
+# zpatky do stromu projektu - at se to omylem nepridá do commitu.
+# ---------------------------------------------------------------------------
+/SAMPLES/
+/SAMPLES2/
+/cdrom/
+/ogg/
+/midi/
+/rom/
+/sbk/
+/SoundBlaster AWE32/
+/tests/
+/ref86box/
+/analyze/
+/docs/86box-src/
+/docs/next docs/

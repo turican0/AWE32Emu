@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 using namespace Emu8000;
 
@@ -89,22 +90,49 @@ namespace
 
     // IFATN bity 15..8: pocatecni mezni kmitocet filtru.
     //
-    // Programmer's Guide rika "ve ctvrt pultonech, 0x00 = 125 Hz" a zaroven
-    // "0xFF = 8 kHz". To si odporuje: 125 Hz + 255 ctvrt pultonu = 5.3125
-    // oktavy = 4966 Hz, na 8 kHz je potreba 288 kroku. Drzime se ctvrt
-    // pultonu, protoze hloubky modulaci (PEFE/FMMOD) jsou v manualu take
-    // v oktavach a musi na tuhle skalu sedet. [?] Overit poslechem/merenim.
-    double CutoffHz(double quarterSemitones)
+    // Programmer's Guide si tu protireci: rika "ve ctvrt pultonech, 0x00 =
+    // 125 Hz" a zaroven "0xFF = 8 kHz". Ctvrt pultony (48 na oktavu) by pri
+    // 255 daly jen 4966 Hz. Drzime se udanych krajnich bodu, tj. 125 Hz az
+    // 8 kHz pres 255 kroku (= 42.5 kroku na oktavu), protoze:
+    //   - jen tak sedi obe uvedena cisla
+    //   - hloubky modulaci jsou v manualu v oktavach, takze se prepocitavaji
+    //     stejne at je kroku na oktavu kolik chce (viz RenderVoice)
+    //
+    // Manual navic vyslovne rika: "If the Q of the channel is programmed to
+    // zero and the filter cutoff to 0xFF, the filter does not alter the
+    // signal." Pri ctvrt pultonech by filtr porad rezal na 5 kHz a bral
+    // vysky, ktere v referencnich nahravkach jsou.
+    inline constexpr double kCutoffTopHz = 8000.0;
+
+    double CutoffOctaves(double cutoffReg)
     {
-        const double v = std::clamp(quarterSemitones, 0.0, 255.0);
-        return kCutoffBaseHz * std::pow(2.0, v / kCutoffPerOctave);
+        // kolik oktav nad zakladem lezi dana registrova hodnota
+        const double octavesTotal = std::log2(kCutoffTopHz / kCutoffBaseHz);
+        return std::clamp(cutoffReg, 0.0, 255.0) / 255.0 * octavesTotal;
+    }
+
+    double CutoffHz(double octavesAboveBase)
+    {
+        return kCutoffBaseHz * std::pow(2.0, octavesAboveBase);
     }
 
     // TREMFRQ/FM2FRQ2 bity 7..0: frekvence LFO po 0.042 Hz,
-    // 0xFF = 10.72 Hz [PG].
+    // 0xFF = 10.72 Hz [PG]. Rada zacina na 0.01 Hz, ne na nule.
     double LfoHz(int value)
     {
-        return std::clamp(value, 0, 255) * kLfoHzPerStep;
+        return 0.01 + std::clamp(value, 0, 255) * kLfoHzPerStep;
+    }
+
+    // LFO cipu ma TROJUHELNIKOVY prubeh, ne sinusovy. Zacina na nule,
+    // stoupa k +1 ve ctvrtine periody, zpet na nulu v pulce a na -1 ve
+    // tri ctvrtinach. Prepis tabulky lfotable z referencni implementace
+    // 86Boxu; sinus na tomhle miste znel jinak.
+    double LfoTriangle(double phase01)
+    {
+        double t = phase01 - std::floor(phase01);          // 0..1
+        t += 0.25;                                          // posun jako v tabulce
+        if (t >= 1.0) t -= 1.0;
+        return (t < 0.5) ? (4.0 * t - 1.0) : (3.0 - 4.0 * t);
     }
 
     double DbToLinear(double db)
@@ -126,6 +154,11 @@ namespace
 Emu8000Core::Emu8000Core(uint32_t outputSampleRate)
     : m_outputRate(outputSampleRate ? outputSampleRate : kNativeSampleRate)
 {
+    // Vychozi presety jsou ty, ktere nastavuje ovladac: chorus 2 (Chorus 3)
+    // a reverb 4 (Hall 2) - viz SBAWE32.DRV 0x60FA a 0x612D.
+    m_chorus.Init(kNativeSampleRate, Emu8000Fx::kChorusDefault);
+    m_reverb.Init(kNativeSampleRate);
+    m_reverb.SetPreset(Emu8000Fx::kReverbDefault);
     PowerOnInit();
 }
 
@@ -156,8 +189,33 @@ bool Emu8000Core::OwnsPort(uint16_t port) const
         || off == kPortData3 || off == kPortPointer;
 }
 
+bool Emu8000Core::OpenTrace(const char* path)
+{
+    CloseTrace();
+    FILE* f = std::fopen(path, "wb");
+    if (!f) return false;
+    std::fprintf(f, "# EMU8000 port write trace, 44100 Hz timebase\n");
+    std::fprintf(f, "# <frame> <port hex> <value hex>\n");
+    m_traceFile = f;
+    m_traceFrames = 0;
+    return true;
+}
+
+void Emu8000Core::CloseTrace()
+{
+    if (m_traceFile)
+    {
+        std::fclose(static_cast<FILE*>(m_traceFile));
+        m_traceFile = nullptr;
+    }
+}
+
 void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
 {
+    if (m_traceFile && !m_traceOff)
+        std::fprintf(static_cast<FILE*>(m_traceFile), "%llu %03X %04X\n",
+                     static_cast<unsigned long long>(m_traceFrames), port, value);
+
     const uint16_t off = static_cast<uint16_t>(port - m_basePort);
     if (off == kPortPointer)
     {
@@ -179,6 +237,22 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
     const int reg   = (m_pointer >> 5) & 7;
     const int voice = m_pointer & 0x1F;
     RegRef(p, reg, voice) = value;
+
+    // Zapis IP prepocita cilovou vysku v horni pulce PTRX. Dela to **cip**,
+    // ne ovladac - `SBAWE32.MDI` si ji odtud jen precte a necha (viz
+    // docs/re-notes/86box_srovnani.md 14.3). 86Box to ma jako
+    // `ptrx_pit_target = freqtable[ip] >> 18`, kde
+    // `freqtable[c] = 2^((c - 0xE000) / 4096) * 2^32`.
+    if (p == Port::Data3 && reg == 0)
+    {
+        // Mezivysledek musi byt 64bitovy - pro vysoke IP presahne 2^32.
+        const double ratio = std::pow(2.0, (static_cast<double>(value) - 0xE000) / 4096.0);
+        const uint64_t full = static_cast<uint64_t>(ratio * 65536.0 * 65536.0);
+        const uint32_t target = (value == 0)
+            ? 0u
+            : static_cast<uint32_t>(std::min<uint64_t>(full >> 18, 0xFFFFu));
+        RegRef(Port::Data0Hi, 1, voice) = static_cast<uint16_t>(target);
+    }
 
     // Zapis DCYSUSV je podle ovladacu ten, ktery spousti envelope engine
     // ("decay/sustain parameter must be set at last"), takze na nej
@@ -218,8 +292,8 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
             vs.lfo2Phase = 0.0;
             vs.lfo1Delay = DelaySeconds(RegVal(Port::Data1Hi, 5, voice));
             vs.lfo2Delay = DelaySeconds(RegVal(Port::Data1Hi, 7, voice));
-            vs.filtLow   = 0.0;
-            vs.filtBand  = 0.0;
+            vs.filtIc1   = 0.0;
+            vs.filtIc2   = 0.0;
         }
     }
 }
@@ -277,17 +351,26 @@ namespace
     }
 }
 
+namespace
+{
+    uint16_t PortOffset(Port p)
+    {
+        return p == Port::Data0   ? kPortData0
+             : p == Port::Data0Hi ? kPortData0Hi
+             : p == Port::Data1   ? kPortData1
+             : p == Port::Data1Hi ? kPortData1Hi
+                                  : kPortData3;
+    }
+}
+
 void Emu8000Core::WriteReg16(uint16_t sel, uint16_t value)
 {
     Port p;
     if (!PortFromSel(sel, p)) return;
-    m_pointer = SelToPointer(sel);
-    PortOut16(static_cast<uint16_t>(m_basePort + (p == Port::Data0   ? kPortData0
-                                                : p == Port::Data0Hi ? kPortData0Hi
-                                                : p == Port::Data1   ? kPortData1
-                                                : p == Port::Data1Hi ? kPortData1Hi
-                                                                     : kPortData3)),
-              value);
+    // Presne to, co dela ovladac: nejdriv pointer, pak datovy port. Diky tomu
+    // je stopa z OpenTrace kompletni a da se prehrat v 86Boxu.
+    PortOut16(static_cast<uint16_t>(m_basePort + kPortPointer), SelToPointer(sel));
+    PortOut16(static_cast<uint16_t>(m_basePort + PortOffset(p)), value);
 }
 
 uint16_t Emu8000Core::ReadReg16(uint16_t sel) const
@@ -313,10 +396,13 @@ void Emu8000Core::WriteReg32(uint16_t sel, uint32_t value)
     else if (p == Port::Data1) hi = Port::Data1Hi;
     else { WriteReg16(sel, static_cast<uint16_t>(value)); return; }
 
-    const int reg   = SelRegIndex(sel);
-    const int voice = SelVoice(sel);
-    RegRef(hi, reg, voice) = static_cast<uint16_t>(value >> 16);
-    WriteReg16(sel, static_cast<uint16_t>(value & 0xFFFF));
+    // Ovladac (AWEUTIL sub_10F46) posle low word na `port` a high word na
+    // `port+2`, s jednim zapisem do pointeru pred tim.
+    PortOut16(static_cast<uint16_t>(m_basePort + kPortPointer), SelToPointer(sel));
+    PortOut16(static_cast<uint16_t>(m_basePort + PortOffset(p)),
+              static_cast<uint16_t>(value & 0xFFFF));
+    PortOut16(static_cast<uint16_t>(m_basePort + PortOffset(hi)),
+              static_cast<uint16_t>(value >> 16));
 }
 
 uint32_t Emu8000Core::ReadReg32(uint16_t sel) const
@@ -335,26 +421,59 @@ uint32_t Emu8000Core::ReadReg32(uint16_t sel) const
          | static_cast<uint32_t>(RegVal(p, reg, voice));
 }
 
+namespace
+{
+    // Ktere registry jsou opravdu 32bitove, tj. u kterych je port+2 horni
+    // polovina tehoz registru a ne samostatny registr.
+    //
+    // Data0 (portSel 2): vsech osm registru je 32bitovych.
+    // Data1 (portSel 4): 32bitove jsou jen CCCA (reg 0) a HWCF (reg 1).
+    //   U reg 2..7 lezi na A22h uplne jiny registr - INIT2, INIT4, ATKHLDV,
+    //   LFO1VAL, ATKHLD, LFO2VAL. 32bitovy zapis do DCYSUSV by tedy vynuloval
+    //   LFO1VAL. Potvrzeno proti 86Boxu (snd_emu8k.c, case 0xA00 vs 0xA02).
+    bool IsReg32(uint16_t sel)
+    {
+        const int portSel = (sel >> 9) & 7;
+        if (portSel == 2) return true;                       // Data0
+        if (portSel == 4) return ((sel >> 12) & 7) <= 1;     // Data1: CCCA, HWCF
+        return false;
+    }
+}
+
 void Emu8000Core::Write(Reg r, int voice, uint32_t value)
 {
     const uint16_t sel = Sel(r, voice);
-    const int portSel = (sel >> 9) & 7;
-    // Data0 (2) a Data1 (4) jsou 32bitove, zbytek 16bitovy.
-    if (portSel == 2 || portSel == 4) WriteReg32(sel, value);
-    else                              WriteReg16(sel, static_cast<uint16_t>(value));
+    if (IsReg32(sel)) WriteReg32(sel, value);
+    else              WriteReg16(sel, static_cast<uint16_t>(value));
 }
 
 uint32_t Emu8000Core::Read(Reg r, int voice) const
 {
     const uint16_t sel = Sel(r, voice);
-    const int portSel = (sel >> 9) & 7;
-    if (portSel == 2 || portSel == 4) return ReadReg32(sel);
+    if (IsReg32(sel)) return ReadReg32(sel);
     return ReadReg16(sel);
 }
 
 // ===========================================================================
 // inicializace - prepis sekvence z AWEUTIL.COM (sub_12B40)
 // ===========================================================================
+
+// Jedno inicializacni pole = 128 hodnot ve ctyrech blocich po 32; kazdy blok
+// jde do jineho registru pro hlasy 0..31 (ALSA send_array()).
+void Emu8000Core::SendInitArray(const uint16_t* data, const Awe32Init::AltInit* alt)
+{
+    // Osm hodnot v INIT3/INIT4 posila kazda rodina ovladacu jinak
+    // (viz Awe32Driver.h), takze se pro Win95 prepisou.
+    uint16_t buf[128];
+    std::copy(data, data + 128, buf);
+    if (alt && m_driver == Awe32::Driver::Win95)
+        for (int i = 0; i < 8; ++i) buf[alt[i].index] = alt[i].value;
+
+    for (int v = 0; v < 32; ++v) Write(Reg::INIT1, v, buf[v]);
+    for (int v = 0; v < 32; ++v) Write(Reg::INIT2, v, buf[32 + v]);
+    for (int v = 0; v < 32; ++v) Write(Reg::INIT3, v, buf[64 + v]);
+    for (int v = 0; v < 32; ++v) Write(Reg::INIT4, v, buf[96 + v]);
+}
 
 void Emu8000Core::PowerOnInit()
 {
@@ -406,16 +525,28 @@ void Emu8000Core::PowerOnInit()
     }
 
     // krok 7 (sub_1288C): SMALR/SMARR/SMALW + init pole.
-    // Init pole INIT1..INIT4 konfiguruji interni DSP realneho cipu
-    // (reverb/chorus microcode) a do softwarove emulace se neprenaseji -
-    // viz docs/re-notes/emu8000_register_map.md, sekce 4.
+    //
+    // Init pole INIT1..INIT4 jsou koeficienty interniho DSP. Nase emulace je
+    // nepouziva - jen se ulozi do registroveho pole - ale 86Box z nich cte
+    // parametry reverbu a chorusu, takze se musi poslat, aby sla stopa
+    // z OpenTrace prehrat. Poradi je podle ALSA init_arrays().
     WriteReg16(MakeSel(1, Port::Data1, Hwcf::kSMALR), 0);
     WriteReg16(MakeSel(1, Port::Data1, Hwcf::kSMARR), 0);
     WriteReg16(MakeSel(1, Port::Data1, Hwcf::kSMALW), 0);
+    // AWEUTIL zapisuje SMARR podruhe, ne SMARW jako linuxovy ovladac.
+    // Zmereno ze skutecneho behu, viz docs/re-notes/86box_srovnani.md.
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kSMARR), 0);
+
+    SendInitArray(Awe32Init::kInit1);
+    SendInitArray(Awe32Init::kInit2);
+    SendInitArray(Awe32Init::kInit3, Awe32Init::kAltInit3Sbawe);
+
     WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF4), 0x00000000u);
     WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF5), 0x00000083u);
     WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF6), 0x00008000u);
     WriteReg32(MakeSel(1, Port::Data1, Hwcf::kHWCF7), 0x00000000u);
+
+    SendInitArray(Awe32Init::kInit4, Awe32Init::kAltInit4Sbawe);
 
     // krok 8 (sub_12A20): hlasy 30 a 31 slouzi jako "DRAM refresh" kanaly.
     // Pozor na `cwd` v AWEUTILu: 0xFFE0 se znamenkove rozsiri na 0xFFFFFFE0,
@@ -430,6 +561,15 @@ void Emu8000Core::PowerOnInit()
     Write(Reg::PTRX, 31, 0x000000FFu);
     Write(Reg::CPF,  31, 0x00008000u);
     Write(Reg::CCCA, 31, 0x00FFFFF3u);
+
+    // Tyhle dva zapisy jsou v docs/re-notes/emu8000_register_map.md popsane
+    // ("pointer=003Eh ... Data0+2=4828h, pointer=003Ch, Data1=0"), ale az
+    // srovnani se skutecnym AWEUTILem v 86Boxu ukazalo, ze v inicializaci
+    // opravdu jsou a kam patri. Data1 reg 1 hlas 28 je nezdokumentovany
+    // registr HWCF.
+    Write(Reg::PTRX, 30, 0x48280000u);
+    WriteReg16(MakeSel(1, Port::Data1, 28), 0x0000);
+
     Write(Reg::VTFT, 30, 0xFFFFFFFFu);   // tady uz je `cwd`, tj. i horni pulka
     Write(Reg::VTFT, 31, 0xFFFFFFFFu);
 
@@ -448,10 +588,13 @@ void Emu8000Core::ResizeDram(size_t numSamples)
 
 int16_t Emu8000Core::ReadSample(uint32_t address) const
 {
-    if (address < kDramOffset) return 0;   // ROM karty nemame
+    if (address < kDramOffset)
+    {
+        // Wave ROM karty. Pokud neni nactena, adresa cte ticho.
+        return (address < m_rom.size()) ? m_rom[address] : 0;
+    }
     const size_t idx = address - kDramOffset;
-    if (idx >= m_dram.size()) return 0;
-    return m_dram[idx];
+    return (idx < m_dram.size()) ? m_dram[idx] : 0;
 }
 
 bool Emu8000Core::IsVoiceActive(int voice) const
@@ -464,7 +607,8 @@ bool Emu8000Core::IsVoiceActive(int voice) const
 // render
 // ===========================================================================
 
-void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrames)
+void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
+                              float* sendRev, float* sendCho, uint32_t numFrames)
 {
     VoiceState& vs = m_voices[v];
     if (vs.volStage == EnvStage::Off) return;
@@ -490,6 +634,10 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrame
     const uint32_t loopEnd   = csl  & kLoopAddressMask;
     const int      panReg    = static_cast<int>(psst >> kPanShift) & 0xFF;
     const int      filterQ   = static_cast<int>(ccca >> kCccaQShift) & 0x0F;
+
+    // Sendy do efektu: reverb z PTRX bity 15..8, chorus z CSL bity 31..24.
+    const float revSend = ((Read(Reg::PTRX, v) >> kReverbShift) & 0xFF) / 255.0f;
+    const float choSend = static_cast<float>((csl >> kChorusShift) & 0xFF) / 255.0f;
 
     // Konstanty obalek (rate registry se za behu obvykle nemeni, takze je
     // staci prevest jednou na blok).
@@ -522,6 +670,12 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrame
     // 15 = cca 24 dB rezonance [PG].
     const double resonanceDb = filterQ * (kResonanceMaxDb / kCccaQMax);
     const double qFactor = std::max(0.7071, std::pow(10.0, resonanceDb / 20.0));
+    // Manual: pri Q = 0 a plne otevrenem filtru se signal nemeni vubec.
+    const bool bypassFilter = (filterQ == 0);
+    // Zvedani Q si cip vybira utlumem na vstupu filtru (viz kFilterAtten).
+    // Bez toho hraji rezonancni patche vyrazne hlasiteji, nez maji.
+    const double filterInputGain =
+        kFilterAtten[std::clamp(filterQ, 0, 15)] / 65536.0;
 
     for (uint32_t i = 0; i < numFrames; ++i)
     {
@@ -596,11 +750,11 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrame
         // ---- LFO -------------------------------------------------------
         double lfo1 = 0.0, lfo2 = 0.0;
         if (vs.lfo1Delay > 0.0) vs.lfo1Delay -= dt;
-        else { lfo1 = std::sin(vs.lfo1Phase); vs.lfo1Phase += 2.0 * kPi * lfo1Hz * dt; }
+        else { lfo1 = LfoTriangle(vs.lfo1Phase); vs.lfo1Phase += lfo1Hz * dt; }
         if (vs.lfo2Delay > 0.0) vs.lfo2Delay -= dt;
-        else { lfo2 = std::sin(vs.lfo2Phase); vs.lfo2Phase += 2.0 * kPi * lfo2Hz * dt; }
-        if (vs.lfo1Phase > 2.0 * kPi) vs.lfo1Phase -= 2.0 * kPi;
-        if (vs.lfo2Phase > 2.0 * kPi) vs.lfo2Phase -= 2.0 * kPi;
+        else { lfo2 = LfoTriangle(vs.lfo2Phase); vs.lfo2Phase += lfo2Hz * dt; }
+        if (vs.lfo1Phase >= 1.0) vs.lfo1Phase -= 1.0;
+        if (vs.lfo2Phase >= 1.0) vs.lfo2Phase -= 1.0;
 
         // ---- vyska tonu ------------------------------------------------
         // Hloubky podle Programmer's Guide: 0x7F = plna kladna hloubka,
@@ -621,10 +775,39 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrame
             // "the actual audio location is the point 1 word higher than this
             // value due to interpolator offset" [PG] - plati pro CCCA i pro
             // oba konce smycky.
-            const int16_t s0 = ReadSample(vs.address + 1);
-            const int16_t s1 = ReadSample(vs.address + 2);
+            //
+            // Druhy vzorek interpolace se musi zalomit zpatky do smycky.
+            // Bez toho se na jejim konci cetla data ZA smyckou, coz delalo
+            // nespojitost pri kazdem pruchodu - tedy periodicke lupnuti
+            // a sirokopasmovy sum ve vysokych kmitoctech.
+            // Cteni s zalomenim do smycky - bez toho by interpolace na
+            // konci smycky sahala na data za ni a delala lupnuti.
+            auto tap = [&](uint32_t offset) -> double
+            {
+                uint32_t a = vs.address + offset;
+                if (loopEnd > loopStart)
+                    while (a > loopEnd) a -= (loopEnd - loopStart);
+                return ReadSample(a) / 32768.0;
+            };
+
             const double f = vs.frac / 65536.0;
-            sample = static_cast<float>((s0 + (s1 - s0) * f) / 32768.0);
+            if (m_interp == Interp::Cubic)
+            {
+                // Catmull-Rom pres ctyri body, stejne jako referencni
+                // implementace 86Boxu. Body jsou 0,1,2,3 (ne -1..2) kvuli
+                // posunu interpolatoru o jedno slovo.
+                const double d0 = tap(0), d1 = tap(1), d2 = tap(2), d3 = tap(3);
+                const double c0 = -0.5 * f * f * f + f * f - 0.5 * f;
+                const double c1 =  1.5 * f * f * f - 2.5 * f * f + 1.0;
+                const double c2 = -1.5 * f * f * f + 2.0 * f * f + 0.5 * f;
+                const double c3 =  0.5 * f * f * f - 0.5 * f * f;
+                sample = static_cast<float>(d0 * c0 + d1 * c1 + d2 * c2 + d3 * c3);
+            }
+            else
+            {
+                const double s0 = tap(1), s1 = tap(2);
+                sample = static_cast<float>(s0 + (s1 - s0) * f);
+            }
 
             const uint64_t step = static_cast<uint64_t>(increment * 65536.0);
             uint64_t pos = (static_cast<uint64_t>(vs.address) << 16) | vs.frac;
@@ -637,20 +820,41 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrame
         }
 
         // ---- filtr -----------------------------------------------------
-        // PEFE lo: +-6 oktav, FMMOD lo: +-3 oktavy. Cutoff registr je ve
-        // ctvrt pultonech, tj. 48 jednotek na oktavu.
-        constexpr double kCut = kCutoffPerOctave / 127.0;
-        double cutoff = initialCutoff;
-        cutoff += vs.modLevel * LoSigned(pefe)  * kCut * kPefeFilterOctaves;
-        cutoff += lfo1        * LoSigned(fmmod) * kCut * kFmmodFilterOctaves;
-        const double cutoffHz = std::min(CutoffHz(cutoff), kNativeSampleRate * 0.45);
+        // Modulace se pocitaji rovnou v oktavach, jak je udava manual:
+        // PEFE lo +-6 oktav, FMMOD lo +-3 oktavy.
+        double octaves = CutoffOctaves(initialCutoff);
+        octaves += vs.modLevel * LoSigned(pefe)  / 127.0 * kPefeFilterOctaves;
+        octaves += lfo1        * LoSigned(fmmod) / 127.0 * kFmmodFilterOctaves;
 
-        const double fCoef = 2.0 * std::sin(kPi * cutoffHz / kNativeSampleRate);
-        const double qCoef = 1.0 / qFactor;
-        const double high = sample - vs.filtLow - qCoef * vs.filtBand;
-        vs.filtBand += fCoef * high;
-        vs.filtLow  += fCoef * vs.filtBand;
-        double filtered = vs.filtLow;
+        double filtered;
+        const double filterIn = sample * filterInputGain;
+        if (bypassFilter && octaves >= CutoffOctaves(255.0) - 1e-9)
+        {
+            // "If the Q of the channel is programmed to zero and the filter
+            // cutoff to 0xFF, the filter does not alter the signal." [PG]
+            filtered = sample;   // Q=0 a plne otevreno: beze zmeny
+        }
+        else
+        {
+            const double cutoffHz = std::clamp(CutoffHz(octaves),
+                                               20.0, kNativeSampleRate * 0.49);
+
+            // Topology-preserving state variable filter. Chamberlinova
+            // varianta se pri vyssich mezich rozkmitava (podminka f + 1/Q < 2
+            // pri 4 kHz a Q=0.707 uz neplati), tahle je stabilni az k Nyquistu.
+            const double g = std::tan(kPi * cutoffHz / kNativeSampleRate);
+            const double k = 1.0 / qFactor;
+            const double a1 = 1.0 / (1.0 + g * (g + k));
+            const double a2 = g * a1;
+            const double a3 = g * a2;
+
+            const double v3 = filterIn - vs.filtIc2;
+            const double v1 = a1 * vs.filtIc1 + a2 * v3;
+            const double v2 = vs.filtIc2 + a2 * vs.filtIc1 + a3 * v3;
+            vs.filtIc1 = 2.0 * v1 - vs.filtIc1;
+            vs.filtIc2 = 2.0 * v2 - vs.filtIc2;
+            filtered = v2;   // low-pass vystup
+        }
 
         // ---- hlasitost --------------------------------------------------
         // Tremolo: TREMFRQ bity 15..8, +-12 dB pri 0x7F/0x80 [PG].
@@ -661,6 +865,10 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR, uint32_t numFrame
         const float out = static_cast<float>(filtered * gain);
         outL[i] += out * gainL;
         outR[i] += out * gainR;
+
+        // Sendy jdou z vystupu hlasu jeste pred panoramou, tedy monofonne.
+        sendRev[i] += out * revSend;
+        sendCho[i] += out * choSend;
     }
 }
 
@@ -668,6 +876,12 @@ void Emu8000Core::UpdateRegistersFromState(int v)
 {
     // Aby hostitelsky kod, ktery si registry cte (napr. reversed hra),
     // videl smysluplny aktualni stav.
+    //
+    // Do stopy tohle nepatri - jsou to zpetne zapisy stavu jadra, ne akce
+    // ovladace, a bylo by jich 32 na kazdy vzorek. 86Box si stejne hodnoty
+    // pocita sam.
+    const TraceOff noTrace(*this);
+
     const VoiceState& vs = m_voices[v];
     const uint32_t ccca = Read(Reg::CCCA, v);
     Write(Reg::CCCA, v, (ccca & ~kCccaAddressMask) | (vs.address & kCccaAddressMask));
@@ -692,13 +906,42 @@ void Emu8000Core::RenderNative(float* outL, float* outR, uint32_t numFrames)
     std::fill(outL, outL + numFrames, 0.0f);
     std::fill(outR, outR + numFrames, 0.0f);
 
+    m_sendReverb.assign(numFrames, 0.0f);
+    m_sendChorus.assign(numFrames, 0.0f);
+
     for (int v = 0; v < kMaxVoices; ++v)
     {
-        RenderVoice(v, outL, outR, numFrames);
+        RenderVoice(v, outL, outR, m_sendReverb.data(), m_sendChorus.data(), numFrames);
         UpdateRegistersFromState(v);
     }
 
+    // Chorus jde do vystupu a zaroven doplnuje reverb, stejne jako
+    // v signalovem diagramu cipu.
+    //
+    // Navratove urovne. Reverb si zisk normalizuje sam (viz Emu8000Effects.h),
+    // takze o mnozstvi efektu rozhoduje uz jen send z registru. Hodnoty jsou
+    // empiricke, ne odvozene z hardwaru.
+    const float kReverbReturn = m_reverbReturn;
+    const float kChorusReturn = m_chorusReturn;
+
+    for (uint32_t i = 0; i < numFrames; ++i)
+    {
+        float cl, cr;
+        m_chorus.Process(m_sendChorus[i], cl, cr);
+        cl *= kChorusReturn;
+        cr *= kChorusReturn;
+        outL[i] += cl;
+        outR[i] += cr;
+        m_sendReverb[i] += (cl + cr) * 0.5f;
+
+        float rl, rr;
+        m_reverb.Process(m_sendReverb[i], rl, rr);
+        outL[i] += rl * kReverbReturn;
+        outR[i] += rr * kReverbReturn;
+    }
+
     m_waveCounter += numFrames;
+    m_traceFrames += numFrames;
 }
 
 void Emu8000Core::RenderBlock(int16_t* out, uint32_t numFrames)

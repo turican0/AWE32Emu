@@ -4,6 +4,9 @@
 #include <array>
 #include <vector>
 #include "Emu8000Regs.h"
+#include "Emu8000Effects.h"
+#include "Awe32InitArrays.h"
+#include "Awe32Driver.h"
 
 // ---------------------------------------------------------------------------
 // Emu8000Core - register-level emulace cipu EMU8000 (Sound Blaster AWE32).
@@ -51,9 +54,15 @@ public:
     uint32_t Read(Emu8000::Reg r, int voice) const;
 
     // Inicializacni sekvence prevzata z AWEUTIL.COM (sub_12B40 a jeho
-    // podrutiny). Init pole INIT1..INIT4 se do emulace neprenaseji, viz
-    // poznamka v docs/re-notes/emu8000_register_map.md.
+    // podrutiny), vcetne poli INIT1..INIT4 (Awe32InitArrays.h). Nase jadro
+    // z init poli nic necte, ale 86Box z nich dekoduje reverb a chorus, takze
+    // musi byt ve stope - viz docs/re-notes/emu8000_register_map.md.
     void PowerOnInit();
+
+    // Ktera rodina ovladacu se emuluje. Meni osm hodnot v init polich
+    // INIT3/INIT4 - viz Awe32Driver.h. Nastavit pred PowerOnInit().
+    void SetDriver(Awe32::Driver d) { m_driver = d; }
+    Awe32::Driver DriverVariant() const { return m_driver; }
 
     // ---- zvukova pamet ---------------------------------------------------
     // Adresy v registrech CCCA/PSST/CSL jsou 24bit a pocitaji se ve vzorcich.
@@ -63,6 +72,12 @@ public:
     size_t DramSize() const { return m_dram.size(); }
     int16_t* DramData() { return m_dram.data(); }
     const int16_t* DramData() const { return m_dram.data(); }
+
+    // Wave ROM karty se mapuje od adresy 0. Emulace ji bere jako obycejnou
+    // cast adresniho prostoru - hlas nepozna rozdil.
+    void LoadWaveRom(std::vector<int16_t> rom) { m_rom = std::move(rom); }
+    size_t RomSize() const { return m_rom.size(); }
+
     int16_t ReadSample(uint32_t address) const;
 
     // ---- render ----------------------------------------------------------
@@ -70,6 +85,27 @@ public:
     void RenderBlock(int16_t* out, uint32_t numFrames);
 
     bool IsVoiceActive(int voice) const;
+
+    // Interpolace vzorku. Realny cip pouzival patentovanou 3bodovou
+    // interpolaci; linearni je hrubsi nahrada, kubicka (Catmull-Rom) je
+    // blizsi a delá min artefaktu ve vysokych kmitoctech.
+    enum class Interp { Linear, Cubic };
+    void SetInterpolation(Interp i) { m_interp = i; }
+
+    // Ladici pristup k efektum - velikost prostoru a tlumeni reverbu nejsou
+    // odvozene z hardwaru (init pole jsou DSP koeficienty), takze se overuji
+    // merenim proti referencnim nahravkam.
+    void SetReverbRoom(float size, float damp) { m_reverb.SetRoom(size, damp); }
+    void SetReverbPreset(int p) { m_reverb.SetPreset(p); }
+    void SetChorusPreset(int p) { m_chorus.SetPreset(p); }
+    void SetEffectReturns(float rev, float cho) { m_reverbReturn = rev; m_chorusReturn = cho; }
+
+    // ---- zaznam portovych zapisu (pro srovnani s 86Boxem) ---------------
+    // Zapise kazdy PortOut16 jako "<snimek> <port> <hodnota>" na nativni
+    // casove ose 44100 Hz. Vysledek se da prehrat pres ref86box/emu8k_ref.exe,
+    // ktery pouziva nezmeneny snd_emu8k.c z 86Boxu - viz ref86box/README.md.
+    bool OpenTrace(const char* path);
+    void CloseTrace();
 
 private:
     // Registrove pole: [port][reg][voice], vse jako 16bit slova.
@@ -104,30 +140,58 @@ private:
         double lfo1Delay = 0.0;
         double lfo2Delay = 0.0;
 
-        // low-pass filtr (Chamberlin SVF, viz poznamka v .cpp)
-        double filtLow = 0.0;
-        double filtBand = 0.0;
+        // low-pass filtr (topology-preserving SVF, viz poznamka v .cpp)
+        double filtIc1 = 0.0;
+        double filtIc2 = 0.0;
     };
 
     void RenderNative(float* outL, float* outR, uint32_t numFrames);
-    void RenderVoice(int v, float* outL, float* outR, uint32_t numFrames);
+    void RenderVoice(int v, float* outL, float* outR, float* sendRev, float* sendCho,
+                     uint32_t numFrames);
     void UpdateRegistersFromState(int v);
+    void SendInitArray(const uint16_t* data, const Awe32Init::AltInit* alt = nullptr);
 
     uint16_t& RegRef(Emu8000::Port p, int reg, int voice);
     uint16_t  RegVal(Emu8000::Port p, int reg, int voice) const;
 
     uint32_t m_outputRate;
+    Interp m_interp = Interp::Cubic;
+    float m_reverbReturn = 1.0f;
+    float m_chorusReturn = 0.7f;
     uint16_t m_basePort = 0x220;
     uint16_t m_pointer = 0;      // posledni zapis do pointer registru
+    Awe32::Driver m_driver = Awe32::kDefaultDriver;
 
     RegFile m_regs{};
     std::array<VoiceState, kMaxVoices> m_voices{};
     std::vector<int16_t> m_dram;
+    std::vector<int16_t> m_rom;
 
     // Wave counter (registr WC) - volne bezici citac vzorku. Ovladace ho
     // pouzivaji jako casovou zakladnu v cekacich smyckach (viz AWEUTIL
     // sub_127AE), takze ho musime tikat, jinak by se ovladac zasekl.
     uint32_t m_waveCounter = 0;
+
+    // Zaznam portovych zapisu (viz OpenTrace).
+    void* m_traceFile = nullptr;   // FILE*, drzeno jako void* aby se sem netahal <cstdio>
+    uint64_t m_traceFrames = 0;    // pocet snimku vyrenderovanych na 44100 Hz
+    bool m_traceOff = false;
+
+    // RAII prepinac pro zapisy, ktere nemaji byt ve stope (viz
+    // UpdateRegistersFromState).
+    struct TraceOff
+    {
+        Emu8000Core& c;
+        bool prev;
+        explicit TraceOff(Emu8000Core& core) : c(core), prev(core.m_traceOff) { c.m_traceOff = true; }
+        ~TraceOff() { c.m_traceOff = prev; }
+    };
+
+    // Efektove sbernice. Send se bere z vystupu hlasu jeste pred panoramou
+    // (viz signalovy diagram v Programmer's Guide), takze jsou monofonni.
+    Emu8000Fx::Chorus m_chorus;
+    Emu8000Fx::Reverb m_reverb;
+    std::vector<float> m_sendReverb, m_sendChorus;
 
     // resampling na vystupni frekvenci
     std::vector<float> m_nativeL, m_nativeR;

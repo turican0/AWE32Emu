@@ -147,6 +147,15 @@ namespace Emu8000
     inline constexpr uint32_t kCccaDmaWrite    = 0x02000000u;
     inline constexpr uint32_t kCccaDmaRight    = 0x01000000u;
     inline constexpr int      kCccaQMax        = 15;
+    // Utlum filtru podle Q. Rezonancni filtr EMU8000 si zvedanim Q zaroven
+    // ubira na vstupu - dokumentace k NRPN uvadi, ze utlum je zhruba polovina
+    // Q v dB (pro Q 12 dB tedy -6 dB). Tabulka je v amplitude, meritko 65536.
+    // Odpovida tabulce filter_atten v referencni implementaci 86Boxu.
+    inline constexpr int kFilterAtten[16] = {
+        65536, 61869, 57079, 53269, 49145, 44820, 40877, 34792,
+        32845, 30653, 28607, 26392, 24630, 22463, 20487, 18470
+    };
+
     inline constexpr double   kResonanceMaxDb  = 24.0;
 
     // PSST: bity 31..24 = pan, POZOR 0 = zcela vpravo, 0xFF = zcela vlevo. [PG]
