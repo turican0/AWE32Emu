@@ -16,7 +16,15 @@ oficiální dokumentace neúplná.
 
 ## 0. Příprava a podklady
 
-- [ ] Sehnat EMU8000 Technical Reference Manual + Programmer's Guide (registrová mapa, adresní schéma)
+- [x] **AWE32/EMU8000 Programmer's Guide** (Rev. 1.00, Dave Rossum, E-mu/Creative 1994-1996) –
+      **primární zdroj pravdy** pro registrovou mapu a význam bitových polí.
+      <https://www.dosdays.co.uk/media/creative/emu8kpgm.pdf>
+      Zpracováno v `docs/re-notes/emu8000_register_map.md`.
+- [x] **Linuxový ALSA driver** – `sound/isa/sb/emu8000.c` + `include/sound/emu8000_reg.h`.
+      Nezávisle potvrzuje registrovou mapu i inicializační sekvenci
+      (`EMU8000_CMD(reg, chan) ((reg)<<5 | (chan))`, HWCF1=0x0059, HWCF2=0x0020,
+      DCYSUSV=0x80). Bráno jako reference chování, ne jako zdroj kódu.
+      <https://github.com/torvalds/linux/blob/master/sound/isa/sb/emu8000.c>
 - [ ] Sehnat/najít XMI specifikaci (Miles Sound System / AIL formát, rozdíly oproti SMF)
 - [ ] Sehnat referenční nahrávky ze skutečné AWE32/AWE64 karty (pokud dostupný hardware) pro A/B srovnání
 - [ ] Zmapovat dostupné open-source reference (DOSBox-X zdrojáky pro SB16/MPU-401 vrstvu, TiMidity++, FluidSynth) – čistě jako inspirace pro architekturu, ne pro kopírování kódu

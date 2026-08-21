@@ -12,7 +12,7 @@
 #include "XmiFile.h"
 #include "Sequencer.h"
 #include "Synth.h"
-#include "SoundFontSbk.h"
+#include "SoundFont.h"
 #include "AudioOutputWin.h"
 #include "WavWriter.h"
 
@@ -21,6 +21,9 @@
 #include <vector>
 #include <algorithm>
 #include <cctype>
+#include <cstdlib>
+#include <cstdio>
+#include <utility>
 
 namespace
 {
@@ -42,11 +45,28 @@ namespace
         std::cout <<
             "AWE32Emu - prehravac .mid/.xmi pres emulaci EMU8000 (Sound Blaster AWE32)\n\n"
             "Pouziti:\n"
-            "  AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>] [--wav <out.wav>]\n\n"
+            "  AWE32Emu.exe <soubor.mid|soubor.xmi> [volby]\n\n"
             "Volby:\n"
-            "  --sbk <soubor>   Nacte SoundFont/SBK banku (zatim jen informativne - vypise\n"
-            "                   seznam RIFF chunku, napojeni na synth je TODO, viz README)\n"
-            "  --wav <soubor>   Misto prehrani v realnem case zapise vystup do .wav\n";
+            "  --rom <soubor>      Wave ROM karty (surovy dump, napr. awe32.raw)\n"
+            "  --rombank <soubor>  Banka, ktera jen POPISUJE obsah ROM (napr. 1mgm.sf2)\n"
+            "  --sbk <soubor>      Uzivatelska banka - .SBK (SoundFont 1.0) i .SF2\n"
+            "  --wav <soubor>      Misto prehrani v realnem case zapise vystup do .wav\n"
+            "  --debug-voices <n>  Vypise prvnich n spustenych hlasu i s registry\n"
+            "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
+            "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
+            "                      (SBAWE.VXD). Rodiny se lisi osmi hodnotami\n"
+            "                      v init polich, tabulkou velocity a vzorcem\n"
+            "                      utlumu - viz src/Awe32Driver.h.\n"
+            "  --master-volume N   Hlavni hlasitost sekvenceru AIL 0..127 (vychozi 127)\n"
+            "  --sbk <soubor>@<N>  Nacte banku do MIDI banky N (vyber pres CC0);\n"
+            "                      uzivatelske banky maji v phdr banku 0\n"
+            "  --only-ch <maska>   Prehraje jen vybrane MIDI kanaly\n"
+            "  --interp linear|cubic   Interpolace vzorku\n"
+            "  --reverb 0..7  --chorus 0..7   Preset efektu\n"
+            "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n\n"
+            "Banky lze zadat vicekrat a vrstvi se - pozdejsi prebiji drivejsi.\n"
+            "Typicke pouziti:\n"
+            "  --rom rom/awe32.raw --rombank rom/1mgm.sf2 --sbk sbk/BULLFROG.SBK\n";
     }
 }
 
@@ -59,19 +79,99 @@ int main(int argc, char** argv)
     }
 
     std::string inputPath;
-    std::string sbkPath;
+    std::string romPath;
     std::string wavPath;
+    std::string tracePath;
+    Awe32::Driver driver = Awe32::kDefaultDriver;
+    int masterVolume = 127;
+    int debugVoices = 0;
+    uint16_t channelMask = 0xFFFF;
+    std::string interp;
+    int revPreset = -1, choPreset = -1;
+    double revRoom = -1, revDamp = -1, revReturn = -1, choReturn = -1;
+    // (cesta, vzorky lezi ve wave ROM, cislo MIDI banky nebo -1) v poradi nacitani
+    struct BankArg { std::string path; bool inRom; int midiBank; };
+    std::vector<BankArg> bankPaths;
+
+    // "soubor.sbk@1" nacte banku do MIDI banky 1 (CC0). Uzivatelske banky
+    // maji v `phdr` bezne banku 0 a bez presunu by prebily GM presety.
+    auto splitBank = [](std::string a) {
+        const size_t at = a.rfind('@');
+        int b = -1;
+        if (at != std::string::npos && at + 1 < a.size()
+            && a.find_first_not_of("0123456789", at + 1) == std::string::npos)
+        {
+            b = std::atoi(a.c_str() + at + 1);
+            a.erase(at);
+        }
+        return std::make_pair(a, b);
+    };
 
     for (int i = 1; i < argc; ++i)
     {
         std::string arg = argv[i];
         if (arg == "--sbk" && i + 1 < argc)
         {
-            sbkPath = argv[++i];
+            auto [p2, b2] = splitBank(argv[++i]);
+            bankPaths.push_back({p2, false, b2});
+        }
+        else if (arg == "--rombank" && i + 1 < argc)
+        {
+            auto [p2, b2] = splitBank(argv[++i]);
+            bankPaths.push_back({p2, true, b2});
+        }
+        else if (arg == "--only-ch" && i + 1 < argc)
+        {
+            channelMask = 0;
+            std::string list = argv[++i];
+            size_t pos = 0;
+            while (pos < list.size())
+            {
+                size_t comma = list.find(',', pos);
+                if (comma == std::string::npos) comma = list.size();
+                const int ch = std::atoi(list.substr(pos, comma - pos).c_str());
+                if (ch >= 0 && ch < 16) channelMask |= static_cast<uint16_t>(1u << ch);
+                pos = comma + 1;
+            }
+        }
+        else if (arg == "--reverb" && i + 1 < argc)      { revPreset = std::atoi(argv[++i]); }
+        else if (arg == "--chorus" && i + 1 < argc)      { choPreset = std::atoi(argv[++i]); }
+        else if (arg == "--rev-room" && i + 1 < argc)    { revRoom = std::atof(argv[++i]); }
+        else if (arg == "--rev-damp" && i + 1 < argc)    { revDamp = std::atof(argv[++i]); }
+        else if (arg == "--rev-return" && i + 1 < argc)  { revReturn = std::atof(argv[++i]); }
+        else if (arg == "--cho-return" && i + 1 < argc)  { choReturn = std::atof(argv[++i]); }
+        else if (arg == "--interp" && i + 1 < argc)
+        {
+            interp = argv[++i];
+        }
+        else if (arg == "--debug-voices" && i + 1 < argc)
+        {
+            debugVoices = std::atoi(argv[++i]);
+        }
+        else if (arg == "--rom" && i + 1 < argc)
+        {
+            romPath = argv[++i];
         }
         else if (arg == "--wav" && i + 1 < argc)
         {
             wavPath = argv[++i];
+        }
+        else if (arg == "--trace" && i + 1 < argc)
+        {
+            tracePath = argv[++i];
+        }
+        else if (arg == "--master-volume" && i + 1 < argc)
+        {
+            masterVolume = std::clamp(std::atoi(argv[++i]), 0, 127);
+        }
+        else if (arg == "--driver" && i + 1 < argc)
+        {
+            if (!Awe32::DriverFromName(argv[++i], driver))
+            {
+                std::cerr << "Neznama varianta ovladace '" << argv[i]
+                          << "'. Pouzij 'dos' nebo 'win95'.\n";
+                return 1;
+            }
         }
         else if (arg == "-h" || arg == "--help")
         {
@@ -117,32 +217,95 @@ int main(int argc, char** argv)
     std::cout << "Nacteno: " << inputPath << " (" << sequence.events.size() << " udalosti, "
         << sequence.ticksPerQuarterNote << " ticku/ctvrtovou notu)\n";
 
-    // SoundFont/SBK banka - zatim jen informativni nacteni. Realne napojeni na
-    // Synth (vyber sample dat podle Program Change) je TODO, viz README a
-    // projektovy TODO seznam sekce 5.
-    if (!sbkPath.empty())
-    {
-        SoundFontSbk::SbkBank bank = SoundFontSbk::Load(sbkPath);
-        if (!bank.valid)
-        {
-            std::cerr << "Varovani: SBK banku se nepodarilo nacist: " << bank.errorMessage << "\n";
-        }
-        else
-        {
-            std::cout << "SBK banka '" << sbkPath << "' nactena, form type '" << bank.formType
-                << "', " << bank.chunks.size() << " chunku nalezeno.\n";
-            if (!bank.errorMessage.empty())
-                std::cout << "  Poznamka: " << bank.errorMessage << "\n";
-            std::cout << "  (Poznamka: vzorky z banky se zatim nenahravaji do emulovane DRAM - "
-                "hraje se nahradni sinusova tabulka, viz Synth::BuildDefaultWaveform)\n";
-        }
-    }
-
     constexpr uint32_t kSampleRate = 44100;
     constexpr uint32_t kFramesPerBuffer = 1024;
     constexpr double kTailSeconds = 1.5; // cas navic po posledni udalosti, aby dozneli release hlasy
 
     Synth synth(kSampleRate);
+
+    if (!romPath.empty())
+    {
+        std::string err;
+        if (!synth.LoadWaveRom(romPath, err))
+            std::cerr << "Varovani: " << err << "\n";
+        else
+            std::cout << "Wave ROM '" << romPath << "' nactena ("
+                      << synth.Core().RomSize() << " vzorku).\n";
+    }
+
+    // Banky se nacitaji v poradi, v jakem byly zadany; pozdejsi prebiji
+    // drivejsi. Typicky nejdriv popis GM banky v ROM, pak banka hry.
+    for (const auto& [path, inRom, midiBank] : bankPaths)
+    {
+        std::string err;
+        if (!synth.LoadBank(path, err, inRom, midiBank))
+        {
+            std::cerr << "Varovani: banku '" << path << "' se nepodarilo nacist: " << err << "\n";
+            continue;
+        }
+        const SoundFont::Bank& b = synth.BankAt(synth.BankCount() - 1);
+        std::cout << "Banka '" << path << "': SoundFont "
+                  << (b.version == SoundFont::Version::Sf1 ? "1.0" : "2.0")
+                  << ", " << b.presets.size() << " presetu, "
+                  << b.instruments.size() << " instrumentu, "
+                  << b.samples.size() << " vzorku";
+        if (inRom) std::cout << ", vzorky ve wave ROM";
+        if (midiBank >= 0) std::cout << ", MIDI banka " << midiBank;
+        if (!b.romName.empty()) std::cout << ", ocekava ROM '" << b.romName << "'";
+        std::cout << ".\n";
+
+        size_t romRefs = 0;
+        for (const SoundFont::Sample& sm : b.samples) if (sm.inRom) ++romRefs;
+        if ((romRefs || inRom) && !synth.Core().RomSize())
+            std::cerr << "Varovani: banka odkazuje vzorky do ROM, ale zadna ROM"
+                         " neni nactena (--rom).\n";
+    }
+
+    // Varianta ovladace musi byt nastavena pred PowerOnInit, protoze meni
+    // osm hodnot v init polich.
+    synth.Core().SetDriver(driver);
+    synth.Core().PowerOnInit();
+    std::cout << "Ovladac: " << Awe32::DriverName(driver) << "\n";
+
+    if (debugVoices > 0) synth.SetVoiceDebug(debugVoices);
+    synth.SetChannelMask(channelMask);
+    synth.SetMasterVolume(masterVolume);
+    if (interp == "linear") synth.Core().SetInterpolation(Emu8000Core::Interp::Linear);
+    else if (interp == "cubic") synth.Core().SetInterpolation(Emu8000Core::Interp::Cubic);
+    if (revPreset >= 0) synth.Core().SetReverbPreset(revPreset);
+    if (choPreset >= 0) synth.Core().SetChorusPreset(choPreset);
+    if (revRoom >= 0 && revDamp >= 0)
+        synth.Core().SetReverbRoom(static_cast<float>(revRoom), static_cast<float>(revDamp));
+    if (revReturn >= 0 || choReturn >= 0)
+        synth.Core().SetEffectReturns(static_cast<float>(revReturn < 0 ? 1.0 : revReturn),
+                                      static_cast<float>(choReturn < 0 ? 0.7 : choReturn));
+
+    // Zaznam portovych zapisu pro srovnani s 86Boxem. Vzorky uz jsou v DRAM
+    // (nahravaji se memcpy, ne pres SMLD), takze se vedle stopy ulozi i obraz
+    // DRAM - ref86box/emu8k_ref.exe si ho nacte pres --dram.
+    if (!tracePath.empty())
+    {
+        if (!synth.Core().OpenTrace(tracePath.c_str()))
+        {
+            std::cerr << "Nepodarilo se otevrit stopu '" << tracePath << "'.\n";
+            return 1;
+        }
+        // Inicializacni sekvence probehla uz v konstruktoru Synthu, takze by
+        // ve stope chybela. Zopakujeme ji - registry se tim vrati do stejneho
+        // stavu, jen ted i se zaznamem.
+        synth.Core().PowerOnInit();
+
+        const std::string dramPath = tracePath + ".dram.raw";
+        if (FILE* df = std::fopen(dramPath.c_str(), "wb"))
+        {
+            std::fwrite(synth.Core().DramData(), sizeof(int16_t),
+                        synth.Core().DramSize(), df);
+            std::fclose(df);
+            std::cout << "Stopa '" << tracePath << "' + DRAM "
+                      << synth.Core().DramSize() << " vzorku.\n";
+        }
+    }
+
     Sequencer sequencer;
     sequencer.Load(sequence);
 
@@ -173,6 +336,7 @@ int main(int argc, char** argv)
             wav.Write(block.data(), kFramesPerBuffer);
         }
         wav.Close();
+        synth.Core().CloseTrace();
         std::cout << "Hotovo.\n";
         return 0;
     }

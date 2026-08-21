@@ -134,16 +134,13 @@ namespace XmiFile
                 uint8_t metaType = data[p++];
                 uint32_t len = ReadSmfVLQ(data, p);
 
-                if (metaType == 0x51 && len == 3 && p + 3 <= data.size())
-                {
-                    uint32_t usPerQuarter = (data[p] << 16) | (data[p + 1] << 8) | data[p + 2];
-                    MidiEvent ev;
-                    ev.absoluteTick = absoluteTick;
-                    ev.type = MidiEventType::TempoChange;
-                    ev.tempoUsPerQuarter = usPerQuarter;
-                    events.push_back(ev);
-                }
-                else if (metaType == 0x2F)
+                // Tempo meta se v XMI ZAMERNE ignoruje. XMI bezi na pevnem
+                // hodinovem taktu 120 Hz - hodnota v FF 51 slouzi jen pri
+                // konverzi do SMF k dopoctu PPQN, ne k prehravani. Overeno na
+                // 000_C2GAME1_w.xmi: 52755 ticku / 120 Hz = 439.6 s, coz sedi
+                // na referencni nahravku (441.9 s), zatimco s tempem 560748
+                // by vyslo 493 s.
+                if (metaType == 0x2F)
                 {
                     MidiEvent ev;
                     ev.absoluteTick = absoluteTick;
@@ -164,7 +161,11 @@ namespace XmiFile
                 if (p + 2 > data.size()) break;
                 uint8_t note = data[p++];
                 uint8_t velocity = data[p++];
-                uint32_t duration = ReadXmiInterval(data, p);
+                // POZOR: delka noty NENI kodovana jako delta-time interval, ale
+                // jako standardni SMF VLQ (pokracovaci bit 0x80). Zamena obou
+                // kodovani rozhodi cely stream - parser pak skoncil po par
+                // stovkach udalosti misto nekolika tisic.
+                uint32_t duration = ReadSmfVLQ(data, p);
 
                 MidiEvent onEv;
                 onEv.absoluteTick = absoluteTick;

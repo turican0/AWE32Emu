@@ -1,6 +1,6 @@
 # EMU8000 - registrova mapa odvozena z AWEUTIL.COM
 
-Zdroj: IDA disassembly `SoundBlaster AWE32/SBAWE32/AWEUTIL.COM.asm`
+Zdroj: IDA disassembly `../AWE32EmuData/SoundBlaster AWE32/SBAWE32/AWEUTIL.COM.asm`
 (AWEUTIL TSR Version 1.01, francouzska lokalizace,
 SHA256 `2D3DCA0506FE4551BBC3BF56398A8076680358F57A3827D1FB748BC680B95988`).
 

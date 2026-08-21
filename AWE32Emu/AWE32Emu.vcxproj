@@ -53,7 +53,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>Disabled</Optimization>
@@ -68,7 +68,7 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>MaxSpeed</Optimization>
@@ -90,18 +90,22 @@
     <ClCompile Include="src\XmiFile.cpp" />
     <ClCompile Include="src\Sequencer.cpp" />
     <ClCompile Include="src\Synth.cpp" />
-    <ClCompile Include="src\SoundFontSbk.cpp" />
+    <ClCompile Include="src\SoundFont.cpp" />
     <ClCompile Include="src\AudioOutputWin.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Emu8000.h" />
     <ClInclude Include="src\Emu8000Regs.h" />
+    <ClInclude Include="src\Awe32Curves.h" />
+    <ClInclude Include="src\Awe32InitArrays.h" />
+    <ClInclude Include="src\Awe32Driver.h" />
+    <ClInclude Include="src\Emu8000Effects.h" />
     <ClInclude Include="src\MidiTypes.h" />
     <ClInclude Include="src\MidiFile.h" />
     <ClInclude Include="src\XmiFile.h" />
     <ClInclude Include="src\Sequencer.h" />
     <ClInclude Include="src\Synth.h" />
-    <ClInclude Include="src\SoundFontSbk.h" />
+    <ClInclude Include="src\SoundFont.h" />
     <ClInclude Include="src\AudioOutputWin.h" />
     <ClInclude Include="src\WavWriter.h" />
   </ItemGroup>
