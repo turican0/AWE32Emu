@@ -544,14 +544,21 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     }
 
     // SF1 uklada initialFilterFc jako 0..127, kdezto registr IFATN ma cutoff
-    // 8bitovy (0..255), takze ovladac hodnotu zdvojnasobuje. Overeno trojmo:
-    //   - SBAWE.VXD orezava pole cutoffu na 0..255 (obj 1, 0x2547)
-    //   - v SYNTHGM.SBK neni zadna hodnota vetsi nez 127
-    //   - ve stope zapisuje ovladac presne 2x nasi hodnotu u vsech 242 not
-    // Viz docs/re-notes/86box_srovnani.md sekce 9.5.
+    // 8bitovy. Prevod je **roztazeni rozsahu**, ne prosty dvojnasobek:
+    //
+    //     cutoff = v * 255 / 127
+    //
+    // Pro v < 127 to dava presne `2*v` (proto to na 242 notach MINUETu
+    // sedelo), ale pro v = 127 to dava **255**, ne 254. Zmereno na dvou
+    // notach presetu 52 'Choir Aahs' ze `SYNTHGM.SBK` v Magic Carpet 2:
+    // ovladac zapsal `IFATN = FF1D`, my `FE1D`. Potvrzuje to i tabulka
+    // vychozich hodnot generatoru v obou ovladacich (MDI 0x16AD,
+    // VXD 0x6D60), kde ma generator 8 hodnotu 255 - tedy uz prevedenou.
+    // Viz docs/re-notes/86box_srovnani.md sekce 9.5 a 17.
     int cutoff;
     if (!g.Has(Gen::InitialFilterFc)) cutoff = 255;
-    else if (sf1)                     cutoff = std::clamp<int>(g.value[Gen::InitialFilterFc] * 2, 0, 255);
+    else if (sf1)                     cutoff = std::clamp<int>(
+                                          g.value[Gen::InitialFilterFc] * 255 / 127, 0, 255);
     else                              cutoff = FilterFcFromAbsCents(g.value[Gen::InitialFilterFc]);
 
     // Spodni bajt (utlum) doplni Synth podle krivek z ovladace.
