@@ -109,8 +109,14 @@ namespace
     // Absolutni centy (SF2) -> jednotky IFATN (ctvrt pultonu od 125 Hz).
     int FilterFcFromAbsCents(int cents)
     {
-        const double base = 1200.0 * std::log2(Emu8000::kCutoffBaseHz / 8.176);
-        return std::clamp(static_cast<int>(std::lround((cents - base) / 25.0)), 0, 255);
+        // Musi davat tentyz registr jako cesta pres SF1, jinak tataz banka
+        // ve dvou formatech zni jinak. Presne to se nam stalo: `SYNTHGM.SBK`
+        // davalo u klaviru IFATN `dc30` (cutoff 220) a `SYNTHGM.SF2` `f542`
+        // (cutoff 245), protoze tady byl krok 25 centu misto 29,3843
+        // a zaklad 125 Hz misto 101,81 Hz. Spravna je hodnota z SF1 - ta
+        // sedi proti skutecnemu ovladaci na 242 notach.
+        return std::clamp(static_cast<int>(std::lround(
+            (cents - Emu8000::kCutoffBaseCents) / Emu8000::kCutoffCentsStep)), 0, 255);
     }
 
     int8_t ClampS8(int v) { return static_cast<int8_t>(std::clamp(v, -128, 127)); }
@@ -617,7 +623,24 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         // Zmereno v poli hlasu na +0x4A (DCYSUSV) a +0x3A (DCYSUS) u vsech
         // 242 not; pro klavir je doznivani spravne.
         if (!g.Has(op)) return 0;
-        if (sf1) return std::clamp<int>(g.value[op], 0, 0x7F);
+        // SF1: uroven sustainu v celych decibelech nad tichem, registr ma
+        // kroky po 0.75 dB - pomer je tedy 4/3, ne 1:1.
+        //
+        // Programmer's Guide k DCYSUSV: "bits 14-8 are the volume envelope
+        // sustain level in 0.75dB increments, with 0x7f being no
+        // attenuation". Prevod overen na bance, kterou mame v obou
+        // formatech: `SYNTHGM.SBK` (SF1) a `SYNTHGM.SF2` z DOSoveho SDK
+        // popisuji tytez presety, takze z nich jde odecist SF1 -> centibely:
+        //
+        //     SF1  99 -> 0 cB    -> registr 127     (99*4/3 = 132, orez)
+        //     SF1  93 -> 23 cB   -> registr 123.9   (124.0)
+        //     SF1  92 -> 34 cB   -> registr 122.5   (122.7)
+        //     SF1  90 -> 55 cB   -> registr 119.7   (120.0)
+        //     SF1  87 -> 86 cB   -> registr 115.5   (116.0)
+        //
+        // Sedi to i s merenim: u presetu 52 'Choir Aahs' ma banka sustain 99
+        // a ovladac zapsal 0x7F, kdezto my jsme posilali 0x63 (= 99 syrove).
+        if (sf1) return std::clamp<int>(g.value[op] * 4 / 3, 0, 0x7F);
         // SF2: centibely utlumu, 0 = plna uroven
         return std::clamp(127 - static_cast<int>(std::lround(
             g.value[op] / 10.0 / kSustainDbPerStep)), 0, 127);
