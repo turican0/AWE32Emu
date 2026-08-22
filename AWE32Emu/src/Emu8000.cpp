@@ -102,12 +102,14 @@ namespace
     // zero and the filter cutoff to 0xFF, the filter does not alter the
     // signal." Pri ctvrt pultonech by filtr porad rezal na 5 kHz a bral
     // vysky, ktere v referencnich nahravkach jsou.
-    inline constexpr double kCutoffTopHz = 8000.0;
+    // Kmitocet pri registru 0xFF, dopocitany ze zakladu a kroku v centech.
+    inline constexpr double kCutoffTopHz =
+        Emu8000::kCutoffBaseHz * 30.31287;   // 2^(255*29.3843/1200) = 7717 Hz
 
-    double CutoffOctaves(double cutoffReg)
+    double CutoffOctaves(double cutoffReg, double topHz = kCutoffTopHz)
     {
         // kolik oktav nad zakladem lezi dana registrova hodnota
-        const double octavesTotal = std::log2(kCutoffTopHz / kCutoffBaseHz);
+        const double octavesTotal = std::log2(topHz / kCutoffBaseHz);
         return std::clamp(cutoffReg, 0.0, 255.0) / 255.0 * octavesTotal;
     }
 
@@ -822,13 +824,13 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         // ---- filtr -----------------------------------------------------
         // Modulace se pocitaji rovnou v oktavach, jak je udava manual:
         // PEFE lo +-6 oktav, FMMOD lo +-3 oktavy.
-        double octaves = CutoffOctaves(initialCutoff);
+        double octaves = CutoffOctaves(initialCutoff, m_filterTopHz);
         octaves += vs.modLevel * LoSigned(pefe)  / 127.0 * kPefeFilterOctaves;
         octaves += lfo1        * LoSigned(fmmod) / 127.0 * kFmmodFilterOctaves;
 
         double filtered;
         const double filterIn = sample * filterInputGain;
-        if (bypassFilter && octaves >= CutoffOctaves(255.0) - 1e-9)
+        if (bypassFilter && octaves >= CutoffOctaves(255.0, m_filterTopHz) - 1e-9)
         {
             // "If the Q of the channel is programmed to zero and the filter
             // cutoff to 0xFF, the filter does not alter the signal." [PG]
@@ -848,12 +850,34 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             const double a2 = g * a1;
             const double a3 = g * a2;
 
-            const double v3 = filterIn - vs.filtIc2;
-            const double v1 = a1 * vs.filtIc1 + a2 * v3;
-            const double v2 = vs.filtIc2 + a2 * vs.filtIc1 + a3 * v3;
-            vs.filtIc1 = 2.0 * v1 - vs.filtIc1;
-            vs.filtIc2 = 2.0 * v2 - vs.filtIc2;
-            filtered = v2;   // low-pass vystup
+            if (m_filterPoles == 1)
+            {
+                // jednopolovy (6 dB/okt) - na porovnani, jak strmy filtr
+                // skutecna karta vlastne ma
+                const double a = g / (1.0 + g);
+                vs.filtLp1 += a * (filterIn - vs.filtLp1);
+                filtered = vs.filtLp1;
+            }
+            else
+            {
+                const double v3 = filterIn - vs.filtIc2;
+                const double v1 = a1 * vs.filtIc1 + a2 * v3;
+                const double v2 = vs.filtIc2 + a2 * vs.filtIc1 + a3 * v3;
+                vs.filtIc1 = 2.0 * v1 - vs.filtIc1;
+                vs.filtIc2 = 2.0 * v2 - vs.filtIc2;
+                filtered = v2;   // low-pass vystup
+
+                if (m_filterPoles >= 4)
+                {
+                    // druhy stejny stupen v kaskade = 24 dB na oktavu
+                    const double w3 = filtered - vs.filtIc4;
+                    const double w1 = a1 * vs.filtIc3 + a2 * w3;
+                    const double w2 = vs.filtIc4 + a2 * vs.filtIc3 + a3 * w3;
+                    vs.filtIc3 = 2.0 * w1 - vs.filtIc3;
+                    vs.filtIc4 = 2.0 * w2 - vs.filtIc4;
+                    filtered = w2;
+                }
+            }
         }
 
         // ---- hlasitost --------------------------------------------------

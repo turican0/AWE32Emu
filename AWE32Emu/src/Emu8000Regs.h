@@ -191,7 +191,29 @@ namespace Emu8000
     // pultonu od 125 Hz, bity 7-0 = utlum po 0.375 dB (0xFF = 96 dB).
     inline constexpr double kAttenDbPerStep  = 0.375;
     inline constexpr double kAttenMaxDb      = 96.0;
-    inline constexpr double kCutoffBaseHz    = 125.0;
+    // Mezni kmitocet filtru pri registrove hodnote 0: **101,81 Hz**, a jeden
+    // krok registru je 29,3843 centu (40,84 kroku na oktavu), takze registr
+    // 0xFF vychazi na 7717 Hz.
+    //
+    // Neni to odhad z protirecici si dokumentace. `SYNTHGM.SBK` (SF1)
+    // a `SYNTHGM.SF2` z DOSoveho SDK popisuji tytez presety, jen v jinych
+    // jednotkach - z te dvojice jde odecist prevod primo:
+    //
+    //     SF1   4 -> 4602 centu       SF1  89 ->  9617
+    //     SF1  54 -> 7552             SF1 101 -> 10325
+    //     SF1  60 -> 7906             SF1 105 -> 10561
+    //
+    // Rozestupy vychazeji na presnych 59,0 centu na krok SF1 (2950/50,
+    // 354/6, 1711/29, 708/12, 236/4). Extrapolace na SF1 0 dava 4366 centu
+    // = 101,81 Hz - tedy tech "100 Hz", ktere uvadi i komentar v 86Boxu.
+    // Registr je dvojnasobek SF1 (presneji x255/127), takze na krok registru
+    // pripada 59 * 127/255 = 29,3843 centu.
+    //
+    // Zvlastni pripad: **SF1 127 ma v SF2 hodnotu 14400 centu** (33 kHz),
+    // coz neni bod na te primce, ale "filtr dokoran".
+    inline constexpr double kCutoffBaseHz     = 101.81;
+    inline constexpr double kCutoffBaseCents  = 4366.0;
+    inline constexpr double kCutoffCentsStep  = 29.3843;
     inline constexpr int    kCutoffPerOctave = 48;    // ctvrt pultonu
 
     // ENVVOL / ENVVAL / LFO1VAL / LFO2VAL [PG]: 0x8000 = bez prodlevy,

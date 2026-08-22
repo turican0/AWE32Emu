@@ -92,6 +92,16 @@ public:
     enum class Interp { Linear, Cubic };
     void SetInterpolation(Interp i) { m_interp = i; }
 
+    // Ladici parametry filtru. Programmer's Guide si u meznich kmitoctu
+    // protireci (ctvrt pultony vs "0xFF = 8 kHz") a proti skutecne karte nam
+    // nad 3 kHz chybi energie, takze se to musi dat proměřit.
+    //   topHz  - kmitocet pri registrove hodnote 0xFF
+    //   poles  - 1, 2 nebo 4 (6, 12 nebo 24 dB na oktavu)
+    void SetFilterTopHz(double hz) { m_filterTopHz = hz; }
+    void SetFilterPoles(int p)     { m_filterPoles = p; }
+    double FilterTopHz() const     { return m_filterTopHz; }
+    int    FilterPoles() const     { return m_filterPoles; }
+
     // Ladici pristup k efektum - velikost prostoru a tlumeni reverbu nejsou
     // odvozene z hardwaru (init pole jsou DSP koeficienty), takze se overuji
     // merenim proti referencnim nahravkam.
@@ -143,6 +153,9 @@ private:
         // low-pass filtr (topology-preserving SVF, viz poznamka v .cpp)
         double filtIc1 = 0.0;
         double filtIc2 = 0.0;
+        double filtIc3 = 0.0;   // druhy stupen pri --filter-poles 4
+        double filtIc4 = 0.0;
+        double filtLp1 = 0.0;   // jednopolovy filtr pri --filter-poles 1
     };
 
     void RenderNative(float* outL, float* outR, uint32_t numFrames);
@@ -156,6 +169,8 @@ private:
 
     uint32_t m_outputRate;
     Interp m_interp = Interp::Cubic;
+    double m_filterTopHz = 8000.0;
+    int    m_filterPoles = 2;
     float m_reverbReturn = 1.0f;
     float m_chorusReturn = 0.7f;
     uint16_t m_basePort = 0x220;

@@ -63,7 +63,9 @@ namespace
             "  --only-ch <maska>   Prehraje jen vybrane MIDI kanaly\n"
             "  --interp linear|cubic   Interpolace vzorku\n"
             "  --reverb 0..7  --chorus 0..7   Preset efektu\n"
-            "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n\n"
+            "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n"
+            "  --filter-top <Hz>   Mezni kmitocet pri registru 0xFF (vychozi 8000)\n"
+            "  --filter-poles 1|2|4  Strmost filtru 6/12/24 dB na oktavu (vychozi 2)\n\n"
             "Banky lze zadat vicekrat a vrstvi se - pozdejsi prebiji drivejsi.\n"
             "Typicke pouziti:\n"
             "  --rom rom/awe32.raw --rombank rom/1mgm.sf2 --sbk sbk/BULLFROG.SBK\n";
@@ -84,6 +86,8 @@ int main(int argc, char** argv)
     std::string tracePath;
     Awe32::Driver driver = Awe32::kDefaultDriver;
     int masterVolume = 127;
+    double filterTop = -1;
+    int filterPoles = -1;
     int debugVoices = 0;
     uint16_t channelMask = 0xFFFF;
     std::string interp;
@@ -159,6 +163,14 @@ int main(int argc, char** argv)
         else if (arg == "--trace" && i + 1 < argc)
         {
             tracePath = argv[++i];
+        }
+        else if (arg == "--filter-top" && i + 1 < argc)
+        {
+            filterTop = std::atof(argv[++i]);
+        }
+        else if (arg == "--filter-poles" && i + 1 < argc)
+        {
+            filterPoles = std::atoi(argv[++i]);
         }
         else if (arg == "--master-volume" && i + 1 < argc)
         {
@@ -270,6 +282,8 @@ int main(int argc, char** argv)
     if (debugVoices > 0) synth.SetVoiceDebug(debugVoices);
     synth.SetChannelMask(channelMask);
     synth.SetMasterVolume(masterVolume);
+    if (filterTop > 0)    synth.Core().SetFilterTopHz(filterTop);
+    if (filterPoles > 0)  synth.Core().SetFilterPoles(filterPoles);
     if (interp == "linear") synth.Core().SetInterpolation(Emu8000Core::Interp::Linear);
     else if (interp == "cubic") synth.Core().SetInterpolation(Emu8000Core::Interp::Cubic);
     if (revPreset >= 0) synth.Core().SetReverbPreset(revPreset);
