@@ -16,6 +16,7 @@
 #include "AudioOutputWin.h"
 #include "WavWriter.h"
 
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -54,6 +55,8 @@ namespace
             "  --debug-voices <n>  Vypise prvnich n spustenych hlasu i s registry\n"
             "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
+            "  --chip nas|86box   Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
+            "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
             "                      (SBAWE.VXD). Rodiny se lisi osmi hodnotami\n"
             "                      v init polich, tabulkou velocity a vzorcem\n"
             "                      utlumu - viz src/Awe32Driver.h.\n"
@@ -91,6 +94,7 @@ int main(int argc, char** argv)
     int debugVoices = 0;
     uint16_t channelMask = 0xFFFF;
     std::string interp;
+    std::string chip;
     int revPreset = -1, choPreset = -1;
     double revRoom = -1, revDamp = -1, revReturn = -1, choReturn = -1;
     // (cesta, vzorky lezi ve wave ROM, cislo MIDI banky nebo -1) v poradi nacitani
@@ -176,6 +180,10 @@ int main(int argc, char** argv)
         {
             masterVolume = std::clamp(std::atoi(argv[++i]), 0, 127);
         }
+        else if (arg == "--chip" && i + 1 < argc)
+        {
+            chip = argv[++i];
+        }
         else if (arg == "--driver" && i + 1 < argc)
         {
             if (!Awe32::DriverFromName(argv[++i], driver))
@@ -245,6 +253,25 @@ int main(int argc, char** argv)
                       << synth.Core().RomSize() << " vzorku).\n";
     }
 
+    // Cip z 86Boxu se musi zapnout drive, nez pujde prvni zapis na porty -
+    // tedy pred SetDriver/PowerOnInit nize.
+    if (chip == "86box")
+    {
+        std::string err;
+        if (!synth.Core().UseBox86Chip(romPath, err))
+        {
+            std::cerr << "Cip 86box se nepodarilo zapnout: " << err << "\n";
+            return 1;
+        }
+        std::cout << "Jadro cipu: nezmeneny snd_emu8k.c z 86Boxu (latence "
+                  << synth.Core().ChipLatencyFrames() << " snimku).\n";
+    }
+    else if (!chip.empty() && chip != "nas")
+    {
+        std::cerr << "Neznamy --chip '" << chip << "'; znamé jsou nas a 86box.\n";
+        return 1;
+    }
+
     // Banky se nacitaji v poradi, v jakem byly zadany; pozdejsi prebiji
     // drivejsi. Typicky nejdriv popis GM banky v ROM, pak banka hry.
     for (const auto& [path, inRom, midiBank] : bankPaths)
@@ -271,6 +298,19 @@ int main(int argc, char** argv)
         if ((romRefs || inRom) && !synth.Core().RomSize())
             std::cerr << "Varovani: banka odkazuje vzorky do ROM, ale zadna ROM"
                          " neni nactena (--rom).\n";
+    }
+
+    // Vzorky bank lezi v nasi DRAM; cip z 86Boxu ma svoji vlastni, takze se
+    // musi prekopirovat. Obe zacinaji na EMU8K_RAM_MEM_START, takze bez posunu.
+    if (synth.Core().ChipVariant() == Emu8000Core::Chip::Box86)
+    {
+        if (int16_t* ram = synth.Core().ChipRam())
+        {
+            const size_t n = std::min(synth.Core().DramSize(),
+                                      synth.Core().ChipRamWords());
+            std::memcpy(ram, synth.Core().DramData(), n * sizeof(int16_t));
+            std::cout << "Do cipu 86box nakopirovano " << n << " vzorku DRAM.\n";
+        }
     }
 
     // Varianta ovladace musi byt nastavena pred PowerOnInit, protoze meni
@@ -339,15 +379,27 @@ int main(int argc, char** argv)
         }
 
         std::cout << "Renderuji do '" << wavPath << "'...\n";
+        // Cip z 86Boxu vydava zvuk o blok pozadu; ta latence se na zacatku
+        // zahodi a na konci se dorenderuje, takze soubor sedi snimek na snimek
+        // s emu8k_ref.exe.
+        uint32_t skip = synth.Core().ChipLatencyFrames();
+        auto writeTrimmed = [&](const int16_t* buf, uint32_t frames)
+        {
+            if (skip >= frames) { skip -= frames; return; }
+            wav.Write(buf + skip * 2, frames - skip);
+            skip = 0;
+        };
         while (sequencer.HasMoreEvents())
         {
             sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
-            wav.Write(block.data(), kFramesPerBuffer);
+            writeTrimmed(block.data(), kFramesPerBuffer);
         }
-        for (uint32_t i = 0; i < tailBlocks; ++i)
+        const uint32_t extra = tailBlocks
+            + (synth.Core().ChipLatencyFrames() + kFramesPerBuffer - 1) / kFramesPerBuffer;
+        for (uint32_t i = 0; i < extra; ++i)
         {
             sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
-            wav.Write(block.data(), kFramesPerBuffer);
+            writeTrimmed(block.data(), kFramesPerBuffer);
         }
         wav.Close();
         synth.Core().CloseTrace();

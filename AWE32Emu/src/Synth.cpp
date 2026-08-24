@@ -172,6 +172,14 @@ void Synth::ReleaseVoice(int voice)
 {
     m_core.Write(Reg::DCYSUSV, voice,
                  Emu8000::kDcysusvRelease | (m_alloc[voice].releaseRate & 0x7F));
+    // `SBAWE.VXD` uvolnuje **obe** obalky - hned za DCYSUSV posila DCYSUS
+    // s vlastni rychlosti (ReleaseModEnv). Zmereno v georg_win95.trace,
+    // kde dvojice DCYSUSV 8029 / DCYSUS 8027 stoji u kazdeho note-offu;
+    // odtud i dvojnasobny pocet zapisu do DCYSUS v census u trace_diff.
+    // `SBAWE32.MDI` to nedela.
+    if (m_core.DriverVariant() == Awe32::Driver::Win95)
+        m_core.Write(Reg::DCYSUS, voice,
+                     Emu8000::kDcysusvRelease | (m_alloc[voice].releaseModRate & 0x7F));
     m_alloc[voice].inUse = false;
     m_alloc[voice].heldBySustain = false;
 }
@@ -293,24 +301,8 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
 
     const int pitch = std::clamp(vp.ip + PitchBendOffset(channel), 0, 65535);
 
-    // Poradi zapisu je stejne jako v SBAWE32.DRV: nejdriv hlas umlcet,
-    // pak vsechny parametry, a DCYSUSV az uplne nakonec.
-    m_core.Write(Reg::DCYSUSV, voice, Emu8000::kDcysusvOff);
-    m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
-    // CVCF pise pri note-on jen windowsovy ovladac; `SBAWE32.MDI` na nej
-    // nesahá vubec (v jeho note-on rutine od 0x2175 zadny zapis do Data0
-    // registru 2 neni a ve stope z Magic Carpet 2 CVCF u zadne z 341 not
-    // nefiguruje).
-    if (drv == Awe32::Driver::Win95)
-        m_core.Write(Reg::CVCF, voice, 0x0000FFFFu);
-
-    m_core.Write(Reg::PSST, voice, psst);
-    m_core.Write(Reg::CSL,  voice, csl);
-    // Pocatecni adresa se posouva o konstantu zavislou na rodine ovladace.
-    const uint32_t ccca = (vp.ccca & ~Emu8000::kCccaAddressMask)
-        | ((vp.sampleStart - Awe32::StartAddressOffset(drv))
-           & Emu8000::kCccaAddressMask);
-    m_core.Write(Reg::CCCA, voice, ccca);
+    const uint32_t reverbByte =
+        static_cast<uint32_t>(std::clamp(reverb, 0, 255)) << Emu8000::kReverbShift;
     // Spodni bajt PTRX je doplnkova panorama. `SBAWE.VXD` tam dava 256 - pan
     // (pri pan 0x7F zapisuje 0x81), zmereno v poli hlasu na +0x24.
     // `SBAWE32.MDI` tam nechava **nulu** - zmereno na 341 notach z Magic
@@ -318,69 +310,89 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     const uint32_t panAux = (drv == Awe32::Driver::Win95)
         ? static_cast<uint32_t>(std::clamp(256 - pan, 0, 255))
         : 0u;
-
-    // Horni pulka PTRX (a stejne tak CPF) neni logaritmicke IP, ale
-    // **linearni prirustek**. Prepis z SBAWE.VXD (objekt 1, 0x212E):
-    // 2^(IP/4096) se pocita po oktavach a trech pulkrocich v pevne radove
-    // carce, nakonec se nasobi 1,25. Overeno na trech notach presne.
-    // PTRX a CPF resi kazda rodina jinak.
-    //
-    // `SBAWE.VXD` si prirustek spocita sam (PitchIncrement) a zapise ho do
-    // horni pulky PTRX i CPF.
-    //
-    // `SBAWE32.MDI` **nic nepocita**: precte si PTRX zpatky (`read_reg32`
-    // na 0x182C), nechá jeho horni slovo i spodni bajt beze zmeny a prepise
-    // jen bajt s reverb sendem (0x227C..0x22B3). Cilovou vysku si tedy drzi
-    // sam cip. Ze to tak je, se overilo tim, ze hodnoty PTRX^ ve stope presne
-    // odpovidaji tomu, co si dopocital 86Box (`freqtable[ip] >> 18`), a ne
-    // necemu, co by pocital ovladac. CPF ani CVCF MDI pri note-on nezapisuje.
-    const uint32_t reverbByte =
-        static_cast<uint32_t>(std::clamp(reverb, 0, 255)) << Emu8000::kReverbShift;
+    // Pocatecni adresa se posouva o konstantu zavislou na rodine ovladace.
+    const uint32_t ccca = (vp.ccca & ~Emu8000::kCccaAddressMask)
+        | ((vp.sampleStart - Awe32::StartAddressOffset(drv))
+           & Emu8000::kCccaAddressMask);
 
     if (drv == Awe32::Driver::Win95)
     {
+        // Presny sled zapisu `SBAWE.VXD`, odectený z `georg_win95.trace`
+        // (`tests/voice_seq.py --note N`). Overeno, ze je u vsech not a hlasu
+        // stejny - viz docs/re-notes/driver_note_on.md, "Cely sled zapisu".
+        //
+        // Horni pulka PTRX (a stejne tak CPF) neni logaritmicke IP, ale
+        // **linearni prirustek** - prepis z SBAWE.VXD (objekt 1, 0x212E).
         const uint32_t increment = PitchIncrement(static_cast<uint16_t>(pitch));
-        m_core.Write(Reg::PTRX, voice, (increment << 16) | reverbByte | panAux);
-        m_core.Write(Reg::CPF, voice, increment << 16);
-    }
-
-    m_core.Write(Reg::IP,      voice, static_cast<uint16_t>(pitch));
-
-    // MDI cte PTRX **az po zapisu IP**, aby v nem uz byla cilova vyska, kterou
-    // si cip z IP dopocital. Poradi je tedy podstatne, ne nahodne.
-    if (drv == Awe32::Driver::Dos)
-    {
-        const uint32_t cur = m_core.Read(Reg::PTRX, voice);
-        m_core.Write(Reg::PTRX, voice, (cur & 0xFFFF00FFu) | reverbByte);
-    }
-
-    m_core.Write(Reg::IFATN,   voice, ifatn);
-    m_core.Write(Reg::PEFE,    voice, vp.pefe);
-    m_core.Write(Reg::FMMOD,   voice, vp.fmmod);
-    m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
-    m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
-
-    m_core.Write(Reg::ENVVAL,  voice, vp.envval);
-    m_core.Write(Reg::ATKHLD,  voice, vp.atkhld);
-    m_core.Write(Reg::DCYSUS,  voice, vp.dcysus);
-    m_core.Write(Reg::LFO1VAL, voice, vp.lfo1val);
-    m_core.Write(Reg::LFO2VAL, voice, vp.lfo2val);
-
-    // Windowsovy ovladac na zaver prepise VTFT i CVCF cilovym meznim
-    // kmitoctem filtru (SBAWE.VXD obj 1, 0x22A0 a 0x22B3: obe dostanou
-    // `0 << 16 | cutoff << 8`).
-    //
-    // `SBAWE32.MDI` tohle **nedela** - ve stope z Magic Carpet 2 ma VTFT
-    // porad 0x0000FFFF z uvodu note-on a CVCF nezapisuje vubec.
-    if (drv == Awe32::Driver::Win95)
-    {
         const uint32_t filterTarget = static_cast<uint32_t>(cutoff) << 8;
+
+        // Umlceni: ovladac pise 0x00FF, ne 0x0080. VTFT jde dvakrat.
+        m_core.Write(Reg::DCYSUSV, voice, 0x00FFu);
+        m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
+        m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
+        m_core.Write(Reg::CVCF,    voice, 0x0000FFFFu);
+
+        m_core.Write(Reg::ATKHLDV, voice, vp.atkhldv);
+        m_core.Write(Reg::LFO1VAL, voice, vp.lfo1val);
+        m_core.Write(Reg::ATKHLD,  voice, vp.atkhld);
+        m_core.Write(Reg::DCYSUS,  voice, vp.dcysus);
+        m_core.Write(Reg::LFO2VAL, voice, vp.lfo2val);
+        m_core.Write(Reg::IP,      voice, static_cast<uint16_t>(pitch));
+        m_core.Write(Reg::IFATN,   voice, ifatn);
+        m_core.Write(Reg::PEFE,    voice, vp.pefe);
+        m_core.Write(Reg::FMMOD,   voice, vp.fmmod);
+        m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
+        m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
+        m_core.Write(Reg::ENVVAL,  voice, vp.envval);
+        m_core.Write(Reg::ENVVOL,  voice, vp.envvol);
+
+        // Vynulovani pred adresami; teprve na konci se sem daji prave hodnoty.
+        m_core.Write(Reg::PTRX, voice, 0u);
+        m_core.Write(Reg::CPF,  voice, 0u);
+        m_core.Write(Reg::PSST, voice, psst);
+        m_core.Write(Reg::CSL,  voice, csl);
+        // CCCA dvakrat: nejdriv bez Q v hornim bajtu, pak s nim. Kdyz je Q
+        // nula, jsou oba zapisy stejne - to ve stope taky sedi.
+        m_core.Write(Reg::CCCA, voice, ccca & 0x00FFFFFFu);
+        // Z1/Z2 (Data0 registry 5 a 4) ovladac u kazde noty nuluje. Co presne
+        // znamenaji, nevime; 86Box je drzi jen jako ulozene slovo.
+        m_core.Write(Reg::Unk0088, voice, 0u);   // Z1
+        m_core.Write(Reg::Unk0080, voice, 0u);   // Z2
+        m_core.Write(Reg::CCCA, voice, ccca);
+
         m_core.Write(Reg::VTFT, voice, filterTarget);
         m_core.Write(Reg::CVCF, voice, filterTarget);
+        m_core.Write(Reg::PTRX, voice, (increment << 16) | reverbByte | panAux);
+        m_core.Write(Reg::CPF,  voice, increment << 16);
+    }
+    else
+    {
+        // `SBAWE32.MDI`: jine poradi i jiny obsah. Overeno na 255 notach
+        // z Magic Carpet 2, takze se tenhle blok nemeni.
+        m_core.Write(Reg::DCYSUSV, voice, Emu8000::kDcysusvOff);
+        m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
+        m_core.Write(Reg::PSST, voice, psst);
+        m_core.Write(Reg::CSL,  voice, csl);
+        m_core.Write(Reg::CCCA, voice, ccca);
+        m_core.Write(Reg::IP,   voice, static_cast<uint16_t>(pitch));
+        // MDI cte PTRX **az po zapisu IP**, aby v nem uz byla cilova vyska,
+        // kterou si cip z IP dopocital, a prepise jen bajt s reverb sendem.
+        const uint32_t cur = m_core.Read(Reg::PTRX, voice);
+        m_core.Write(Reg::PTRX, voice, (cur & 0xFFFF00FFu) | reverbByte);
+        m_core.Write(Reg::IFATN,   voice, ifatn);
+        m_core.Write(Reg::PEFE,    voice, vp.pefe);
+        m_core.Write(Reg::FMMOD,   voice, vp.fmmod);
+        m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
+        m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
+        m_core.Write(Reg::ENVVAL,  voice, vp.envval);
+        m_core.Write(Reg::ATKHLD,  voice, vp.atkhld);
+        m_core.Write(Reg::DCYSUS,  voice, vp.dcysus);
+        m_core.Write(Reg::LFO1VAL, voice, vp.lfo1val);
+        m_core.Write(Reg::LFO2VAL, voice, vp.lfo2val);
+        m_core.Write(Reg::ENVVOL,  voice, vp.envvol);
+        m_core.Write(Reg::ATKHLDV, voice, vp.atkhldv);
     }
 
-    m_core.Write(Reg::ENVVOL,  voice, vp.envvol);
-    m_core.Write(Reg::ATKHLDV, voice, vp.atkhldv);
     m_core.Write(Reg::DCYSUSV, voice, vp.dcysusv);   // spousti notu
 
     VoiceAlloc& a = m_alloc[voice];
@@ -390,6 +402,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     a.note = note;
     a.velocity = velocity;
     a.releaseRate = vp.releaseRate ? vp.releaseRate : 0x40;
+    a.releaseModRate = vp.releaseModRate;
     a.age = ++m_ageCounter;
     a.basePitch = vp.ip;
 
@@ -528,9 +541,14 @@ void Synth::RefreshChannel(uint8_t channel)
         if ((!a.inUse && !a.heldBySustain) || a.channel != channel) continue;
 
         const uint16_t pitch = static_cast<uint16_t>(std::clamp(a.basePitch + bend, 0, 65535));
+        // Jen IP. PTRX se **nepise** - cilovou vysku v jeho horni pulce si
+        // dopocita cip sam ze zapisu do IP (viz Emu8000Core::PortOut16).
+        // Skutecny ovladac to tak dela taky: v georg_win95.trace je IP
+        // 4418krat, uplne stejne jako u nas, ale PTRX tam zadne zapisy navic
+        // nema. Drive se sem psalo `pitch << 16`, coz je logaritmicke IP -
+        // jenze horni pulka PTRX je linearni prirustek, takze to spravnou
+        // hodnotu spocitanou cipem prepisovalo necim jinym.
         m_core.Write(Reg::IP, i, pitch);
-        const uint32_t ptrx = m_core.Read(Reg::PTRX, i);
-        m_core.Write(Reg::PTRX, i, (static_cast<uint32_t>(pitch) << 16) | (ptrx & 0xFFFFu));
     }
 }
 

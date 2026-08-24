@@ -220,6 +220,64 @@ Co uz je vyloucene:
 - bass/treble EQ karty - `AWEUTIL.TXT` zna jen `/R:nnn` a `/C:nnn`
   (reverb a chorus 0-100), zadny ekvalizer
 
+## Jakou banku pouziva nahravka Georgie z demo CD
+
+Overovana hypoteza: zni to, jako by `5 - Georgia On My Mind.flac` byla
+nahrana s jinymi soundfonty nez zakladni GM v ROM. **Nepotvrdila se.**
+Jedina dobova moznost je **wave ROM karty popsana `SYNTHGM.SBK`**, tedy
+`--rom rom/awe32.raw --sbk cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK`.
+
+**Datem vyrazene.** Demo CD je z 10. 5. 1994 (`19940510_ISO.txt`). V tehdejsim
+svete existuje jen SoundFont 1.0; vsechno v SF2 je pozdejsi a jako kandidat
+nepripada v uvahu:
+
+| soubor | verze | INAM | nastroj |
+|---|---|---|---|
+| `SYNTHGM.SBK` | **SF1.0** | General MIDI | - |
+| `RELAX.SBK` | **SF1.0** | Special Effects | - |
+| `1mgm.sf2` | SF2.0 | General MIDI | pozdejsi konverze teze ROM |
+| `CT8MGM.SF2` | SF2.0 | 8MBGSFX E-mu Rev B | E-mu Systems SoundFont |
+| `8MBGMSFX.sf2` | SF2.0 | 8MBGSFX E-mu Rev B | `:SFEDT v1.00` |
+| `synergi-8mb.sf2` | SF2.1 | sYnerGi v1 | `:SFEDT v1.10`, dnesni fanouskovska |
+
+`1mgm.sf2` navic vubec neni samostatny kandidat: jeho chunk `smpl` je bajt po
+bajtu `awe32.raw`, jen posunuty o 495 slov (990 B) - overeno, 0 z 1 047 586
+bajtu se lisi. Je to jen jiny popis teze ROM.
+
+**Co je na disku.** Datova stopa demo CD (`SAMPLES2/2/AWE32_DEMO.BIN`)
+obsahuje **jen sedm souboru**: pet `*_BK.MID`, `RELAX_VX.MID` a `RELAX.SBK`.
+Zadna dalsi banka tam neni. `RELAX.SBK` je "Special Effects", 32 presetu
+`RELAX_01.WAV`..`RELAX_32.WAV` - vokaly k `RELAX_VX.MID`, s Georgii nemaji nic
+spolecneho. Ani na instalacnim CD Creative neni jina GM banka nez
+`SYNTHGM.SBK`; `SFCD_II_L7.ISO` ma jen jednotlive nastroje (banka 0, programy
+0..N), ktere se bez bank-selectu z MIDI nedaji vybrat.
+
+`GEORG_BK.MID` posila na vsech osmi kanalech `CC0=0` a bezne GM programy
+(1 Piano 2, 3 Honky-Tonk, 18 Organ 3, 26 Jazz Gt., 35 Fretless Bs., 58 Tuba,
+ch9 bici). Kanaly 2 a 6 hraji **presne tytez noty** - dve piana pres sebe.
+
+**Merenim to sedi taky.** Prumerna absolutni odchylka tercinoveho spektra
+proti FLACu (obe strany zarovnane a vyrovnane na stejne RMS): `SYNTHGM.SBK`
+vychazi 3,07 / 4,10 / 3,23 / 3,23 / 2,91 / 3,03 dB v oknech 6,1-8,05 (sole
+klavir), 8,15-10,25, 10,35-12,45, 60-70, 100-110 a 128-138 s. Osmimegove SF2
+banky jsou v tychz oknech o 1 az 5 dB horsi, nejvic na izolovanem klavirnim
+akordu v intru (6,04-8,09 s), kde nehraje nic jineho.
+
+Meritko, co je jeste dobre: **zaznam z VM se skutecnym ovladacem**
+(`tests/out/georg_win95.wav`, tedy jistojiste ROM banka) ma proti FLACu
+3,75 / 3,73 / 3,04 dB. Tri dB jsou tedy podlaha danou rozdilem 86Box vs.
+skutecny hardware, ne volbou banky.
+
+Dalsi ukazatele, ktere hypotezu nepodporuji: sirka sterea (S/M) sedi na
+1,5 dB, urovne jednotlivych kanalu v useku, kde dany kanal dominuje, sedi
+do 1,7 dB, a drift zarovnani pres celych 153 s je pod 30 ms.
+
+Delka: posledni note-on je v 152,29 s, FLAC ma 153,1 s. `s.length` 282,4 s
+je jen zavlecene ticho z posledni tempo mapy.
+
+Klipy k poslechu (zarovnane, vyrovnane na stejne RMS) jsou v
+`../AWE32EmuData/tests/out/bnk/ab/`.
+
 ## Poznamky k referenci
 
 `.ogg` nejsou presna reference - je to ztratova nahravka a lisi se. Cilem

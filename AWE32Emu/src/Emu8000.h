@@ -3,7 +3,9 @@
 #include <cstddef>
 #include <array>
 #include <vector>
+#include <string>
 #include "Emu8000Regs.h"
+#include "Emu8000Box.h"
 #include "Emu8000Effects.h"
 #include "Awe32InitArrays.h"
 #include "Awe32Driver.h"
@@ -110,6 +112,19 @@ public:
     void SetChorusPreset(int p) { m_chorus.SetPreset(p); }
     void SetEffectReturns(float rev, float cho) { m_reverbReturn = rev; m_chorusReturn = cho; }
 
+    // ---- varianta cipu ---------------------------------------------------
+    // `Ours` je nase vlastni jadro (float, laditelny filtr). `Box86` posila
+    // tytez portove zapisy do nezmeneneho `snd_emu8k.c` z 86Boxu a zvuk bere
+    // odtamtud - viz Emu8000Box.h. Nase jadro pri tom bezi dal naprazdno,
+    // aby zustala stejna evidence hlasu, a tim i identicky proud registru.
+    enum class Chip { Ours, Box86 };
+    bool UseBox86Chip(const std::string& romPath, std::string& err);
+    Chip ChipVariant() const { return m_chip; }
+    // O kolik snimku je vystup cipu pozadu (u Box86 jeden blok).
+    uint32_t ChipLatencyFrames() const;
+    int16_t* ChipRam();
+    size_t   ChipRamWords() const;
+
     // ---- zaznam portovych zapisu (pro srovnani s 86Boxem) ---------------
     // Zapise kazdy PortOut16 jako "<snimek> <port> <hodnota>" na nativni
     // casove ose 44100 Hz. Vysledek se da prehrat pres ref86box/emu8k_ref.exe,
@@ -176,6 +191,9 @@ private:
     uint16_t m_basePort = 0x220;
     uint16_t m_pointer = 0;      // posledni zapis do pointer registru
     Awe32::Driver m_driver = Awe32::kDefaultDriver;
+
+    Chip m_chip = Chip::Ours;
+    Emu8000Box m_box;
 
     RegFile m_regs{};
     std::array<VoiceState, kMaxVoices> m_voices{};

@@ -218,6 +218,12 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
         std::fprintf(static_cast<FILE*>(m_traceFile), "%llu %03X %04X\n",
                      static_cast<unsigned long long>(m_traceFrames), port, value);
 
+    // Do 86Boxiho cipu jde presne to, co by slo na sbernici. Zpetne zapisy
+    // stavu (UpdateRegistersFromState) se poznaji podle m_traceOff a
+    // neposilaji se - ty si cip dela sam.
+    if (m_chip == Chip::Box86 && !m_traceOff)
+        m_box.PortWrite(port, value);
+
     const uint16_t off = static_cast<uint16_t>(port - m_basePort);
     if (off == kPortPointer)
     {
@@ -968,6 +974,30 @@ void Emu8000Core::RenderNative(float* outL, float* outR, uint32_t numFrames)
     m_traceFrames += numFrames;
 }
 
+bool Emu8000Core::UseBox86Chip(const std::string& romPath, std::string& err)
+{
+    // 8 MB DRAM, at se vejde i velka banka; 86Box si RAM alokuje sam.
+    if (!m_box.Init(romPath, m_basePort + 0x400, 8192, err))
+        return false;
+    m_chip = Chip::Box86;
+    return true;
+}
+
+uint32_t Emu8000Core::ChipLatencyFrames() const
+{
+    return (m_chip == Chip::Box86) ? Emu8000Box::kLatencyFrames : 0u;
+}
+
+int16_t* Emu8000Core::ChipRam()
+{
+    return m_box.Ram();
+}
+
+size_t Emu8000Core::ChipRamWords() const
+{
+    return m_box.RamWords();
+}
+
 void Emu8000Core::RenderBlock(int16_t* out, uint32_t numFrames)
 {
     if (numFrames == 0) return;
@@ -985,6 +1015,21 @@ void Emu8000Core::RenderBlock(int16_t* out, uint32_t numFrames)
         m_nativeL.resize(numFrames);
         m_nativeR.resize(numFrames);
         RenderNative(m_nativeL.data(), m_nativeR.data(), numFrames);
+        if (m_chip == Chip::Box86)
+        {
+            // 86Box da rovnou int32 a oreze ho na int16 - zadny prevod
+            // pres float, aby vysledek sel porovnat bajt po bajtu
+            // s emu8k_ref.exe.
+            for (uint32_t i = 0; i < numFrames; ++i)
+            {
+                int32_t l = 0;
+                int32_t r = 0;
+                m_box.RenderFrame(l, r);
+                out[i * 2 + 0] = static_cast<int16_t>(std::clamp(l, -32768, 32767));
+                out[i * 2 + 1] = static_cast<int16_t>(std::clamp(r, -32768, 32767));
+            }
+            return;
+        }
         for (uint32_t i = 0; i < numFrames; ++i)
             emit(i, m_nativeL[i], m_nativeR[i]);
         return;
