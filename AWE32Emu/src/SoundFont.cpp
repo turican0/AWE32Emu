@@ -463,7 +463,19 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
 
     // ---- Q + adresa -> CCCA ---------------------------------------------
     int q;
-    if (sf1) q = g.Get(Gen::InitialFilterQ, 0) * kCccaQMax / 127;
+    // SF1 ma `initialFilterQ` 0..127, registr 0..15. Zmereno na Georgii proti
+    // `SBAWE.VXD` (3331 not, tri ruzne hodnoty v `SYNTHGM.SBK`):
+    //
+    //     SF1 12 -> 1,  SF1 50 -> 6,  SF1 79 -> 9
+    //
+    // Puvodni `v * 15 / 127` s utinanim davalo u 50 hodnotu 5 a rozeslo se
+    // na 669 notach (preset "Piano 2"). Posun o tri bity sedi na vsechny tri
+    // body a je to i to, co by 16bitovy ovladac nejspis delal (`shr ax, 3`).
+    //
+    // Pozor: `lround(v * 15 / 127.0)` sedi na tytez tri body taky. Rozliseni
+    // by prinesla nota s `initialFilterQ` 6, 14 nebo 22 - u tech se obe
+    // varianty lisi. V zadne nasi stope zatim takova neni.
+    if (sf1) q = g.Get(Gen::InitialFilterQ, 0) >> 3;
     else     q = static_cast<int>(std::lround(g.Get(Gen::InitialFilterQ, 0) / 10.0
                                               / kResonanceMaxDb * kCccaQMax));
     q = std::clamp(q, 0, kCccaQMax);
@@ -549,22 +561,23 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
                                          / 10.0 / kAttenDbPerStep)), 0, 255));
     }
 
-    // SF1 uklada initialFilterFc jako 0..127, kdezto registr IFATN ma cutoff
-    // 8bitovy. Prevod je **roztazeni rozsahu**, ne prosty dvojnasobek:
+    // SF1 uklada initialFilterFc jako 0..127, registr IFATN ma cutoff
+    // 8bitovy. Prevod je **prosty dvojnasobek**, chybi-li generator, plati
+    // vychozi 255 z tabulky v ovladaci (MDI 0x16AD, VXD 0x6D60).
     //
-    //     cutoff = v * 255 / 127
+    // Zmereno na Georgii proti `SBAWE.VXD`:
     //
-    // Pro v < 127 to dava presne `2*v` (proto to na 242 notach MINUETu
-    // sedelo), ale pro v = 127 to dava **255**, ne 254. Zmereno na dvou
-    // notach presetu 52 'Choir Aahs' ze `SYNTHGM.SBK` v Magic Carpet 2:
-    // ovladac zapsal `IFATN = FF1D`, my `FE1D`. Potvrzuje to i tabulka
-    // vychozich hodnot generatoru v obou ovladacich (MDI 0x16AD,
-    // VXD 0x6D60), kde ma generator 8 hodnotu 255 - tedy uz prevedenou.
-    // Viz docs/re-notes/86box_srovnani.md sekce 9.5 a 17.
+    //     SF1 52 -> 104,  SF1 97 -> 194,  SF1 127 -> 254,  chybi -> 255
+    //
+    // Drive se tu pocitalo `v * 255 / 127`, aby 127 davalo 255. Ta uprava
+    // byla naroubovana na spatne mereni: preset 52 'Choir Aahs' z Magic
+    // Carpet 2, kde ovladac zapsal cutoff 255, **zadny `initialFilterFc`
+    // nema** - slo tedy o vychozi hodnotu, ne o prevod cisla 127. Skutecna
+    // 127 se objevila az u presetu "Piano 2" na Georgii a dala 254.
     int cutoff;
     if (!g.Has(Gen::InitialFilterFc)) cutoff = 255;
     else if (sf1)                     cutoff = std::clamp<int>(
-                                          g.value[Gen::InitialFilterFc] * 255 / 127, 0, 255);
+                                          g.value[Gen::InitialFilterFc] * 2, 0, 255);
     else                              cutoff = FilterFcFromAbsCents(g.value[Gen::InitialFilterFc]);
 
     // Spodni bajt (utlum) doplni Synth podle krivek z ovladace.
@@ -682,6 +695,8 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.dcysus = static_cast<uint16_t>(
         (sustainReg(Gen::SustainModEnv) << 8)
         | DecayRateFromMs(keyScaled(Gen::DecayModEnv, Gen::KeynumToModEnvDecay, true)));
+    vp.releaseModRate = static_cast<uint8_t>(
+        DecayRateFromMs(timeMs(Gen::ReleaseModEnv, 0.0)));
 
     vp.lfo1val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayModLFO, 0.0)));
     vp.lfo2val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayVibLFO, 0.0)));

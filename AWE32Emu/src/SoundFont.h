@@ -168,6 +168,7 @@ namespace SoundFont
         uint16_t lfo1val = 0x8000, lfo2val = 0x8000;
         uint8_t  reverbSend = 0;
         uint8_t  releaseRate = 0; // pro DCYSUSV pri Note Off
+        uint8_t  releaseModRate = 0; // pro DCYSUS pri Note Off (jen win95)
         bool     looping = true;
     };
 

@@ -83,6 +83,7 @@ private:
         uint8_t note = 0;
         uint8_t velocity = 0;
         uint8_t releaseRate = 0x40;
+        uint8_t releaseModRate = 0;
         uint32_t age = 0;
         int      basePitch = 0;   // IP bez pitch bendu
     };

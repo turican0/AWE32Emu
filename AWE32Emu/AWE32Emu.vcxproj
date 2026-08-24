@@ -40,7 +40,12 @@
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Label="UserMacros">
+    <!-- snd_emu8k.c z 86Boxu se needituje ani nekopiruje; preklada se rovnou
+         z datoveho adresare, at je cip v obou projektech tentyz soubor. -->
+    <Awe32EmuData Condition="'$(AWE32EMU_DATA)' != ''">$(AWE32EMU_DATA)</Awe32EmuData>
+    <Awe32EmuData Condition="'$(Awe32EmuData)' == ''">$(SolutionDir)..\AWE32EmuData</Awe32EmuData>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <OutDir>$(SolutionDir)bin\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)obj\$(Platform)\$(Configuration)\$(ProjectName)\</IntDir>
@@ -51,6 +56,7 @@
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
+      <AdditionalIncludeDirectories>$(Awe32EmuData)\ref86box\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -66,6 +72,7 @@
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <ClCompile>
+      <AdditionalIncludeDirectories>$(Awe32EmuData)\ref86box\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
@@ -85,6 +92,14 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\Emu8000.cpp" />
+    <ClCompile Include="src\Emu8000Box.cpp" />
+    <ClCompile Include="$(Awe32EmuData)\ref86box\upstream\snd_emu8k.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <SDLCheck>false</SDLCheck>
+      <ConformanceMode>false</ConformanceMode>
+      <DisableSpecificWarnings>4244;4267;4996;4018;4101;4133</DisableSpecificWarnings>
+      <ObjectFileName>$(IntDir)upstream\</ObjectFileName>
+    </ClCompile>
     <ClCompile Include="src\main.cpp" />
     <ClCompile Include="src\MidiFile.cpp" />
     <ClCompile Include="src\XmiFile.cpp" />
@@ -95,6 +110,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Emu8000.h" />
+    <ClInclude Include="src\Emu8000Box.h" />
     <ClInclude Include="src\Emu8000Regs.h" />
     <ClInclude Include="src\Awe32Curves.h" />
     <ClInclude Include="src\Awe32InitArrays.h" />
