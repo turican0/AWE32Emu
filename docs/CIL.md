@@ -293,7 +293,7 @@ v techto XMI neni.
 - Jak se prepina "danger" vrstva? (nejspis mutovani kanalu ze strany hry)
 - Pouzivala hra pri nahravani `.ogg` chorus/reverb? (zatim neimplementovano)
 - Vyznam SF1.0 generatoru 55 (v `BULLFROG.SBK` vzdy 6000)
-- `initialFilterQ` 0..127 -> CCCA Q 0..15: presna krivka
+- `initialFilterQ` 0..127 -> CCCA Q 0..15: `v>>3` sedi na tri body (12,50,79), ale `lround(v*15/127)` taky - rozhodne az nota s Q 6, 14 nebo 22
 
 ## Souvisejici
 

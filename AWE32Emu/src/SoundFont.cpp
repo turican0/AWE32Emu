@@ -69,16 +69,24 @@ namespace
 
     // Inverze tabulek z ovladace: najdi nejmensi rate, jehoz cas je <=
     // pozadovanemu. Stejna logika jako sub_2BC0 / sub_2BF0 v SBAWE32.DRV.
+    // Ovladac vybira - stejne jako u decay - polozku, jejiz cas je **delsi
+    // nebo rovny** zadanemu, ne prvni kratsi. Zmereno na Georgii:
+    //
+    //     attackVolEnv 0 ms -> 0x7F,  6 ms -> 0x7E,  generator chybi -> 0x7D
+    //
+    // Tabulka ma u 0x7F cas 5,99 ms a u 0x7E 6,19 ms, takze 6 ms patri
+    // 0x7E. Drive se vracelo `r` misto `r-1` a nula davala rovnou 0x7D,
+    // cimz splynul "chybejici generator" s "nulovym casem".
     int AttackRateFromMs(double ms)
     {
-        // Nejrychlejsi attack, ktery ovladac zapisuje, je 0x7D, ne 0x7F.
-        // Zmereno na ATKHLDV i ATKHLD u vsech 242 not. Souvisi to nejspis
-        // s podminkou `attack < 0x7D` u velocity->cutoff (SBAWE.VXD 0x1CF6).
-        if (ms <= 0.0) return 0x7D;
         for (int r = 1; r <= 0x7F; ++r)
-            if (ms > 11878.0 / RateDivisor(r - 1)) return r;
+            if (ms > 11878.0 / RateDivisor(r - 1)) return std::max(r - 1, 1);
         return 0x7F;
     }
+    // Kdyz generator v bance neni, plati vychozi hodnota z tabulky ovladace,
+    // ktera vychazi na 0x7D. Overeno na 242 notach MINUETu a na presetech
+    // `organ3`, `jazzgtr`, `fretlessbs` a `piano2` v Georgii.
+    constexpr int kAttackDefaultRate = 0x7D;
     // Ovladac vybira polozku, jejiz cas je **delsi nebo roven** zadanemu,
     // ne prvni kratsi. Zmereno instrukcni stopou: decay 12600 ms, keynum
     // skalovani 183 a nota 69 dava 12600 - 9*183 = 10953 ms, a ovladac
@@ -682,7 +690,9 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.envvol  = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayVolEnv, 0.0)));
     vp.atkhldv = static_cast<uint16_t>(
         (HoldFromMs(keyScaled(Gen::HoldVolEnv, Gen::KeynumToVolEnvHold, false)) << 8)
-        | AttackRateFromMs(timeMs(Gen::AttackVolEnv, 0.0)));
+        | (g.Has(Gen::AttackVolEnv)
+               ? AttackRateFromMs(timeMs(Gen::AttackVolEnv, 0.0))
+               : kAttackDefaultRate));
     vp.dcysusv = static_cast<uint16_t>(
         (sustainReg(Gen::SustainVolEnv) << 8)
         | DecayRateFromMs(keyScaled(Gen::DecayVolEnv, Gen::KeynumToVolEnvDecay, true)));
@@ -691,12 +701,26 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.envval = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayModEnv, 0.0)));
     vp.atkhld = static_cast<uint16_t>(
         (HoldFromMs(keyScaled(Gen::HoldModEnv, Gen::KeynumToModEnvHold, false)) << 8)
-        | AttackRateFromMs(timeMs(Gen::AttackModEnv, 0.0)));
+        | (g.Has(Gen::AttackModEnv)
+               ? AttackRateFromMs(timeMs(Gen::AttackModEnv, 0.0))
+               : kAttackDefaultRate));
     vp.dcysus = static_cast<uint16_t>(
         (sustainReg(Gen::SustainModEnv) << 8)
         | DecayRateFromMs(keyScaled(Gen::DecayModEnv, Gen::KeynumToModEnvDecay, true)));
     vp.releaseModRate = static_cast<uint8_t>(
         DecayRateFromMs(timeMs(Gen::ReleaseModEnv, 0.0)));
+
+    // Kdyz attack vyjde na maximum (0x7F, tedy okamzity), ovladac do
+    // prislusneho delay registru zapise **0xBFFF** misto 0x8000. Na zvuk to
+    // nema vliv - bit 15 znamena "bez prodlevy" a spodnich 15 bitu se pak
+    // ignoruje (`ENVVOL_TO_EMU_SAMPLES`) - ale ve stope to je.
+    //
+    // Zmereno na Georgii: 844 not presetu `shonkytonk` (druha vrstva
+    // Honky-Tonk, `attackVolEnv 0`) a bicich. Odpovida to vetvi na
+    // SBAWE32.DRV 0x0206, jen tam je v listingu 0xB7FF - merena hodnota je
+    // 0xBFFF a plati i mimo kanal 9.
+    if ((vp.atkhldv & 0x7F) == 0x7F) vp.envvol = 0xBFFF;
+    if ((vp.atkhld  & 0x7F) == 0x7F) vp.envval = 0xBFFF;
 
     vp.lfo1val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayModLFO, 0.0)));
     vp.lfo2val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayVibLFO, 0.0)));
