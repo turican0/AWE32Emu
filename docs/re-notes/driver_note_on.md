@@ -209,3 +209,158 @@ a ten se neprojevil - v tehle bance je modulacni obalka slaba (`PEFE` byva
 
 **Zbytek rozdilu je tedy v hodnotach, ne ve sledu.** Dalsi na rade jsou zony
 podle velocity (669 not), frekvence LFO krat 2, a pak `PEFE`/`ATKHLDV`/`ENVVOL`.
+
+---
+
+# Prevod SF1 -> registr, kalibrovano na Georgii
+
+Tech 669 not, kde se naraz rozesel mezni kmitocet, `Q` i attack modulacni
+obalky, **nebylo jinou zonou ani velocity**. Kdyz se noty roztridi podle
+adresy vzorku, vyjde to jednoznacne:
+
+| | nase -> ovladac |
+|---|---|
+| `Q = 0` (preset "Piano 1") | cutoff 255->255, atkMod 125->125 |
+| `Q != 0` (preset "Piano 2") | cutoff 255->**254**, Q 5->**6**, atkMod 127->**126** |
+
+Je to tedy jeden konkretni preset a jeho generatory, ne rozsah kláves ani
+sila uderu. `SYNTHGM.SBK`, instrument `piano2`, globalni zona:
+`initialFilterFc 127`, `initialFilterQ 50`, `attackModEnv 6`.
+
+## `initialFilterFc`: prosty dvojnasobek
+
+Kalibrace ze ctyr presetu Georgie:
+
+| SF1 | ovladac | |
+|---|---|---|
+| 52 (`fretlessbs`) | 104 | 52x2 |
+| 97 (`jazzgtr`) | 194 | 97x2 |
+| 127 (`piano2`) | **254** | 127x2 |
+| chybi (`organ3`, `tuba`) | 255 | vychozi z tabulky ovladace |
+
+Drive se pocitalo `v * 255 / 127`, aby 127 davalo 255. **Ta uprava byla
+naroubovana na spatne mereni.** Vychazela z presetu 52 `Choir Aahs` v Magic
+Carpet 2, kde ovladac zapsal cutoff 255 - jenze `choiraahs` zadny
+`initialFilterFc` nema, takze slo o **vychozi hodnotu**, ne o prevod cisla
+127. Skutecna 127 se objevila az tady a dala 254.
+
+MINUET tim nijak netrpi: ma cutoff 220 a 178, coz je 110x2 a 89x2.
+
+## `initialFilterQ`: posun o tri bity
+
+| SF1 | ovladac | `v*15/127` (drive) | `v>>3` |
+|---|---|---|---|
+| 12 | 1 | 1 | 1 |
+| 50 | **6** | 5 | 6 |
+| 79 | 9 | 9 | 9 |
+
+`lround(v * 15 / 127.0)` sedi na tytez tri body taky - rozliseni by prinesla
+nota s `initialFilterQ` **6, 14 nebo 22**, u tech se obe varianty lisi.
+V zadne nasi stope zatim takova neni. Zvoleno `>>3`, protoze je to jedina
+instrukce a 16bitovy ovladac z roku 1994 by to nejspis udelal tak.
+
+## Vysledek
+
+| registr | pred | po |
+|---|---|---|
+| `CCCA^` (Q) | 79,9 % | **100 %** |
+| `VTFT` | 79,9 % | **100 %** |
+| `CVCF` | 79,9 % | **100 %** |
+| `DCYSUSV` | 100 % | 100 % |
+| `IFATN` | 69,6 % | **89,6 %** |
+
+`IFATN` uz nema chybu v hornim bajtu; zbylych 10 % je **utlum** ve spodnim
+(napr. `FF38` proti `FF48`), coz je jina vec a patri k `ATKHLDV`/`ENVVOL`.
+
+Na zvuk to nehnulo - korelace obalky proti zaznamu skutecneho ovladace na
+tomtez cipu je 0,9471 pred a 0,9468 po. Dava to smysl: cutoff 255 misto 254
+je u filtru dokoran nepostrehnutelny rozdil a `Q` 5 vs 6 je jeden krok
+rezonance. Registrove je to ale ted spravne a dalsi opravy uz nestoji na
+spatnem zakladu.
+
+## Co zbyva
+
+| registr | shoda | co s tim |
+|---|---|---|
+| `ATKHLDV` | 60,3 % | ovladac dava 125/126/127, my jen 125/127 - krivka attack neni jen o jednu useknuta, plete se v obou smerech |
+| `PEFE` | 57,7 % | +1 u 669 not, +63 u 629 |
+| `VTFT^`, `CVCF^`, `ENVVOL` | 74,7 % | tytez **844 not**; `ENVVOL 8000` vs `BFFF` a nenulovy cilovy objem |
+| `TREMFRQ`, `FM2FRQ2` | 75-82 % | frekvence LFO krat 2 |
+| `FMMOD` | 85,6 % | dolni bajt +8 u 478 not |
+| `IP` | 98,0 % | +-1 u 67 not |
+
+`ATKHLDV`, `ENVVOL` a `VTFT^` se lisi na tychz 844 notach, takze to nejspis
+bude jedna pricina - podobne jako tady u `piano2`.
+
+---
+
+# Attack a delay registry, kalibrovano na Georgii
+
+Dalsi skupina, tentokrat **844 not**: `ATKHLDV`, `ENVVOL`, `VTFT^` a `CVCF^`
+se lisily na tychz notach (`ENVVOL` x `VTFT^` Jaccard 1,000). Rozklad podle
+vzorku a `Q` ukazal tri chovani ovladace:
+
+| | attack | `ENVVOL` | `VTFT^` |
+|---|---|---|---|
+| A - generator `attackVolEnv` **chybi** | 0x7D | 0x8000 | 0 |
+| B - `attackVolEnv = 0` | **0x7F** | **0xBFFF** | **cilovy objem** |
+| C - `attackVolEnv = 6` | **0x7E** | 0x8000 | 0 |
+
+Klic k tomu byl preset **Honky-Tonk (prog 3), ktery ma dve vrstvy**:
+`honkytonk` s `attackVolEnv 6` a `shonkytonk` s `attackVolEnv 0`. Proto se
+noty s tymz vzorkem delily presne na pul (114 a 114) - nejsou to dve zony
+podle velocity, jsou to dva hlasy na jednu notu. Do skupiny B patri jeste
+bicí (`snare24`, `bd15`, `paisteping`, `rideping`, `floortombrite`).
+
+## Co bylo spatne
+
+1. **`AttackRateFromMs` vracelo `r` misto `r-1`.** Ovladac vybira - stejne
+   jako u decay - polozku, jejiz cas je *delsi nebo rovny* zadanemu. Tabulka
+   ma u 0x7F cas 5,99 ms a u 0x7E 6,19 ms, takze 6 ms patri 0x7E, ne 0x7F.
+2. **Chybejici generator splyval s nulovym casem.** `timeMs(..., 0.0)` vrati
+   nulu v obou pripadech, a funkce na nulu vracela 0x7D. Spravne je: chybi
+   -> 0x7D (vychozi z tabulky ovladace), `= 0` -> 0x7F.
+3. **Delay registr pri okamzitem attacku.** Kdyz attack vyjde 0x7F, ovladac
+   zapise do `ENVVOL` (resp. `ENVVAL`) **0xBFFF** misto 0x8000. Odpovida to
+   vetvi na `SBAWE32.DRV` 0x0206, ktera je v disassembly vedena jako "bicí
+   kanal" a s hodnotou 0xB7FF - merenim vychazi **0xBFFF** a plati i mimo
+   kanal 9. Na zvuk to nema vliv (bit 15 = bez prodlevy, spodnich 15 bitu se
+   ignoruje), ale ve stope to je.
+
+## Vysledek
+
+| registr | pred | po |
+|---|---|---|
+| `ATKHLDV` | 60,3 % | **100 %** |
+| `ATKHLD` | 79,9 % | **100 %** |
+| `ENVVOL` | 74,7 % | **100 %** |
+| `ENVVAL` | 100 % | 100 % |
+
+Zvuk se nepohnul (0,9468). Vsechny tri opravy jsou registrove, ne zvukove:
+attack 0x7D vs 0x7F je rozdil 5,99 az 6,19 ms proti okamziku a `ENVVOL`
+spodni bity cip ignoruje.
+
+## Otevrene: cilovy objem `VTFT^` / `CVCF^`
+
+Ve skupine B ovladac jeste zapise do horni pulky `VTFT` i `CVCF` **cilovy
+objem** (obe stejnou hodnotu, 844 z 844), takze hlas zacne rovnou nahlas
+misto aby se k tomu doklouzal pres `emu8k_vol_slide`. Neni to
+`attentable[atten]` z 86Boxu - hodnota ovladace je vzdy mensi:
+
+| atten | ovladac | `attentable` |
+|---|---|---|
+| 114 | 0x01AE | 0x01DD |
+| 104 | 0x0297 | 0x02DF |
+| 80 | 0x0756 | 0x0818 |
+
+Je to deterministicka funkce `atten` (59 ruznych hodnot, zadny rozpor) a
+proklad da `60252 * 0,957567^atten`, tedy krok **0,3766 dB** - prakticky
+tychz 0,375 dB jako `attentable`, jen zacatek je jinde (60252 misto 65535).
+Zadny jednoduchy tvar ale nesedi presne na vsech 59 bodech:
+`attentable[a+1]`, `attentable[a+2]`, `65535*10^(-0,375a/20)` ani rekurentni
+deleni od 60252 - u nizkych utlumu se lisi o 0,1 %.
+
+Nejpravdepodobnejsi vysvetleni: ovladac si utlum drzi v jemnejsich
+jednotkach, nez je 0,375 dB krok registru `IFATN`, a amplitudu pocita
+z toho. Pak to funkce zaokrouhleneho bajtu byt nemuze a dohledat se to musi
+v tabulce v `SBAWE.VXD`. Do te doby to zustava neimplementovane.
