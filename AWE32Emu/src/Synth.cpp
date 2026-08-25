@@ -1,4 +1,5 @@
 #include "Synth.h"
+#include <cstdio>
 #include "Awe32Curves.h"
 
 #include <algorithm>
@@ -323,6 +324,14 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         //
         // Horni pulka PTRX (a stejne tak CPF) neni logaritmicke IP, ale
         // **linearni prirustek** - prepis z SBAWE.VXD (objekt 1, 0x212E).
+        // `SBAWE.VXD` 0x2099 (modulacni) a 0x219C (volume): kdyz je attack
+        // na maximu a zaroven neni delay, posle se na port konstanta
+        // 0xBFFF misto spocitaneho delay. V bloku parametru pritom zustava
+        // puvodni hodnota, takze ji nemenime ani my.
+        const bool volInstant = (vp.atkhldv & 0x7F) == 0x7F && vp.envvol >= 0x8000;
+        const bool modInstant = (vp.atkhld  & 0x7F) == 0x7F && vp.envval >= 0x8000;
+        const uint32_t envvolReg = volInstant ? 0xBFFFu : vp.envvol;
+        const uint32_t envvalReg = modInstant ? 0xBFFFu : vp.envval;
         const uint32_t increment = PitchIncrement(static_cast<uint16_t>(pitch));
         const uint32_t filterTarget = static_cast<uint32_t>(cutoff) << 8;
 
@@ -343,8 +352,8 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         m_core.Write(Reg::FMMOD,   voice, vp.fmmod);
         m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
         m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
-        m_core.Write(Reg::ENVVAL,  voice, vp.envval);
-        m_core.Write(Reg::ENVVOL,  voice, vp.envvol);
+        m_core.Write(Reg::ENVVAL,  voice, envvalReg);
+        m_core.Write(Reg::ENVVOL,  voice, envvolReg);
 
         // Vynulovani pred adresami; teprve na konci se sem daji prave hodnoty.
         m_core.Write(Reg::PTRX, voice, 0u);
@@ -365,9 +374,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         // Podminka i tabulka jsou z `SBAWE.VXD` 0x219C..0x21EF, viz
         // Awe32Curves.h. Zmereno na 844 notach Georgie.
         const uint32_t volTarget =
-            ((vp.atkhldv & 0x7F) == 0x7F && vp.envvol == 0xBFFF)
-                ? Awe32Curves::VolumeTarget(atten)
-                : 0u;
+            volInstant ? Awe32Curves::VolumeTarget(atten) : 0u;
         const uint32_t vtft = (volTarget << 16) | filterTarget;
         m_core.Write(Reg::VTFT, voice, vtft);
         m_core.Write(Reg::CVCF, voice, vtft);
@@ -414,6 +421,29 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     a.releaseModRate = vp.releaseModRate;
     a.age = ++m_ageCounter;
     a.basePitch = vp.ip;
+
+    if (m_noteDump)
+    {
+        // Poradi a nazvy sloupcu odpovidaji poli bloku v `SBAWE.VXD`
+        // (offsety v zavorce), aby se to dalo klast vedle patch_struct.py.
+        std::fprintf(static_cast<FILE*>(m_noteDump),
+                     "%d,%d,%d,%d,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%06X,%06X,%06X\n",
+                     static_cast<int>(channel), static_cast<int>(note),
+                     static_cast<int>(velocity), voice,
+                     static_cast<unsigned>((vp.ccca >> Emu8000::kCccaQShift) & 0xF), // 0x12 Q
+                     static_cast<unsigned>(reverb & 0xFF),                           // 0x20
+                     static_cast<unsigned>(panAux & 0xFF),                           // 0x24
+                     static_cast<unsigned>(atten & 0xFF),                            // 0x26
+                     static_cast<unsigned>(cutoff & 0xFF),
+                     static_cast<unsigned>(vp.envval),                               // 0x32
+                     static_cast<unsigned>(vp.atkhld & 0x7F),                        // 0x34
+                     static_cast<unsigned>(vp.envvol),                               // 0x42
+                     static_cast<unsigned>(vp.atkhldv & 0x7F),                       // 0x44
+                     static_cast<unsigned>((vp.atkhldv >> 8) & 0x7F),                // 0x48
+                     static_cast<unsigned>(pitch),
+                     static_cast<unsigned>(ccca & Emu8000::kCccaAddressMask),
+                     static_cast<unsigned>(vp.csl & Emu8000::kLoopAddressMask));
+    }
 
     if (m_debugVoices > 0)
     {
@@ -612,4 +642,20 @@ void Synth::PitchBend(uint8_t channel, int16_t value)
 void Synth::RenderBlock(int16_t* out, uint32_t numFrames)
 {
     m_core.RenderBlock(out, numFrames);
+}
+
+bool Synth::OpenNoteDump(const std::string& path)
+{
+    CloseNoteDump();
+    FILE* f = std::fopen(path.c_str(), "wb");
+    if (!f) return false;
+    std::fprintf(f, "ch,note,vel,voice,Q,reverb,panAux,atten,cutoff,"
+                    "envvalDelay,modAttack,envvolDelay,volAttack,volHold,ip,ccca,loopEnd\n");
+    m_noteDump = f;
+    return true;
+}
+
+void Synth::CloseNoteDump()
+{
+    if (m_noteDump) { std::fclose(static_cast<FILE*>(m_noteDump)); m_noteDump = nullptr; }
 }

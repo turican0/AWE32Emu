@@ -56,6 +56,8 @@ namespace
             "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
             "  --chip nas|86box   Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
+            "  --dump-notes <csv> Mezivysledky pri note-onu, sloupce podle bloku\n"
+            "                      parametru v SBAWE.VXD (viz tests/patch_struct.py)\n"
             "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
             "                      (SBAWE.VXD). Rodiny se lisi osmi hodnotami\n"
             "                      v init polich, tabulkou velocity a vzorcem\n"
@@ -95,6 +97,7 @@ int main(int argc, char** argv)
     uint16_t channelMask = 0xFFFF;
     std::string interp;
     std::string chip;
+    std::string noteDumpPath;
     int revPreset = -1, choPreset = -1;
     double revRoom = -1, revDamp = -1, revReturn = -1, choReturn = -1;
     // (cesta, vzorky lezi ve wave ROM, cislo MIDI banky nebo -1) v poradi nacitani
@@ -179,6 +182,10 @@ int main(int argc, char** argv)
         else if (arg == "--master-volume" && i + 1 < argc)
         {
             masterVolume = std::clamp(std::atoi(argv[++i]), 0, 127);
+        }
+        else if (arg == "--dump-notes" && i + 1 < argc)
+        {
+            noteDumpPath = argv[++i];
         }
         else if (arg == "--chip" && i + 1 < argc)
         {
@@ -359,6 +366,9 @@ int main(int argc, char** argv)
                       << synth.Core().DramSize() << " vzorku.\n";
         }
     }
+
+    if (!noteDumpPath.empty() && !synth.OpenNoteDump(noteDumpPath))
+        std::cerr << "Nepodarilo se otevrit '" << noteDumpPath << "'.\n";
 
     Sequencer sequencer;
     sequencer.Load(sequence);

@@ -46,6 +46,13 @@ public:
     // Vypise prvnich N spustenych hlasu i s vyslednymi registry.
     void SetVoiceDebug(int count) { m_debugVoices = count; }
 
+    // Zaznam mezivysledku pri note-onu, pojmenovany podle **bloku parametru
+    // hlasu v `SBAWE.VXD`** (ukazuje na nej EBX, 0x94 B). Sloupce se schvalne
+    // jmenuji jako jeho pole, aby sly postavit vedle vystupu z
+    // `tests/patch_struct.py` a porovnavat 1:1.
+    bool OpenNoteDump(const std::string& path);
+    void CloseNoteDump();
+
     // Bitova maska povolenych MIDI kanalu (bit 0 = kanal 1). Slouzi
     // k izolaci jednotlivych stop pri ladeni.
     void SetChannelMask(uint16_t mask) { m_channelMask = mask; }
@@ -131,6 +138,7 @@ private:
     static constexpr uint32_t kDramReserve = 50;
     uint32_t m_nextDramBase = Emu8000::kDramOffset + kDramReserve;
     int m_debugVoices = 0;
+    void* m_noteDump = nullptr;   // FILE*
     uint16_t m_channelMask = 0xFFFF;
     int      m_masterVolume = 127;
 
