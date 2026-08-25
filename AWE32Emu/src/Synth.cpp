@@ -203,7 +203,15 @@ int Synth::PitchBendOffset(uint8_t channel) const
 {
     const ChannelState& ch = m_channels[channel];
     const double semis = (ch.pitchBend / 8192.0) * ch.pitchBendRangeSemitones;
-    return static_cast<int>(std::lround(semis * Emu8000::kPitchPerOctave / 12.0));
+    // Ovladac **utina k nule**, nezaokrouhluje - stejne jako vsude jinde, kde
+    // deli pres `idiv`. Pri plnem ohybu dolu (-8192, rozsah 2 pultony) je to
+    // -682,667 jednotek IP: on da -682, my jsme davali -683.
+    //
+    // Nasly se to tak, ze IP nesedelo o 1 u 67 not - a byly to presne noty
+    // kanalu 1, 3 a 7, tedy jedinych tri s pitch bendem. Prevod centu na IP
+    // (`sub_192E`) v tom nevinne byl: hodnoty, ktere ovladac zapsal, v jeho
+    // obrazu vubec nejsou, takze rozdil musel vzniknout az pri scitani.
+    return static_cast<int>(semis * Emu8000::kPitchPerOctave / 12.0);
 }
 
 // ---------------------------------------------------------------------------
