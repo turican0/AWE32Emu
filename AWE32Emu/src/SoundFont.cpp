@@ -779,16 +779,10 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     // Honky-Tonk, `attackVolEnv 0`) a bicich. Odpovida to vetvi na
     // SBAWE32.DRV 0x0206, jen tam je v listingu 0xB7FF - merena hodnota je
     // 0xBFFF a plati i mimo kanal 9.
-    // Presna podminka z `SBAWE.VXD` obj 1, 0x219C (volume) a 0x2099 (mod):
-    //     cmp word [ebx+0x44], 0x7F   ; attack == max?
-    //     jne  dal
-    //     cmp word [ebx+0x42], 0x8000 ; a zaroven zadny delay?
-    //     jb   dal
-    //     push 0xBFFF                 ; -> ENVVOL
-    // Obe obalky to maji doslova stejne. (V `driver_note_on.md` sekci 5
-    // bylo 0xB7FF a jen pro kanal 9 - obojí byl omyl.)
-    if ((vp.atkhldv & 0x7F) == 0x7F && vp.envvol >= 0x8000) vp.envvol = 0xBFFF;
-    if ((vp.atkhld  & 0x7F) == 0x7F && vp.envval >= 0x8000) vp.envval = 0xBFFF;
+    // Pozn.: 0xBFFF do ENVVOL/ENVVAL se sem **nedosazuje**. Ovladac si
+    // v bloku parametru nechava spocitany delay a konstantu posle az na
+    // port (`SBAWE.VXD` 0x21AB: `push 0xBFFF`). Drzime to stejne, aby se
+    // dal blok porovnavat 1:1 - viz Synth::NoteOn a tests/patch_cmp.py.
 
     vp.lfo1val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayModLFO, 0.0)));
     vp.lfo2val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayVibLFO, 0.0)));
