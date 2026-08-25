@@ -106,9 +106,21 @@ namespace
         const int steps = static_cast<int>(ms / (Emu8000::kHoldSecPerStep * 1000.0));
         return std::clamp(127 - steps, 0, 127);
     }
+    // Krok delay registru je **32 vzorku na 44100 Hz**, tedy 0,72562 ms
+    // (`LFOxVAL_TO_EMU_SAMPLES` v 86Boxu: `(0x8000 - v) << 5`). Drive se
+    // pocitalo s 0,725 ms a zaokrouhlovalo, coz davalo o krok vic:
+    //
+    //     delayModLFO 120 ms (jazzgtr) -> ovladac 165, my 166
+    //     delayModLFO 260 ms (tuba)    -> ovladac 358, my 359
+    //
+    // S presnym krokem sedi obe hodnoty i pri zaokrouhlovani; utinani je
+    // tu proto, ze ovladac vsude jinde deli celociselne pres `idiv`
+    // (viz HoldFromMs). Rozlisit to zatim nejde - obe merene hodnoty
+    // vychazeji stejne.
     int DelayFromMs(double ms)
     {
-        const int steps = static_cast<int>(std::lround(ms / (Emu8000::kDelaySecPerStep * 1000.0)));
+        const double stepMs = 32000.0 / 44100.0;
+        const int steps = static_cast<int>(ms / stepMs);
         return std::clamp(static_cast<int>(Emu8000::kDelayNone) - steps, 0, 0x8000);
     }
 
@@ -394,6 +406,23 @@ std::vector<Region> Bank::Select(int bankNum, int program, int key, int velocity
             r.gen.OverrideFrom(iz.gen);
             GenSet presetGen = preset->global;
             presetGen.OverrideFrom(pz.gen);
+
+            // Utlum SF1 se musi secist az v jednotkach registru, jinak by
+            // `AddFrom` secetlo suroviny (napr. zona bicich 121 + preset 127
+            // = 248) a `127 - 248` by spadlo na nulu. Zmereno na Georgii:
+            // u bicich ma ovladac presne o `127 - atten zony` vic nez my
+            // (zona 121 -> +6, zona 112 -> +15, ...).
+            if (version == Version::Sf1)
+            {
+                int units = 0;
+                bool any = false;
+                if (r.gen.Has(Gen::InitialAttenuation))
+                { units += 127 - r.gen.value[Gen::InitialAttenuation]; any = true; }
+                if (presetGen.Has(Gen::InitialAttenuation))
+                { units += 127 - presetGen.value[Gen::InitialAttenuation]; any = true; }
+                r.sf1AttenUnits = any ? units : -1;
+            }
+
             r.gen.AddFrom(presetGen);
 
             out.push_back(std::move(r));
@@ -429,9 +458,19 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         // interpolator) - u ROM vzorku se pouzivaji primo, u vlastnich
         // se jen posunou tam, kam se banka nahrala.
         const uint32_t off = inRom ? 0 : dramBase;
-        start     = s.start + off;
-        loopStart = s.loopStart + off;
-        loopEnd   = s.loopEnd + off;
+        // Offsety ze zony se musi pricist i tady. Chybelo to a projevilo se
+        // to na vzorku `organwave` v presetu Organ 3, kde ma zona
+        // `startloopAddrsOffset -1` i `endloopAddrsOffset -1`: ovladac psal
+        // PSST F146 a CSL F17D, my F147 a F17E (232 not Georgie).
+        start     = s.start + off
+                  + g.Get(Gen::StartAddrsOffset, 0)
+                  + 32768u * g.Get(Gen::StartAddrsCoarseOffset, 0);
+        loopStart = s.loopStart + off
+                  + g.Get(Gen::StartloopAddrsOffset, 0)
+                  + 32768u * g.Get(Gen::StartloopAddrsCoarseOffset, 0);
+        loopEnd   = s.loopEnd + off
+                  + g.Get(Gen::EndloopAddrsOffset, 0)
+                  + 32768u * g.Get(Gen::EndloopAddrsCoarseOffset, 0);
     }
     else
     {
@@ -558,8 +597,9 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         // generatoru ma SBAWE32.MDI (0x16AD+0x60) 110, kdezto SBAWE.VXD
         // (obj 1, 0x6D60+0x60) 127.
         const int dflt = (drv == Awe32::Driver::Dos) ? 110 : 127;
-        vp.patchAttenUnits = static_cast<uint8_t>(
-            std::clamp(127 - g.Get(Gen::InitialAttenuation, dflt), 0, 255));
+        const int units = (region.sf1AttenUnits >= 0) ? region.sf1AttenUnits
+                                                      : (127 - dflt);
+        vp.patchAttenUnits = static_cast<uint8_t>(std::clamp(units, 0, 255));
     }
     else
     {
@@ -592,10 +632,24 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.ifatn = static_cast<uint16_t>(cutoff << 8);
 
     // ---- modulace --------------------------------------------------------
-    auto modAmount = [&](int op, double sf2Scale) -> int8_t
+    // `sf1Scale` je nasobek pro SF1: cast generatoru ma v SBK sedmibitovy
+    // rozsah, kdezto registr je osmibitovy, takze ovladac hodnotu zdvojuje.
+    // Zmereno na Georgii proti `SBAWE.VXD`, 3331 not, **bez jedine vyjimky**:
+    //
+    //     modEnvToFilterFc  3F -> 7E,  01 -> 02   (1410 not)
+    //     modLfoToFilterFc  08 -> 10              (478 not)
+    //     modLfoToVolume    23 -> 46              (712 not)
+    //     freqModLFO        12 -> 24              (824 not)
+    //     freqVibLFO        2C -> 58              (595 not)
+    //
+    // Vysky (`modEnvToPitch`, `modLfoToPitch`, `vibLfoToPitch`) se naopak
+    // **nezdvojuji** - u `vibLfoToPitch` sedi 03 a FF na 595 notach a
+    // u `modLfoToPitch` hodnota 01 na 111 notach, takze tam by nasobeni
+    // shodu rozbilo. Delici cara je tedy vyska/filtr, ne SF1/SF2.
+    auto modAmount = [&](int op, double sf2Scale, int sf1Scale = 1) -> int8_t
     {
         if (!g.Has(op)) return 0;
-        return sf1 ? ClampS8(g.value[op])
+        return sf1 ? ClampS8(g.value[op] * sf1Scale)
                    : ClampS8(static_cast<int>(std::lround(g.value[op] / sf2Scale)));
     };
 
@@ -609,25 +663,31 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
 
     vp.pefe = static_cast<uint16_t>(
         (static_cast<uint8_t>(modAmount(Gen::ModEnvToPitch, kPitchCentsPerStep)) << 8)
-        | static_cast<uint8_t>(modAmount(Gen::ModEnvToFilterFc, kPefeFcCentsPerStep)));
+        | static_cast<uint8_t>(modAmount(Gen::ModEnvToFilterFc, kPefeFcCentsPerStep, 2)));
 
     // Kdyz generator chybi, ovladac pouzije frekvenci LFO1 = 128. Zmereno
     // v poli hlasu na +0x2C u vsech 242 not; SYNTHGM.SBK u piana freqModLFO
     // nema, presto ovladac zapisuje TREMFRQ = 0x0080.
-    const int lfo1Freq = sf1 ? g.Get(Gen::FreqModLFO, 128)
+    // Pritomna frekvence se zdvojuje stejne jako hloubky vyse; chybejici
+    // generator ale znamena rovnou registrovou hodnotu 128, ne 64x2.
+    const int lfo1Freq = sf1 ? (g.Has(Gen::FreqModLFO)
+                                    ? std::clamp<int>(g.value[Gen::FreqModLFO] * 2, 0, 255)
+                                    : 128)
                              : std::clamp<int>(static_cast<int>(std::lround(
                                    8.176 * std::pow(2.0, g.Get(Gen::FreqModLFO, 0) / 1200.0)
                                    / kLfoHzPerStep)), 0, 255);
-    const int lfo2Freq = sf1 ? g.Get(Gen::FreqVibLFO, 0)
+    const int lfo2Freq = sf1 ? (g.Has(Gen::FreqVibLFO)
+                                    ? std::clamp<int>(g.value[Gen::FreqVibLFO] * 2, 0, 255)
+                                    : 0)
                              : std::clamp<int>(static_cast<int>(std::lround(
                                    8.176 * std::pow(2.0, g.Get(Gen::FreqVibLFO, 0) / 1200.0)
                                    / kLfoHzPerStep)), 0, 255);
 
     vp.fmmod = static_cast<uint16_t>(
         (static_cast<uint8_t>(modAmount(Gen::ModLfoToPitch, kPitchCentsPerStep)) << 8)
-        | static_cast<uint8_t>(modAmount(Gen::ModLfoToFilterFc, kFmmodFcCentsPerStep)));
+        | static_cast<uint8_t>(modAmount(Gen::ModLfoToFilterFc, kFmmodFcCentsPerStep, 2)));
     vp.tremfrq = static_cast<uint16_t>(
-        (static_cast<uint8_t>(modAmount(Gen::ModLfoToVolume, kTremCbPerStep)) << 8) | lfo1Freq);
+        (static_cast<uint8_t>(modAmount(Gen::ModLfoToVolume, kTremCbPerStep, 2)) << 8) | lfo1Freq);
     vp.fm2frq2 = static_cast<uint16_t>(
         (static_cast<uint8_t>(modAmount(Gen::VibLfoToPitch, kPitchCentsPerStep)) << 8) | lfo2Freq);
 
@@ -719,8 +779,16 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     // Honky-Tonk, `attackVolEnv 0`) a bicich. Odpovida to vetvi na
     // SBAWE32.DRV 0x0206, jen tam je v listingu 0xB7FF - merena hodnota je
     // 0xBFFF a plati i mimo kanal 9.
-    if ((vp.atkhldv & 0x7F) == 0x7F) vp.envvol = 0xBFFF;
-    if ((vp.atkhld  & 0x7F) == 0x7F) vp.envval = 0xBFFF;
+    // Presna podminka z `SBAWE.VXD` obj 1, 0x219C (volume) a 0x2099 (mod):
+    //     cmp word [ebx+0x44], 0x7F   ; attack == max?
+    //     jne  dal
+    //     cmp word [ebx+0x42], 0x8000 ; a zaroven zadny delay?
+    //     jb   dal
+    //     push 0xBFFF                 ; -> ENVVOL
+    // Obe obalky to maji doslova stejne. (V `driver_note_on.md` sekci 5
+    // bylo 0xB7FF a jen pro kanal 9 - obojí byl omyl.)
+    if ((vp.atkhldv & 0x7F) == 0x7F && vp.envvol >= 0x8000) vp.envvol = 0xBFFF;
+    if ((vp.atkhld  & 0x7F) == 0x7F && vp.envval >= 0x8000) vp.envval = 0xBFFF;
 
     vp.lfo1val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayModLFO, 0.0)));
     vp.lfo2val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayVibLFO, 0.0)));

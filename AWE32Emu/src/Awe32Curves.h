@@ -160,4 +160,32 @@ namespace Awe32Curves
             ? ComputeAttenuationVxd(cc7, velocity, expression, patchAttenUnits)
             : ComputeAttenuationMdi(cc7, velocity, expression, patchAttenUnits);
     }
+    // ---- utlum -> linearni amplituda (cilovy objem hlasu) ----------------
+    //
+    // `SBAWE.VXD` obj 1, 0x21BF:
+    //
+    //     mov si, word [edx*2 + 0x409010]   ; tabulka[utlum & 15]
+    //     ...
+    //     sar eax, 4                        ; utlum >> 4
+    //     shr si, cl                        ; mantisa >> (utlum >> 4)
+    //
+    // Tedy 6 dB na posun a 16 kroku mezi tim, coz dela 0,3763 dB na jednotku.
+    // Tabulka je v souboru na offsetu 0x09010 (linearne 0x409010, base je
+    // 0x400000). Nasli jsme ji tak, ze se z 844 not Georgie zpetne dopocitaly
+    // meze pro kazdou z 16 polozek a v cele binarce vyslo **jedine** misto,
+    // ktere je splnuje.
+    //
+    // Pozor: neni to `attentable` z 86Boxu (ta ma krok presne 0,375 dB
+    // a zacina na 65535), takze zadny hladky vzorec na to nesedne.
+    inline constexpr uint16_t kAttenToAmp16[16] = {
+        60096, 57544, 55104, 52768, 50528, 48392, 46336, 44376,
+        42488, 40688, 38960, 37312, 35728, 34216, 32768, 31376
+    };
+
+    inline uint16_t VolumeTarget(int attenUnits)
+    {
+        const int a = std::clamp(attenUnits, 0, 255);
+        return static_cast<uint16_t>(kAttenToAmp16[a & 15] >> (a >> 4));
+    }
+
 }
