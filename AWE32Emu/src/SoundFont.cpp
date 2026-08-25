@@ -124,6 +124,27 @@ namespace
         return std::clamp(static_cast<int>(Emu8000::kDelayNone) - steps, 0, 0x8000);
     }
 
+    // Prepis `sub_192E` z `SBAWE.VXD` (obj 1, 0x192E) - centy -> registr IP:
+    //
+    //     esi = centy + 0x41A0        ; 16800, aby bylo vse kladne
+    //     edi = esi / 0x4B0           ; 1200 -> oktava, ورez na 15
+    //     edx = esi % 0x4B0           ; zbytek v centech
+    //     IP  = (edi << 12) | (edx*3 + (edx*31)/75)
+    //
+    // `3 + 31/75` je presne `4096/1200`, takze vzorec sam o sobe zkresleni
+    // nema. Rozdil proti nasemu drivejsimu `kPitchUnity + log2(...)*4096`
+    // delalo **celociselne deleni**: ovladac pocita v celych centech a utina,
+    // my jsme cely retez vedli v doublech. Na Georgii to bylo +-1 u 67 not.
+    int PitchFromCents(double cents)
+    {
+        int v = static_cast<int>(std::lround(cents)) + 0x41A0;
+        if (v < 0) v = 0;
+        int oct = v / 1200;
+        if (oct > 15) oct = 15;
+        const int rem = v % 1200;
+        return (oct << 12) | (rem * 3 + (rem * 31) / 75);
+    }
+
     double TimecentsToMs(int tc) { return std::pow(2.0, tc / 1200.0) * 1000.0; }
 
     // Absolutni centy (SF2) -> jednotky IFATN (ctvrt pultonu od 125 Hz).
@@ -580,10 +601,11 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
 
     const double scale = g.Get(Gen::ScaleTuning, 100) / 100.0;
     const double semis = (key - rootKey) * scale + cents / 100.0;
-    const double increment = (s.sampleRate / static_cast<double>(44100))
-                           * std::pow(2.0, semis / 12.0);
-    vp.ip = static_cast<uint16_t>(std::clamp(
-        kPitchUnity + std::log2(increment) * kPitchPerOctave, 0.0, 65535.0));
+    // Frekvence vzorku se do centu prevede zvlast - ovladac ma tuhle slozku
+    // uz zapecenou v `gen55`, my ji drzime v hlavicce vzorku.
+    const double centsTotal = semis * 100.0
+        + std::log2(s.sampleRate / static_cast<double>(44100)) * 1200.0;
+    vp.ip = static_cast<uint16_t>(std::clamp(PitchFromCents(centsTotal), 0, 65535));
 
     // ---- utlum patche a filtr -> IFATN ------------------------------------
     // Utlum se sklada az v Synth vrstve podle vzorce prepsaneho z ovladace

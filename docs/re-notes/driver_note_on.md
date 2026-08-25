@@ -452,3 +452,49 @@ Proti zaznamu skutecneho ovladace na tomtez cipu (`--chip 86box`):
 
 Do 12,8 kHz je to ted **do 0,3 dB** pres cele spektrum. Korelace obalky
 0,9471 -> 0,9497.
+
+---
+
+# Vyska tonu: `sub_192E` a kde vznika rozdil +-1
+
+Dohledano pres CPU stopu 86Boxu a disassembly, ne pres registry.
+
+Ovladac stavi `IP` ve dvou krocich. Nejdriv secte vsechno **v centech**
+(`SBAWE.VXD` 0x1DBC..0x1DEB) a prozene to prevodem `sub_192E` (0x192E):
+
+```
+esi = centy + 0x41A0        ; 16800, aby bylo vse kladne
+edi = esi / 0x4B0           ; 1200 -> oktava, orez na 15
+edx = esi % 0x4B0           ; zbytek v centech
+IP  = (edi << 12) | (edx*3 + (edx*31)/75)
+```
+
+`3 + 31/75` je presne `4096/1200`, takze vzorec sam zkresleni nema. Prepsali
+jsme ho 1:1 (`PitchFromCents` v SoundFont.cpp) misto drivejsiho
+`kPitchUnity + log2(...) * 4096` v doublech.
+
+**Na tech 67 notach to ale nepomohlo - a to je ten nalez.** Hodnoty, ktere
+ovladac zapsal (`DC82`, `D72D`), totiz **v obrazu `sub_192E` vubec nejsou** -
+zadny celociselny vstup v centech je nedava, funkce skace po 3 az 4. Nase
+`DC81` a `D72C` v obrazu jsou. Rozdil tedy nevznika v prevodu, ale az **po**
+nem, v druhem kroku (0x1E9C):
+
+```
+ecx = movsx [esi+0x0e]     ; esi = struktura KANALU ([ebp-0xc])
+eax = movzx [edx+0x0e]     ; vysledek sub_192E ulozeny ve slotu hlasu
+ecx += eax
+ecx += [esi+0x14]
+IP = clamp(ecx, 0, 0xFFFF)
+```
+
+Ke spocitane vysce se tedy jeste pricitaji **dve kanalove slozky primo
+v jednotkach IP**. Ty nam chybi a delaji tech +1 (tuba 30 not, baskytara 7,
+zbytek jsou noty kytary s ohybem).
+
+> Pozor na zamenu struktur: `esi` je tady **kanal** (`[ebp-0xc]`), kdezto
+> `ebx` v druhe polovine rutiny je blok parametru hlasu. Nejdriv jsem cetl
+> `[0x0e]` a `[0x14]` z bloku u `ebx`, vyslo to nula a vypadalo to, ze
+> kanalove slozky zadne nejsou. Byla to spatna struktura.
+
+Dalsi krok: pridat do `awe32_trace.c` okno i na tuhle strukturu, jinak se
+obe slozky dohledat nedaji.
