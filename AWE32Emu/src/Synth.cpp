@@ -360,8 +360,17 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         m_core.Write(Reg::Unk0080, voice, 0u);   // Z2
         m_core.Write(Reg::CCCA, voice, ccca);
 
-        m_core.Write(Reg::VTFT, voice, filterTarget);
-        m_core.Write(Reg::CVCF, voice, filterTarget);
+        // Kdyz obalka nema attack ani delay, ovladac hlas nerozjizdi od nuly,
+        // ale rovnou mu nastavi cilovy objem - do horni pulky VTFT i CVCF.
+        // Podminka i tabulka jsou z `SBAWE.VXD` 0x219C..0x21EF, viz
+        // Awe32Curves.h. Zmereno na 844 notach Georgie.
+        const uint32_t volTarget =
+            ((vp.atkhldv & 0x7F) == 0x7F && vp.envvol == 0xBFFF)
+                ? Awe32Curves::VolumeTarget(atten)
+                : 0u;
+        const uint32_t vtft = (volTarget << 16) | filterTarget;
+        m_core.Write(Reg::VTFT, voice, vtft);
+        m_core.Write(Reg::CVCF, voice, vtft);
         m_core.Write(Reg::PTRX, voice, (increment << 16) | reverbByte | panAux);
         m_core.Write(Reg::CPF,  voice, increment << 16);
     }

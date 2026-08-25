@@ -364,3 +364,91 @@ Nejpravdepodobnejsi vysvetleni: ovladac si utlum drzi v jemnejsich
 jednotkach, nez je 0,375 dB krok registru `IFATN`, a amplitudu pocita
 z toho. Pak to funkce zaokrouhleneho bajtu byt nemuze a dohledat se to musi
 v tabulce v `SBAWE.VXD`. Do te doby to zustava neimplementovane.
+
+---
+
+# Ctvrte kolo: modulace, utlum bicich, smycky, delay
+
+## 1. Hloubky modulace a frekvence LFO se v SF1 **zdvojuji**
+
+Zmereno na 3331 notach Georgie, **bez jedine vyjimky** (kazdy nesouhlas byl
+presne dvojnasobek, zadny "jiny"):
+
+| generator | registr | nase -> ovladac | not |
+|---|---|---|---|
+| `modEnvToFilterFc` | `PEFE` dolni | 3F -> 7E, 01 -> 02 | 1410 |
+| `modLfoToFilterFc` | `FMMOD` dolni | 08 -> 10 | 478 |
+| `modLfoToVolume` | `TREMFRQ` horni | 23 -> 46 | 712 |
+| `freqModLFO` | `TREMFRQ` dolni | 12 -> 24 | 824 |
+| `freqVibLFO` | `FM2FRQ2` dolni | 2C -> 58 | 595 |
+
+Vysky se naopak **nezdvojuji**: u `vibLfoToPitch` sedi 03 a FF na 595 notach
+a u `modLfoToPitch` hodnota 01 na 111 notach - nasobeni by tam shodu rozbilo.
+Delici cara je tedy vyska proti filtru/hlasitosti, ne SF1 proti SF2.
+
+U `freqModLFO` plati zdvojeni jen kdyz generator existuje; kdyz chybi, jde do
+registru rovnou 128 (ne 64x2).
+
+## 2. Utlum bicich - soucet se musi delat az v jednotkach registru
+
+Zbylych 345 nesedicich `IFATN` bylo **cele na bicich**. Preset "Standard"
+(banka 128) ma utlum na obou urovnich: preset zona 127 a kazda klavesova zona
+instrumentu svuj (121 u `snare24` na klavese 38, 112 na 40, ...).
+
+`AddFrom` scitalo **surove SF1 hodnoty** (121 + 127 = 248) a `127 - 248` pak
+spadlo na nulu. Spravne prispiva kazda uroven `127 - v` jednotkami registru
+a ty se scitaji. Merenim to sedi presne: ovladac mel vzdy o `127 - utlum zony`
+vic nez my (zona 121 -> +6, 112 -> +15, ...).
+
+Melodicke presety to nikdy neukazaly, protoze jejich zony instrumentu utlum
+nemaji. Region proto vede `sf1AttenUnits` zvlast od slozeneho `GenSet`.
+
+## 3. Offsety smycky se v SF1 neaplikovaly
+
+`PSST` a `CSL` nesedily na 232 notach, vsechny na vzorku `organwave`
+(preset Organ 3), jehoz zona ma `startloopAddrsOffset -1` a
+`endloopAddrsOffset -1`. Vetev SF1 je ignorovala - pocitala jen se surovymi
+adresami z `shdr`. Druhy organovy vzorek `organwavea3` ty generatory nema,
+proto se to projevilo jen u jednoho.
+
+## 4. Krok delay registru je 32 vzorku, ne 0,725 ms
+
+`LFO1VAL` nesedelo o jeden krok u dvou presetu:
+
+| generator | ovladac | my (drive) |
+|---|---|---|
+| `delayModLFO 120` (`jazzgtr`) | 165 | 166 |
+| `delayModLFO 260` (`tuba`) | 358 | 359 |
+
+Krok je `(0x8000 - v) << 5`, tedy **32 vzorku na 44100 Hz = 0,72562 ms**,
+ne zaokrouhlenych 0,725. S presnym krokem sedi obe hodnoty. Utinani je tam
+proto, ze ovladac jinde deli celociselne pres `idiv` (viz `HoldFromMs`);
+rozlisit utinani od zaokrouhleni tyhle dve hodnoty neumozni.
+
+## Stav
+
+**26 registru na 100 %** z 3331 sparovanych not Georgie. Zbyva:
+
+| registr | shoda | co to je |
+|---|---|---|
+| `FMMOD` | 99,9 % | dve noty |
+| `PTRX^`, `CPF^` | 99,5 % | odvozene z `IP` |
+| `IP` | 98,0 % | vyska +-1 u 67 not |
+| `VTFT^`, `CVCF^` | 74,7 % | cilovy objem, krivka nedohledana (viz vyse) |
+
+## A ted uz to je slyset
+
+Prvni tri kola zvukem nehnula. Tohle ano - hlavne diky utlumu bicich, ktery
+delal az 16 jednotek, tedy 6 dB navic na cinelech.
+
+Proti zaznamu skutecneho ovladace na tomtez cipu (`--chip 86box`):
+
+| pasmo Hz | pred (kolo 3) | po |
+|---|---|---|
+| 1600-3200 | -0,6 | **-0,1** |
+| 3200-6400 | -0,7 | **-0,2** |
+| 6400-12800 | +1,9 | **-0,3** |
+| 12800-22050 | +3,0 | **+0,6** |
+
+Do 12,8 kHz je to ted **do 0,3 dB** pres cele spektrum. Korelace obalky
+0,9471 -> 0,9497.

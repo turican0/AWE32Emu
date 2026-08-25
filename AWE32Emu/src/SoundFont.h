@@ -118,6 +118,11 @@ namespace SoundFont
     {
         const Sample* sample = nullptr;
         GenSet gen;
+        // SF1: utlum se **neda** vzit ze slozeneho GenSetu. Kazda uroven
+        // (zona instrumentu, zona presetu) prispiva `127 - v` jednotkami
+        // registru a ty se scitaji; soucet surovych SF1 hodnot by dal
+        // nesmysl. -1 znamena "nepocitano" (banka je SF2).
+        int sf1AttenUnits = -1;
     };
 
     struct Bank
