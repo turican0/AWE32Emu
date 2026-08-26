@@ -98,6 +98,7 @@ private:
     struct ChannelState
     {
         uint8_t program = 0;
+        uint8_t modWheel = 0;   // CC1, viz Synth::NoteOn
         uint8_t bankMsb = 0;         // CC0
         uint8_t bankLsb = 0;         // CC32
         uint8_t volume = 100;        // CC7

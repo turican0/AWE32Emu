@@ -498,3 +498,459 @@ zbytek jsou noty kytary s ohybem).
 
 Dalsi krok: pridat do `awe32_trace.c` okno i na tuhle strukturu, jinak se
 obe slozky dohledat nedaji.
+
+## Rozdil +-1 v IP: pitch bend, ne prevod vysky
+
+Prevod `sub_192E` v tom byl nevinne. Rozhodl az test, jestli jsou hodnoty,
+ktere ovladac zapsal, v jeho obrazu vubec dosazitelne:
+
+```
+DC81 v obrazu sub_192E: True     <- nase
+DC82 v obrazu sub_192E: False    <- ovladacova
+```
+
+Funkce skace po 3 az 4 jednotkach, takze `DC82` z ni **zadny celociselny**
+**vstup v centech nedava**. Rozdil tedy vznikal az pri scitani za ni.
+
+Kanaly s rozdilem v `IP` byly 1, 3 a 7 - a to jsou presne **jedine tri**
+kanaly Georgie s pitch bendem (177, 231 a 437 udalosti). U ch3 je nejcastejsi
+pripad ohyb -8192 s rozdilem +1, 25x.
+
+Pri plnem ohybu dolu a rozsahu 2 pultony to je **-682,667** jednotek IP.
+Ovladac **utina k nule** -> -682, my jsme zaokrouhlovali -> -683. Utinani je
+to same jako vsude jinde, kde ovladac deli pres `idiv`.
+
+Vysledek: `IP` 98,0 % -> **99,1 %**. Zbylych 30 not je **vsech na ch7**,
+jedinem kanalu s RPN a nejrychlejsim ohybem; rozdily jsou velke a rozhazene
+(+267, +120, -1970, ...) a chodi po dvojicich, tedy dva hlasy na notu. To uz
+neni chyba prevodu, ale to, ze nas sekvencer trefi notu do jineho mista
+ohyboveho nabehu nez MPU-401 v guestovi.
+
+### Slepa ulicka po ceste
+
+CC1 (modulacni kolecko) jede taky jen na ch1 a ch3, takze to vypadalo jako
+vysvetleni. Neni: **vsech 37 not s +1 ma CC1 nulove** a jedina nota
+s CC1 > 0 sedi. Korelace kanalu jeste neni pricina.
+
+## Je 86Box pri mereni spolehlivy?
+
+Obava, ze emulator pri nestihani pousti do stopy nesmysly, je namiste, ale
+pro tahle mereni se nepotvrdila. Dva nezavisle behy Georgie z ruznych dnu:
+
+| | |
+|---|---|
+| pocet not | 3331 a 3331 |
+| registry, ktere se mezi behy lisi | **zadny** |
+| posun absolutniho casu | 61892 snimku (jiny okamzik bootu) |
+| rozjezd relativnich rozestupu | max **135 snimku za 150 s**, tedy 3 ms |
+
+Guest tedy bezi deterministicky - 86Box pocita v emulovanem case, a kdyz
+host nestiha, jen se to zpomali v realnem case. Kdyby stopa vznikala
+poskozena, projevilo by se to jako nahodne rozdily, ne jako systematicke.
+
+## Zbylych 30 hlasu na ch7: rozsah ohybu, ne casovani
+
+Vypadalo to na casovani (nota trefena do jineho mista ohyboveho nabehu), ale
+neni to tak. Podil mezi posunem, ktery musel ovladac pouzit, a tim nasim je
+porad stejny:
+
+```
+587/320 = 1,834    264/144 = 1,833    1174/640 = 1,834
+532/290 = 1,834    147/80  = 1,838    -4334/-2364 = 1,833
+```
+
+1,8333 = 22/12. Kdyz se pro kazdou notu dopocita, jaky rozsah by presne
+sedel, vyjde **22 pultonu** (u 10 z 15 not presne, u zbytku nejednoznacne,
+protoze se ohyb prave menil).
+
+MIDI pritom rozsah nastavuje jasne - `RPN 0/0`, `DataEntry MSB = 12`, pak
+`RPN 127/127` (odvoleni). My tedy pouzivame 12 spravne, ovladac se chova jako
+22, tedy **o 10 pultonu vic**.
+
+Lisi se presne tech 15 not (30 hlasu, dve vrstvy na notu) - jsou to jedine
+noty ch7 s **nenulovym ohybem v okamziku note-onu**; kde je ohyb nula, je
+rozsah jedno.
+
+**Neopravovat nasilim.** Pricitat natvrdo 10 by bylo presne to fitovani na
+jedno mereni, na ktere uz jsme dvakrat doplatili. Rozdil 22 = 12 + 10 vypada
+jako by ovladac k rozsahu **pricital** misto aby ho nastavoval, nebo mel
+vychozi 10. Dohledat to jde v jeho obsluze RPN / data entry.
+
+Poznamka: `ch2` a `ch6` posilaji `DataEntry MSB` (2 resp. 12) **bez toho, aby**
+**predtim vybraly RPN**. Zadny ohyb na nich neni, takze se to neprojevi, ale
+pri hledani obsluhy RPN je to dobre mit na pameti.
+
+### Obsluha RPN a pitch bendu v SBAWE.VXD
+
+Cesta k ni: dispatcher MIDI je na `0x694` (`and eax,0xf0`, pak vetve pro
+0x80..0xE0). Control change (0xB0) vola `0x38F5`, pitch bend (0xE0) vola
+`0x3D3B`. Kanalove struktury maji krok **0x24** a lezi na `edi + ch*0x24`.
+
+**Data entry MSB (`0x35DD`)** - pri RPN 0 ulozi hodnotu rovnou jako bajt:
+
+```
+[esi+0x45e] == 0x100 ? RPN : NRPN
+[esi+0x460] == 0  -> [esi+0x44f] = hodnota      ; rozsah ohybu v pultonech
+[esi+0x460] == 2  -> [esi+0x454] = clamp(v-0x40,-24,24) * 100   ; hrube ladeni
+[esi+0x460] == 1  -> [esi+0x452] = ((v<<7|lsb) - 0x2000)*100 >> 13  ; jemne
+```
+
+**Pitch bend (`0x3D3B`)**:
+
+```
+ecx = ((MSB - 0x40) << 7) + LSB        ; ohyb -8192..8191
+eax = byte [ebx+0x44f]                 ; rozsah; kdyz 0, pouzije se 2
+eax = (eax * ecx) / 24                 ; idiv, tedy utinani
+[ebx+0x456] = eax                      ; posun v jednotkach IP
+...
+IP = clamp([ebx+0x450] + [esi+0x0e] + posun, 0, 0xFFFF)
+```
+
+`(ohyb * rozsah) / 24` je **presne to, co pocitame my** - nas
+`(bend/8192) * rozsah * 4096/12` je totez a od minule uz taky utina.
+Vzorec tedy sedi a rozdil musi byt v **hodnote** rozsahu (`[ebx+0x44f]`),
+nebo v ohybu platnem v ten okamzik.
+
+Rozliseni ze stopy nejde: `ohyb 640, rozsah 22` da 586, ale ovladac ukazuje
+587 - a `ohyb 641, rozsah 22` uz 587 da taky. Rozsah a okamzik ohybu jsou
+z portove stopy nerozlisitelne.
+
+**Dalsi krok je hacek na kanalovou strukturu.** Staci do `awe32_trace.c`
+pridat okno na `EDI + 0x440` delky 0x1A0 (pokryje `+0x44f`, `+0x450` a
+`+0x456` pro vsech 16 kanalu) a vypisovat ho jen u zapisu do IP, aby stopa
+nenarostla. Pak je videt primo, jaky rozsah ovladac drzi.
+
+### Oprava: rozsah je 12, rozdil je casovani
+
+Vyse uvedeny zaver, ze se ovladac chova jako rozsah **22 pultonu**, je
+**spatne**. Vysel z pomeru 1,833 mezi "posunem, ktery musel ovladac pouzit"
+a nasim - jenze ten posun jsem dopocitaval z rozdilu IP proti zakladu, ktery
+jsem odvodil z **nasi** noty. U ch7 ma preset dve vrstvy s ruznou vyskou,
+takze staci prohodit vrstvy a vyjde konzistentni, ale nesmyslny pomer.
+
+Rozhodl az hacek na kanalove struktury (`AWE32_TRACE_CH_OFF/LEN`). Tabulka
+kanalu je na **`EDI + 0x44F`, krok 0x24**; pole v ni:
+
+```
++0x00  bajt   rozsah pitch bendu       (ch0..ch6 = 2, ch7 = 12)
++0x01  word   ladeni kanalu            (vsude 0)
++0x07  dword  spocteny posun ohybu
+```
+
+Namereno na 4418 zapisech do IP:
+
+| rozsah | ladeni | posun | pocet |
+|---|---|---|---|
+| 12 | 0 | 0 | 2169 |
+| 12 | 0 | -1706 | 966 |
+| 12 | 0 | 320 | 22 |
+| 12 | 0 | 5 | 42 |
+
+`posun = ohyb * rozsah / 24`, tedy pro ohyb 640 vychazi 320 - **presne to,**
+**co pocitame my**. Rozsah, ladeni i vzorec se shoduji.
+
+Zbylych 30 hlasu ch7 se tedy lisi tim, **jaky ohyb platil v okamziku**
+**note-onu** - nas sekvencer trefi notu do jineho mista nabehu nez MPU-401
+v guestovi. Neni to chyba prevodu a bez presneho napodobeni casovani
+dispatche MIDI to spravit nejde.
+
+Poucení: nedopocitavat velicinu z rozdilu vysledku, kdyz jde primo zmerit.
+Postavil jsem na tom dva zavery a oba byly spatne.
+
+---
+
+# JUMP: druha skladba, ktera to overila
+
+`JUMP_BK.MID` ma 15 kanalu, 3923 not a 5077 hlasu (Georgia 8 / 2366 / 3331),
+takze prochazi mnohem vic presetu. Sedm oprav odvozenych z Georgie na nem
+plati beze zmeny - **28 registru zustalo na 100 %**. Odhalil ale jednu vec
+navic.
+
+## Tabulka casu attacku je v ovladaci na 0x09118
+
+`ATKHLD` sedelo jen na 80,1 % (1008 hlasu). Mezivysledek `modAttack` ukazal,
+ze je to primo v prevodu, a rozlozeni melo jen tri hodnoty:
+
+| nase | ovladac | not |
+|---|---|---|
+| 9 | **10** | 504 |
+| 98 | **100** | 504 |
+| 125 | 125 | 4069 |
+
+Jsou to presety `polysynth` (`attackModEnv 20`) a `spolysynth` (`1270`),
+vrstvena dvojice. Tabulka casu je v `SBAWE.VXD` na offsetu **0x09118** -
+128 polozek po 16 bitech v ms, nalezena jako jedine misto v binarce, ktere
+vyhovuje trem znamym bodum:
+
+```
+idx  1..15:  11878 5939 3959 2970 2376 1980 1697 1485 1320 1188 1080 990 914 848 792
+idx 95..105: 24 23 22 21 20 19 18 17 16 15 15
+idx 120..127: 8 7 7 7 7 6 6 6
+```
+
+Nase `11878 / RateDivisor(r-1)` ji po zaokrouhleni reprodukuje **na vsech**
+**127 polozkach**, takze ji netreba opisovat. Chyba byla ve **vyberu**:
+
+| | drive | spravne |
+|---|---|---|
+| porovnava se s | presnym casem | **zaokrouhlenym** |
+| vraci se | `r-1` | **`r`** |
+| nulovy cas | 0x7D | **0x7F** |
+| propadnuti cyklem | 0x7F | **0x7E** |
+
+Sedi na ctyri body ze dvou skladeb: 0 ms -> 0x7F, 6 ms -> 0x7E, 20 ms -> 100,
+1270 ms -> 10. Na Georgii se to neprojevilo, protoze jeji presety doprostred
+tabulky vubec nesahnou - hlasitostni obalka tam nabyva jen 125, 126 a 127.
+**To je presne ten duvod, proc kalibrovat na vic nez jedne skladbe.**
+
+## Stav
+
+| | Georgia | JUMP |
+|---|---|---|
+| registru na 100 % | 28 | **29** |
+| mezivysledku | 8/8 | 8/8 |
+| nas cip vs `emu8k_ref.exe` | 0 rozdilu | **0 rozdilu z 7 524 396** |
+
+Zbyvaji `IP`, `PTRX^` a `CPF^` (99,6 %, 21 hlasu) - vsechny tri jsou odvozene
+z jedne veliciny a je to **jitter dispatche**, ne prevod.
+
+## Hodiny guesta: zmereno, ale nenapodobujeme
+
+Porovnani casu not proti ovladaci (3331 not Georgie) dalo linearni drift
+**-1,527e-4 · t**, tedy guest hraje o 0,015271 % rychleji. Sedi to na PIT
+delicku: Windows programuji milisekundovy timer hodnotou 1193 misto 1193,182,
+takze jeden "milisekundovy" tik trva 0,99984747 ms - predpoved 0,015253 %.
+Neni to tedy fitovana konstanta, ale hardware.
+
+Zkusili jsme to do sekvenceru zavest a **na registrovem proudu to nezmenilo**
+**nic** - parovani je podle poradi a rovnomerna zmena rychlosti preskaluje
+noty i ohyby stejne. Vraceno: prehravac by kvuli tomu hral rychleji, nez MIDI
+predepisuje, a nic by to nevyneslo.
+
+Zbytkovy rozptyl po odecteni driftu je **0,89 ms** (max 3,44 ms) - to je ten
+jitter, ktery zbylych 21 hlasu zpusobuje. Deterministicky se reprodukovat
+neda.
+
+---
+
+# RELAX: treti skladba
+
+6523 hlasu, 15 kanalu, bank select `CC0 = 1` a `8` (banky, ktere v
+`SYNTHGM.SBK` neexistuji - fallback na banku 0). Pozor: **`RELAX.SBK` v
+guestovi nahrana neni** - ve stope jsou jen 3 zapisy do `SMLD`, u banky
+6,4 MB by jich byly miliony. Nas render ji proto taky nesmi mit, jinak by se
+porovnavaly dve ruzne konfigurace.
+
+## Modulacni kolecko (CC1)
+
+`FMMOD` horni bajt mel u ovladace 01, 02 a 04 tam, kde jsme meli nulu.
+Obsluha CC1 je na `0x34A4`:
+
+```
+mov ecx, 0x1E / div ecx    ; CC1 / 30 -> 0..4
+add ebp, edx               ; + hloubka z patche + kanalova slozka
+cmp ebp, 0x7F / shl ebp, 8 ; orez a do horniho bajtu FMMOD
+```
+
+Doplneno. Zvedlo to i **Georgii z 28 na 29** - jeji dve zbyle `FMMOD` byly
+z tehoz duvodu.
+
+## Frekvence LFO preteka bajtem
+
+`freqVibLFO 132` -> 264 -> ovladac zapise **0x08**, my jsme oriznuli na 0xFF.
+Oprava: `(v * 2) & 0xFF` misto `clamp`.
+
+## Otevrene: konstanta prevodu delay
+
+`ENVVAL` nesedi u 18 hlasu (`7F40` proti `7F3F`). Neni to o rezimu
+zaokrouhleni: zaokrouhlovani ho spravi, ale rozbije `LFO1VAL` a `ENVVOL`
+(383 hlasu). Z namerenych bodu vychazi, ze pocet kroku na milisekundu musi
+lezet v **<1,378571; 1,380769)**, kdezto nase fyzikalne odvozena
+`44100/32000 = 1,378125` je **tesne pod** tim intervalem. Kandidat je
+`1379/1000`.
+
+Ovladac ma na to **jednu spolecnou rutinu** volanou s cislem generatoru:
+
+```
+push 0x15 (21 delayModLFO)  -> [edi+0x2a]  LFO1VAL
+push 0x17 (23 delayVibLFO)  -> [edi+0x2e]  LFO2VAL
+push 0x19 (25 delayModEnv)  -> [edi+0x32]  ENVVAL
+push 0x21 (33 delayVolEnv)  -> [edi+0x42]  ENVVOL
+push 0x1a (26 attackModEnv) -> [edi+0x34]
+push 0x22 (34 attackVolEnv) -> [edi+0x44]
+call 0x3b51
+```
+
+**Past:** cil `0x3B51` lezi uvnitr funkce zacinajici na `0x3AFE`, takze
+lineárni disassembly ho nerozplete - `le_disasm.py` neaplikuje fixupy LE
+souboru. Az se to spravi, bude v te rutine cela prevodni tabulka pro vsechny
+generatory naraz, tedy i ta konstanta.
+
+## Stav po trech skladbach
+
+| | Georgia | JUMP | RELAX |
+|---|---|---|---|
+| hlasu | 3331 | 5077 | 6523 |
+| registru na 100 % | **29** | **29** | **28** |
+
+---
+
+# Prevodni rutina generatoru: vytazena z pameti guesta
+
+Staticky disassembler na ni nestacil. Volani na `+0x2885` ma v souboru
+`rel32 = 0x000012C7`, ale **v pameti 0x001A06CB** - fixup ho posila uplne
+jinam, mimo objekt 1. Proto cil `0x3B51` vychazel uvnitr jine funkce.
+
+Reseni: vypsat kod **z pameti guesta**, kde uz je zavedeny a slinkovany.
+`awe32_trace.c` to umi pres `AWE32_TRACE_CODE_LEN` / `_BACK` / `_MIN`
+a spusti se **az u zapisu do DCYSUSV** (spusteni noty) - prvni pristup na
+porty dela jiny modul a VxD se pri kazdem bootu nahraje jinam.
+
+Ulozeno v `SoundBlaster AWE32/runtime-dumps/` i s `.json` (zaklad objektu,
+EIP, delka).
+
+## Co v te rutine je
+
+Skokova tabulka podle cisla generatoru, kazda vetev pocita v **timecents**
+v pevne radove carce 16.16:
+
+```
+cmp eax, 0xFFFFD120   ; <= -12000 -> 0x8000 (bez delay)
+cmp eax, 0x156C       ; >= 5484   -> 0
+add eax, 0x30E4       ; + 12516
+mov ecx, 0x4B0        ; 1200
+shl eax, 0x10 / idiv ecx
+... (1 + frac) << intpart ...
+sub esi, edi          ; 0x8000 - vysledek
+```
+
+Slozenim `ms -> timecents -> 2^x` vypadne linearni cinitel
+**2^(12516/1200)/1000 = 1,379567**. Nezavisle odvozeny interval z mereni byl
+<1,378571; 1,380769) - konstanta z kodu do nej padne, nas drivejsi odhad
+`44100/32000 = 1,378125` ne.
+
+## Linearni nahrada nestaci
+
+| | ovladac | my (1,378125) | smer |
+|---|---|---|---|
+| RELAX `ENVVAL` | 193 kroku | 192 | potrebuje **vetsi** cinitel |
+| JUMP `ENVVAL` | 606 kroku | 607 | potrebuje **mensi** |
+
+Dva body tahnou opacne, takze zadny linearni cinitel oba netrefi. To je
+dukaz, ze prevod je opravdu exponencialni. Konstanta z kodu je v repu
+(je doloziltelna), ale sama o sobe jen presouva chybu z RELAXu na JUMP:
+RELAX 28 -> 29, JUMP 29 -> 28.
+
+Dotahnout to znamena prepsat celou tu rutinu vcetne kroku
+`ms -> timecents`, ktery zatim nemame nalezeny - rutina uz timecents dostava
+na vstupu.
+
+## Vyreseno: krok `ms -> timecents` se zaokrouhluje **dolu**
+
+Chybejici krok se nasel a prodleva obalky uz sedi na obou skladbach naraz.
+Nehadalo se - zmerilo se to.
+
+### Instrukcni stopa
+
+Prevod probiha **pred** portovymi zapisy noty, takze rozsahem adres se
+chytit neda. Tracer proto umi `AWE32_TRACE_INSN_AFTER_NOTE=1`: instrukcni
+zaznam se odjisti u prvniho note-onu a zachyti zpracovani noty dalsi.
+
+    AWE32_BUILD=build86box_int      # nutne, dynarec hook mine
+    AWE32_TRACE_INSN=1
+    AWE32_TRACE_INSN_AFTER_NOTE=1
+
+Poradi registru na radku `I`: `EIP opcode EAX EBX ECX EDX ESI EDI EBP ESP`
+(overeno na `POP ESI`, `POP EBP` a posunu `ESP`).
+
+**Ovladac se pri kazdem bootu nahraje na stejnou adresu.** Vypis kodu
+`SBAWE.VXD.obj1.noteon.mem` (zaklad 0xC0FF7BE0) ma `eip_pri_vypisu`
+0xC0FF9BE0 - presne tu adresu, kde se stopa odjistila v uplne jinem behu.
+Vypis je tedy pouzitelny opakovane a cile volani v nem sedi
+(`call 0xc0ff9bb1` souhlasi se stopou).
+
+### Mapa note-onu
+
+| adresa | co dela |
+|---|---|
+| `C0FFA2AA` | obsluha note-onu, `eax` = cislo noty, `ebx` = velocity |
+| `C0FF9C68` / `C0FFA0FF` | prideleni hlasu, vraci jeho cislo |
+| `C0FFAADA` | vypocet vysky, vraci `IP` |
+| `C0FF9BB1` | zapis registru: `eax` = ukazatel, hodnota v `ecx` |
+| `C0FF9C1B` | zapis 32bitove dvojice na 0x620/0x622 |
+| `C0FFB2B9` | zapis `ENVVAL` |
+| `C0FFB3AF` | zapis `ENVVOL` |
+
+### Vetev 0xBFFF - potvrzena z kodu
+
+    C0FFB348  cmp word ptr [ebx + 0x44], 0x7f    ; volAttack
+    C0FFB34D  jne C0FFB3A0
+    C0FFB34F  cmp word ptr [ebx + 0x42], 0x8000  ; envvolDelay, **bez znamenka**
+    C0FFB355  jb  C0FFB3A0
+    C0FFB357  push 0xbfff                        ; ENVVOL = 0xBFFF
+
+Modulacni obalka ma tutez dvojici na `C0FFB245` s poli `0x34` a `0x32`.
+Nase `volInstant` / `modInstant` v `Synth.cpp` sedi na podminku presne.
+
+### Cilovy objem - potvrzena tabulka
+
+    C0FFB36B  movsx eax, word ptr [ebx + 0x26]   ; atten
+              cdq / xor / sub                    ; |atten|
+              and eax, 0xf
+              xor / sub                          ; zpet se znamenkem
+    C0FFB382  mov si, word ptr [edx*2 - 0x3efffe44]   ; tabulka na 0xC10001BC
+    C0FFB38A  cdq / and edx, 0xf / add / sar eax, 4   ; deleni 16 k nule
+    C0FFB395  shr si, cl
+
+To je presne `Awe32Curves::VolumeTarget`. Jediny nedodelek: pro **zaporny**
+atten ovladac bere `|atten| & 15` a deli k nule, my mame `a & 15` a `a >> 4`.
+Pro atten >= 0 je to totozne; jestli zaporny atten vubec nastava, zmereno
+neni.
+
+### Kde se prevod **nedeje**
+
+Ve vypisu kodu (28 KB kolem note-onu) neni jediny zapis na `+0x32` ani
+`+0x42`. Blok u `EBX` se plni hromadnou kopii, takze prevod `ms -> registr`
+probehne uz **pri nacitani banky**, ne pri note. Proto ho hledani kolem
+note-onu nemohlo najit.
+
+### Namerene dvojice
+
+Registr nese `0x8000 - kroky`. Ze stop:
+
+| skladba | pole | kroku ovladac | kroku my (drive) |
+|---|---|---|---|
+| RELAX | `ENVVOL` | 27 | 27 |
+| RELAX | `ENVVAL` | 193 | 193 |
+| JUMP | `ENVVAL` | **606** | 607 |
+
+`SYNTHGM.SBK` obsahuje jen sest hodnot prodlevy: `delayModEnv` 10, 140, 440
+a 710 ms, `delayVolEnv` 20 a 40 ms. Rozhoduje jedina z nich, **440 ms**:
+
+    1200*log2(0,44) = -1421,31
+    dolu   -> -1422 -> 2^((12516-1422)/1200) = 606,65 -> 606   ovladac
+    k nule -> -1421 -> 2^((12516-1421)/1200) = 607,00 -> 607   my drive
+
+Zaokrouhluje se tedy **dolu**. Ostatnich pet hodnot vychazi stejne tak i tak,
+takze na nich to poznat neslo.
+
+### Proc ne linearni konstanta
+
+Krok 725 us (`floor(ms*1000/725)`) trefi vsech sest hodnot v bance take - ale
+proti exponenciale se lisi u **19 400 z 24 000** celych milisekund. Na
+SYNTHGM.SBK se oba shodnou jen nahodou, protoze bance staci sest hodnot. Na
+jine bance by 725 us selhalo, proto je v kodu exponenciala.
+
+Zbyva doplnit presnou 16.16 verzi `2^x` pres mantisu a posun; ta cast kodu
+bezi az pri nacitani banky a ve vypisu pameti zatim neni. `exp2` se od ni
+muze lisit o jednicku na hranach.
+
+### Vysledek
+
+| uroven | pred | po |
+|---|---|---|
+| `mezivysledky.jump` | 7/8 | **8/8** |
+| `registry.jump` | 28/32 | **29/32** |
+| `mezivysledky.georgia` | 8/8 | 8/8 |
+| `registry.relax` | 29/32 | 29/32 |
+| `cip.georgia` | 0 rozdilu | 0 rozdilu |

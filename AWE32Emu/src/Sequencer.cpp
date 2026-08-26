@@ -69,6 +69,13 @@ void Sequencer::RenderBlock(Synth& synth, int16_t* out, uint32_t numFrames, uint
 
         synth.RenderBlock(out + frame * 2, 1);
 
+        // Pozn.: hodiny prehravace v guestovi jdou o 0,0153 % rychleji -
+        // Windows programuji milisekundovy timer PIT delickou 1193 misto
+        // 1193,182. Zmereno (0,015271 %) i predpovezeno z delicky
+        // (0,015253 %). **Nenapodobujeme to**: registrovym proudem to
+        // nehne (parovani je podle poradi a rovnomerna zmena rychlosti
+        // preskaluje noty i ohyby stejne) a prehravac by kvuli tomu hral
+        // rychleji, nez MIDI predepisuje.
         double ticksPerSample = TicksPerSecond() / static_cast<double>(sampleRate);
         m_currentTick += ticksPerSample;
     }

@@ -310,6 +310,21 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
 
     const int pitch = std::clamp(vp.ip + PitchBendOffset(channel), 0, 65535);
 
+    // Modulacni kolecko pridava hloubku LFO1 na vysku. `SBAWE.VXD` obsluha
+    // CC1 (0x34A4) deli hodnotu **tricetkou** a vysledek pricita k hloubce
+    // z patche; soucet se orizne na 0x7F a jde do horniho bajtu FMMOD:
+    //
+    //     mov ecx, 0x1E / div ecx      ; CC1 / 30 -> 0..4
+    //     add ebp, edx                 ; + hloubka z patche
+    //     cmp ebp, 0x7F / shl ebp, 8
+    //
+    // Zmereno na RELAXu: ovladac mel 01, 02 a 04 tam, kde jsme meli nulu.
+    const int modDepth = std::clamp(
+        static_cast<int>(static_cast<int8_t>((vp.fmmod >> 8) & 0xFF))
+            + ch.modWheel / 30, -128, 0x7F);
+    const uint16_t fmmod = static_cast<uint16_t>(
+        ((static_cast<uint8_t>(modDepth)) << 8) | (vp.fmmod & 0xFF));
+
     const uint32_t reverbByte =
         static_cast<uint32_t>(std::clamp(reverb, 0, 255)) << Emu8000::kReverbShift;
     // Spodni bajt PTRX je doplnkova panorama. `SBAWE.VXD` tam dava 256 - pan
@@ -357,7 +372,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         m_core.Write(Reg::IP,      voice, static_cast<uint16_t>(pitch));
         m_core.Write(Reg::IFATN,   voice, ifatn);
         m_core.Write(Reg::PEFE,    voice, vp.pefe);
-        m_core.Write(Reg::FMMOD,   voice, vp.fmmod);
+        m_core.Write(Reg::FMMOD,   voice, fmmod);
         m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
         m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
         m_core.Write(Reg::ENVVAL,  voice, envvalReg);
@@ -405,7 +420,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         m_core.Write(Reg::PTRX, voice, (cur & 0xFFFF00FFu) | reverbByte);
         m_core.Write(Reg::IFATN,   voice, ifatn);
         m_core.Write(Reg::PEFE,    voice, vp.pefe);
-        m_core.Write(Reg::FMMOD,   voice, vp.fmmod);
+        m_core.Write(Reg::FMMOD,   voice, fmmod);
         m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
         m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
         m_core.Write(Reg::ENVVAL,  voice, vp.envval);
@@ -607,6 +622,7 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
     switch (controller)
     {
     case 0:  ch.bankMsb = value; break;
+    case 1:  ch.modWheel = value; break;
     case 32: ch.bankLsb = value; break;
     case 7:  ch.volume = value; break;
     case 10: ch.pan = value; break;

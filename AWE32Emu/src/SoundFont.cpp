@@ -69,19 +69,26 @@ namespace
 
     // Inverze tabulek z ovladace: najdi nejmensi rate, jehoz cas je <=
     // pozadovanemu. Stejna logika jako sub_2BC0 / sub_2BF0 v SBAWE32.DRV.
-    // Ovladac vybira - stejne jako u decay - polozku, jejiz cas je **delsi
-    // nebo rovny** zadanemu, ne prvni kratsi. Zmereno na Georgii:
+    // Tabulka casu attacku je v `SBAWE.VXD` na offsetu **0x09118** - 128
+    // polozek po 16 bitech, v celych ms. `11878 / RateDivisor(r-1)` ji po
+    // zaokrouhleni reprodukuje **na vsech 127 polozkach**, takze ji sem nemusi
+    // opisovat; jen se z ni musi vybirat tak, jak to dela ovladac:
     //
-    //     attackVolEnv 0 ms -> 0x7F,  6 ms -> 0x7E,  generator chybi -> 0x7D
+    //   prvni polozka, ktera je **kratsi** nez zadany cas (ostre)
+    //   nulovy cas -> 0x7F, propadnuti cyklem -> 0x7E
     //
-    // Tabulka ma u 0x7F cas 5,99 ms a u 0x7E 6,19 ms, takze 6 ms patri
-    // 0x7E. Drive se vracelo `r` misto `r-1` a nula davala rovnou 0x7D,
-    // cimz splynul "chybejici generator" s "nulovym casem".
+    // Overeno na ctyrech bodech ze dvou skladeb: 0 ms -> 0x7F,
+    // 6 ms -> 0x7E (Georgia), 20 ms -> 100 a 1270 ms -> 10 (JUMP, presety
+    // `polysynth` a `spolysynth`). Drive se vracelo `r-1` proti **presnym**
+    // casum misto `r` proti zaokrouhlenym, coz na Georgii nevadilo - ta
+    // doprostred tabulky vubec nesahne - ale na JUMPu delalo 1008 hlasu.
     int AttackRateFromMs(double ms)
     {
+        if (ms <= 0.0) return 0x7F;
         for (int r = 1; r <= 0x7F; ++r)
-            if (ms > 11878.0 / RateDivisor(r - 1)) return std::max(r - 1, 1);
-        return 0x7F;
+            if (ms > static_cast<double>(std::lround(11878.0 / RateDivisor(r - 1))))
+                return r;
+        return 0x7E;
     }
     // Kdyz generator v bance neni, plati vychozi hodnota z tabulky ovladace,
     // ktera vychazi na 0x7D. Overeno na 242 notach MINUETu a na presetech
@@ -106,28 +113,56 @@ namespace
         const int steps = static_cast<int>(ms / (Emu8000::kHoldSecPerStep * 1000.0));
         return std::clamp(127 - steps, 0, 127);
     }
-    // Krok delay registru je **32 vzorku na 44100 Hz**, tedy 0,72562 ms
-    // (`LFOxVAL_TO_EMU_SAMPLES` v 86Boxu: `(0x8000 - v) << 5`). Drive se
-    // pocitalo s 0,725 ms a zaokrouhlovalo, coz davalo o krok vic:
+    // Prevod delay registru **neni linearni v milisekundach**, jak by se
+    // z kroku 32 vzorku zdalo. Ovladac pocita v timecents s pevnou radovou
+    // carkou 16.16 (spolecna prevodni rutina, volana s cislem generatoru;
+    // vytazeno z pameti guesta, viz runtime-dumps/SBAWE.VXD.obj1.mem):
     //
-    //     delayModLFO 120 ms (jazzgtr) -> ovladac 165, my 166
-    //     delayModLFO 260 ms (tuba)    -> ovladac 358, my 359
+    //     cmp eax, 0xFFFFD120   ; <= -12000 -> 0x8000, tedy bez delay
+    //     cmp eax, 0x156C       ; >= 5484   -> 0
+    //     add eax, 0x30E4       ; + 12516
+    //     mov ecx, 0x4B0        ; 1200
+    //     shl eax, 0x10 / idiv ecx   ; (tc + 12516) / 1200 v 16.16
+    //     ... 2^x pres mantisu a posun ...
+    //     sub esi, edi          ; 0x8000 - vysledek
     //
-    // S presnym krokem sedi obe hodnoty i pri zaokrouhlovani; utinani je
-    // tu proto, ze ovladac vsude jinde deli celociselne pres `idiv`
-    // (viz HoldFromMs). Rozlisit to zatim nejde - obe merene hodnoty
-    // vychazeji stejne.
+    // Zadny **linearni** cinitel tuhle cestu nenahradi. Drivejsich
+    // 2^(12516/1200)/1000 = 1,379567 bylo prolozeni, a proti kroku 725 us
+    // se lisi u 19 400 z 24 000 celych milisekund - na SYNTHGM.SBK se oba
+    // shodnou jen nahodou, protoze bance staci sest hodnot. Pocita se tedy
+    // exponencialou tak, jak to dela ovladac.
     int DelayFromMs(double ms)
     {
-        const double stepMs = 32000.0 / 44100.0;
-        const int steps = static_cast<int>(ms / stepMs);
+        if (ms <= 0.0)
+            return static_cast<int>(Emu8000::kDelayNone);
+
+        // Prevod na timecents se **zaokrouhluje dolu**, ne k nule ani
+        // matematicky. Rozhodla jedina hodnota v bance, 440 ms:
+        //
+        //     1200*log2(0,44) = -1421,31
+        //     dolu  -> -1422 -> 2^((12516-1422)/1200) = 606,65 -> 606   ovladac
+        //     k nule -> -1421 -> 2^((12516-1421)/1200) = 607,00 -> 607   my drive
+        //
+        // Ve stope JUMPu ma ovladac u vsech 504 dotcenych not ENVVAL 0x7DA2,
+        // tedy 606 kroku. Ostatnich pet hodnot v bance vychazi stejne tak i tak.
+        const int tc = static_cast<int>(std::floor(1200.0 * std::log2(ms / 1000.0)));
+        if (tc <= -12000)
+            return static_cast<int>(Emu8000::kDelayNone);
+        if (tc >= 5484)
+            return 0;
+
+        // Pozor: ovladac tenhle mocninny vypocet dela v 16.16 pres mantisu
+        // a posun. Ten kod je v casti, ktera bezi az pri nacitani banky, a
+        // ta zatim neni ve vypisu pameti - muze se od `exp2` lisit o jednicku
+        // na hranach. Az bude vypis, doplnit sem presnou verzi.
+        const int steps = static_cast<int>(std::exp2((tc + 12516) / 1200.0));
         return std::clamp(static_cast<int>(Emu8000::kDelayNone) - steps, 0, 0x8000);
     }
 
     // Prepis `sub_192E` z `SBAWE.VXD` (obj 1, 0x192E) - centy -> registr IP:
     //
     //     esi = centy + 0x41A0        ; 16800, aby bylo vse kladne
-    //     edi = esi / 0x4B0           ; 1200 -> oktava, ورez na 15
+    //     edi = esi / 0x4B0           ; 1200 -> oktava, orez na 15
     //     edx = esi % 0x4B0           ; zbytek v centech
     //     IP  = (edi << 12) | (edx*3 + (edx*31)/75)
     //
@@ -693,13 +728,16 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     // Pritomna frekvence se zdvojuje stejne jako hloubky vyse; chybejici
     // generator ale znamena rovnou registrovou hodnotu 128, ne 64x2.
     const int lfo1Freq = sf1 ? (g.Has(Gen::FreqModLFO)
-                                    ? std::clamp<int>(g.value[Gen::FreqModLFO] * 2, 0, 255)
+                                    ? ((g.value[Gen::FreqModLFO] * 2) & 0xFF)
                                     : 128)
                              : std::clamp<int>(static_cast<int>(std::lround(
                                    8.176 * std::pow(2.0, g.Get(Gen::FreqModLFO, 0) / 1200.0)
                                    / kLfoHzPerStep)), 0, 255);
+    // Pozor: ovladac vysledek **nechava pretect bajtem**, neoreze ho.
+    // Zmereno na RELAXu: `freqVibLFO 132` -> 264 -> zapsano 0x08, my jsme
+    // davali 0xFF.
     const int lfo2Freq = sf1 ? (g.Has(Gen::FreqVibLFO)
-                                    ? std::clamp<int>(g.value[Gen::FreqVibLFO] * 2, 0, 255)
+                                    ? ((g.value[Gen::FreqVibLFO] * 2) & 0xFF)
                                     : 0)
                              : std::clamp<int>(static_cast<int>(std::lround(
                                    8.176 * std::pow(2.0, g.Get(Gen::FreqVibLFO, 0) / 1200.0)
