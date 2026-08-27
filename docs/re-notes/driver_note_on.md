@@ -954,3 +954,99 @@ muze lisit o jednicku na hranach.
 | `mezivysledky.georgia` | 8/8 | 8/8 |
 | `registry.relax` | 29/32 | 29/32 |
 | `cip.georgia` | 0 rozdilu | 0 rozdilu |
+
+## Prevodni rutina: presne prepsana, ale vstup k ni zmereny neni
+
+### Skokova tabulka
+
+Vstup do rutiny je `C119C0F1` v objektu na 0xC1196C74:
+
+    mov  eax, [esp+4]                        ; cislo generatoru
+    sub  eax, 0x15                           ; 21
+    cmp  eax, 0x25                           ; rozsah 21..58
+    ja   C119C10D                            ; mimo -> vrat beze zmeny
+    movzx ecx, byte ptr [eax + 0xC119C362]   ; index vetve
+    jmp  dword ptr [ecx*4 + 0xC119C2FA]      ; adresa vetve
+
+Dekodovano (`tests/drv_dis.py` nad `SBAWE.VXD.obj1.mem`):
+
+| vetev | generatory |
+|---|---|
+| `C119C116` | delayModLFO, delayVibLFO, delayModEnv, delayVolEnv |
+| `C119C180` | freqModLFO, freqVibLFO |
+| `C119C1D9` | attackModEnv, attackVolEnv |
+| `C119C257` | holdModEnv, holdVolEnv |
+| `C119C2A6` | decayModEnv, releaseModEnv, decayVolEnv, releaseVolEnv |
+| `C119C10D` | zbytek - vraci hodnotu beze zmeny |
+
+Vetev prodlevy je tedy potvrzena, ne odhadnuta.
+
+### `2^x` neni exponenciala
+
+    shl eax, 0x10 / idiv 1200        ; x v 16.16, deleni k nule
+    and edi, 0xFFFF / add edi, 0x10000   ; 1 + frakce
+    sar eax, 16 / sub cl, al / sar edi, cl   ; (1 + frakce) << cela cast
+
+Je to **linearni nahrada uvnitr oktavy**, ktera uprostred nadhodnocuje az
+o 6 %. Prepsano jako `SoundFont::DelayFromTimecents`; overeno, ze pro
+dohledane timecents da vsechny tri namerene hodnoty registru (0x7FE5,
+0x7F3F, 0x7DA2). SF2 banky ted jdou primo pres nej - drive se timecents
+prevadely na milisekundy a zpatky.
+
+### Krok `ms -> timecents` porad chybi, a vime proc
+
+Rutina bere timecents. SF1 ma milisekundy, takze prevod dela nekdo pred ni.
+Zpetnym dosazenim z namerenych hodnot vyjde, ze timecents ovladace jsou
+proti presnemu `1200*log2(ms/1000)` **nizsi**, a odchylka kolisa:
+
+| ms | kroku (ovladac) | timecents, ktere to daji | presne | rozdil |
+|---|---|---|---|---|
+| 20 | 27 | -6891..-6817 | -6772,6 | -118..-44 |
+| 140 | 193 | -3506..-3498 | -3403,8 | -102..-94 |
+| 440 | 606 | -1495..-1494 | -1421,3 | -74..-73 |
+
+Nemonotonni odchylka vylucuje jak linearni nahradu logaritmu, tak posun
+konstantou - obojí bylo spocitane a nesedi. Vypada to na tabulku
+s interpolaci.
+
+**Kde ten krok neni:** instrukcni stopa pres cely objekt ovladace
+(`lo=C1196C74 hi=C119DC74`) za boot i prehravani zaznamenala **3 171 895
+instrukci, z toho v rozsahu prevodniku `C119C1xx` nula**. Limit radku
+vycerpany nebyl (4 427 473 z 8 000 000), takze to neni oriznuti stopy.
+Rutina se tedy pri nasi ceste vubec nevola a prevod banky probiha **mimo
+tenhle objekt VxD** - nejspis v ring-3 casti, ktera cte `.SBK`.
+
+Kontrola, ze filtr rozsahu funguje, je v tom samem cisle: pri uzkem rozsahu
+`C119C100..C119C300` nepadla do stopy zadna instrukce, pri sirokem 3,17
+milionu.
+
+### Co z toho plyne pro nas kod
+
+`DelayFromMs` zustava **prolozeni**, ne prepis. Sedi na vsech merenych
+notach Georgie, JUMPu i RELAXu, ale ma proti ovladaci dve odchylky
+(`floor(log2)` misto jeho aproximace a `exp2` misto linearni nahrady),
+ktere se na sesti hodnotach v SYNTHGM.SBK vzajemne vyrusi. Na jine SF1
+bance vyrusit nemusi. Az bude krok `ms -> timecents` zmereny, nahradit
+telo za `DelayFromTimecents(msNaTimecents(ms))`.
+
+## Cilovy objem pro zaporny utlum
+
+    movsx eax, word [ebx+0x26]              ; utlum, se znamenkem
+    cdq / xor / sub / and 0xF / xor / sub   ; index = utlum % 16, k nule
+    mov si, word [edx*2 + 0xC10001BC]
+    cdq / and edx,0xF / add / sar eax,4     ; posun = utlum / 16, k nule
+    mov cl, al / shr si, cl
+
+Obe deleni utinaji **k nule**, takze pro zaporny utlum je index zaporny
+a ovladac cte **pred** tabulku. Tam konci jina tabulka a jeji posledni tri
+slova jsou nuly, takze utlum -1 az -3 da ticho. Doplneno jako
+`kAttenBeforeTable`; `VolumeTarget` uz nema orez na 0..255.
+
+Tabulka sama je v souboru na **0x8DB0** (overeno hledanim tech sestnacti
+slov v binarce), staticky na 0x409010 a za behu na 0xC10001BC. Drivejsi
+poznamka "v souboru na 0x09010" zamenovala linearni adresu za offset
+v souboru - objekt LE nezacina na zacatku souboru.
+
+Zmereno: na Georgii, JUMPu a RELAXu (14 931 not) je utlum vzdy 16..255
+a `ComputeAttenuation*` ho stejne orezava na 0..255, takze zaporna vetev
+dnes nenastane. Je tu kvuli shode s ovladacem, ne kvuli zvuku.

@@ -170,10 +170,15 @@ namespace Awe32Curves
     //     shr si, cl                        ; mantisa >> (utlum >> 4)
     //
     // Tedy 6 dB na posun a 16 kroku mezi tim, coz dela 0,3763 dB na jednotku.
-    // Tabulka je v souboru na offsetu 0x09010 (linearne 0x409010, base je
-    // 0x400000). Nasli jsme ji tak, ze se z 844 not Georgie zpetne dopocitaly
-    // meze pro kazdou z 16 polozek a v cele binarce vyslo **jedine** misto,
-    // ktere je splnuje.
+    // Nasli jsme ji tak, ze se z 844 not Georgie zpetne dopocitaly meze pro
+    // kazdou z 16 polozek a v cele binarce vyslo **jedine** misto, ktere je
+    // splnuje.
+    //
+    // Offsety: v souboru je tabulka na **0x8DB0** (overeno hledanim tech
+    // sestnacti slov v binarce), staticky disassembler ji ukazuje na
+    // 0x409010 a za behu je na 0xC10001BC. Drivejsi komentar tvrdil, ze
+    // v souboru je na 0x09010 - to byla linearni adresa vydavana za offset
+    // v souboru, objekt LE ale nezacina na zacatku souboru.
     //
     // Pozor: neni to `attentable` z 86Boxu (ta ma krok presne 0,375 dB
     // a zacina na 65535), takze zadny hladky vzorec na to nesedne.
@@ -182,10 +187,42 @@ namespace Awe32Curves
         42488, 40688, 38960, 37312, 35728, 34216, 32768, 31376
     };
 
+    // Patnact slov, ktera v binarce **predchazeji** tabulce (0x8D92..0x8DAE).
+    // Ovladac je cte, kdyz je utlum zaporny: index si dela jako `utlum % 16`
+    // s utinanim k nule, takze je pak taky zaporny a sahne pred tabulku.
+    // Je to konec jine tabulky a posledni tri slova jsou nuly, takze utlum
+    // -1 az -3 da ticho.
+    inline constexpr uint16_t kAttenBeforeTable[15] = {
+        1542, 1286, 1285, 1028, 1028, 772, 771, 515, 514, 258, 257, 257, 0, 0, 0
+    };
+
+    // Prepis `SBAWE.VXD` obj 1, 0xC0FFB36B..0xC0FFB398 za behu:
+    //
+    //     movsx eax, word [ebx+0x26]   ; utlum, **se znamenkem**
+    //     cdq / xor / sub / and 0xF / xor / sub   ; index = utlum % 16 k nule
+    //     mov si, word [edx*2 + tabulka]
+    //     cdq / and edx,0xF / add / sar eax,4     ; posun = utlum / 16 k nule
+    //     mov cl, al / shr si, cl
+    //
+    // Obe deleni utinaji **k nule**, ne dolu - proto `%` a `/` v C++, ne
+    // `& 15` a `>> 4`. Pro utlum >= 0 je to totez, pro zaporny ne.
+    //
+    // Zmereno: na Georgii, JUMPu a RELAXu (14 931 not) je utlum vzdy 16..255
+    // a `ComputeAttenuation*` ho stejne orezava na 0..255, takze zaporna
+    // vetev dnes nenastane. Je tu kvuli shode s ovladacem, ne kvuli zvuku.
     inline uint16_t VolumeTarget(int attenUnits)
     {
-        const int a = std::clamp(attenUnits, 0, 255);
-        return static_cast<uint16_t>(kAttenToAmp16[a & 15] >> (a >> 4));
+        const int index = attenUnits % 16;
+        const int shift = attenUnits / 16;
+        const uint16_t base = (index >= 0) ? kAttenToAmp16[index]
+                                           : kAttenBeforeTable[15 + index];
+
+        // `shr si, cl` bere jen dolni bajt posunu a procesor pocet maskuje
+        // na peti bitu; posun 16 a vys da u 16bitoveho registru nulu.
+        const unsigned count =
+            static_cast<unsigned>(static_cast<uint8_t>(shift)) & 31u;
+        return (count >= 16u) ? uint16_t{0}
+                              : static_cast<uint16_t>(base >> count);
     }
 
 }
