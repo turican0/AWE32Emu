@@ -131,6 +131,37 @@ namespace
     // se lisi u 19 400 z 24 000 celych milisekund - na SYNTHGM.SBK se oba
     // shodnou jen nahodou, protoze bance staci sest hodnot. Pocita se tedy
     // exponencialou tak, jak to dela ovladac.
+    // 1:1 prepis vetve `C119C116` z `SBAWE.VXD` (objekt na 0xC1196C74).
+    // Skokova tabulka prevodni rutiny na ni posila prave ctyri generatory
+    // prodlevy: delayModLFO (21), delayVibLFO (23), delayModEnv (25)
+    // a delayVolEnv (33) - odecteno z tabulky indexu na 0xC119C362
+    // a tabulky adres na 0xC119C2FA.
+    //
+    //     cmp eax, 0xFFFFD120      ; <= -12000 -> 0x8000, bez prodlevy
+    //     cmp eax, 0x156C          ; >= 5484   -> 0
+    //     add eax, 0x30E4          ; + 12516
+    //     shl eax, 0x10 / idiv 1200    ; x v 16.16, deleni **k nule**
+    //     and edi, 0xFFFF / add edi, 0x10000   ; 1 + frakce
+    //     sar eax, 16 / sub cl, al / sar edi, cl
+    //     sub esi, edi             ; 0x8000 - vysledek
+    //
+    // Pozor: `2^x` tu **neni exponenciala**, ale linearni nahrada uvnitr
+    // oktavy - `(1 + frakce) << cela cast`. Uprostred oktavy nadhodnocuje
+    // az o 6 %.
+    int DelayFromTimecents(int timecents)
+    {
+        if (timecents <= -12000)
+            return static_cast<int>(Emu8000::kDelayNone);
+        if (timecents >= 5484)
+            return 0;
+
+        const int q = static_cast<int>(
+            (static_cast<int64_t>(timecents + 12516) << 16) / 1200);
+        const int value = (0x10000 + (q & 0xFFFF)) >> (16 - (q >> 16));
+        const int reg = static_cast<int>(Emu8000::kDelayNone) - value;
+        return (reg >= 0) ? reg : 0;
+    }
+
     int DelayFromMs(double ms)
     {
         if (ms <= 0.0)
@@ -151,10 +182,21 @@ namespace
         if (tc >= 5484)
             return 0;
 
-        // Pozor: ovladac tenhle mocninny vypocet dela v 16.16 pres mantisu
-        // a posun. Ten kod je v casti, ktera bezi az pri nacitani banky, a
-        // ta zatim neni ve vypisu pameti - muze se od `exp2` lisit o jednicku
-        // na hranach. Az bude vypis, doplnit sem presnou verzi.
+        // **Tohle je prolozeni, ne prepis ovladace.** Sedi na vsech merenych
+        // notach Georgie, JUMPu i RELAXu, ale cesta ovladace je jina:
+        //
+        //   1. SF1 milisekundy -> timecents. Tenhle krok **zmereny nemame**.
+        //      Ze tri namerenych hodnot vyplyva, ze timecents ovladace jsou
+        //      proti presnemu 1200*log2(ms/1000) **nizsi** o 44 az 118,
+        //      a odchylka kolisa nemonotonne (20 ms -81, 140 ms -98,
+        //      440 ms -74). To vypada na tabulku s interpolaci; ani linearni
+        //      nahrada logaritmu, ani posun konstantou na to nesedne.
+        //   2. timecents -> registr, to uz je `DelayFromTimecents` vyse.
+        //
+        // Nase `floor(log2)` a `exp2` jsou tedy dve odchylky proti ovladaci,
+        // ktere se na sesti hodnotach v SYNTHGM.SBK vzajemne vyrusi. Na jine
+        // SF1 bance to vyrusit nemusi. Az bude krok 1 zmereny, ma se tahle
+        // funkce nahradit `DelayFromTimecents(msNaTimecents(ms))`.
         const int steps = static_cast<int>(std::exp2((tc + 12516) / 1200.0));
         return std::clamp(static_cast<int>(Emu8000::kDelayNone) - steps, 0, 0x8000);
     }
@@ -807,7 +849,18 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         return TimecentsToMs(adj);
     };
 
-    vp.envvol  = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayVolEnv, 0.0)));
+    // SF2 ma prodlevu rovnou v timecents, takze jde primo do rutiny
+    // ovladace. SF1 ma milisekundy a **jak z nich ovladac dela timecents,
+    // zmereno nemame** - viz DelayFromMs.
+    auto delayReg = [&](int op) -> uint16_t
+    {
+        if (sf1)
+            return static_cast<uint16_t>(DelayFromMs(timeMs(op, 0.0)));
+        return static_cast<uint16_t>(
+            DelayFromTimecents(g.Has(op) ? g.value[op] : -12000));
+    };
+
+    vp.envvol  = delayReg(Gen::DelayVolEnv);
     vp.atkhldv = static_cast<uint16_t>(
         (HoldFromMs(keyScaled(Gen::HoldVolEnv, Gen::KeynumToVolEnvHold, false)) << 8)
         | (g.Has(Gen::AttackVolEnv)
@@ -818,7 +871,7 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         | DecayRateFromMs(keyScaled(Gen::DecayVolEnv, Gen::KeynumToVolEnvDecay, true)));
     vp.releaseRate = static_cast<uint8_t>(DecayRateFromMs(timeMs(Gen::ReleaseVolEnv, 0.0)));
 
-    vp.envval = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayModEnv, 0.0)));
+    vp.envval = delayReg(Gen::DelayModEnv);
     vp.atkhld = static_cast<uint16_t>(
         (HoldFromMs(keyScaled(Gen::HoldModEnv, Gen::KeynumToModEnvHold, false)) << 8)
         | (g.Has(Gen::AttackModEnv)
@@ -844,8 +897,8 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     // port (`SBAWE.VXD` 0x21AB: `push 0xBFFF`). Drzime to stejne, aby se
     // dal blok porovnavat 1:1 - viz Synth::NoteOn a tests/patch_cmp.py.
 
-    vp.lfo1val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayModLFO, 0.0)));
-    vp.lfo2val = static_cast<uint16_t>(DelayFromMs(timeMs(Gen::DelayVibLFO, 0.0)));
+    vp.lfo1val = delayReg(Gen::DelayModLFO);
+    vp.lfo2val = delayReg(Gen::DelayVibLFO);
 
     return vp;
 }
