@@ -202,16 +202,36 @@ int Synth::BankNumberFor(uint8_t channel) const
 int Synth::PitchBendOffset(uint8_t channel) const
 {
     const ChannelState& ch = m_channels[channel];
-    const double semis = (ch.pitchBend / 8192.0) * ch.pitchBendRangeSemitones;
-    // Ovladac **utina k nule**, nezaokrouhluje - stejne jako vsude jinde, kde
-    // deli pres `idiv`. Pri plnem ohybu dolu (-8192, rozsah 2 pultony) je to
-    // -682,667 jednotek IP: on da -682, my jsme davali -683.
+
+    // Ovladac ma na pulton **celociselnou konstantu 341** (= 4096/12
+    // utnuto), ne zlomek, a deli az nakonec - se **zaokrouhlenim na
+    // nejblizsi**.
     //
-    // Nasly se to tak, ze IP nesedelo o 1 u 67 not - a byly to presne noty
-    // kanalu 1, 3 a 7, tedy jedinych tri s pitch bendem. Prevod centu na IP
-    // (`sub_192E`) v tom nevinne byl: hodnoty, ktere ovladac zapsal, v jeho
-    // obrazu vubec nejsou, takze rozdil musel vzniknout az pri scitani.
-    return static_cast<int>(semis * Emu8000::kPitchPerOctave / 12.0);
+    // Drivejsi poznamka tvrdila, ze se utina; byl to omyl vzniknuty
+    // z te druhe chyby. -682,667 pochazelo z konstanty 4096/12, kdezto
+    // s celociselnou 341 vyjde presne -682 a zaokrouhlovat neni co.
+    // Sest namerenych bodu na RELAXu ukazuje nejblizsi hodnotu
+    // jednoznacne (ohyb, rozsah -> presne -> ovladac):
+    //
+    //   -768, 12 -> -383,625 -> -384      176, 12 ->  87,914 ->  88
+    //   -682, 12 -> -340,667 -> -341     8191,  2 -> 681,917 -> 682
+    //   -512, 12 -> -255,750 -> -256
+    //
+    // Doklad jsou dva nezavisle namerene body, ktere oba sedi jen na
+    // tuhle podobu:
+    //
+    //   rozsah 2, plny ohyb dolu:   -8192*2*341/8192  = -682   (drive
+    //       jsme davali -683; nesedelo IP u 67 not Georgie na kanalech
+    //       1, 3 a 7, tedy prave tech s ohybem)
+    //   rozsah 12, plny ohyb dolu:  -8192*12*341/8192 = -4092  (vzorec
+    //       se zlomkem by dal presne -4096; nesedely 4 noty na ch6
+    //       v intru Magic Carpet 2)
+    // Pricte se pulka delitele se znamenkem a pak se utne - obvykly
+    // tvar zaokrouhleni i v assembleru.
+    const long long num =
+        static_cast<long long>(ch.pitchBend) * ch.pitchBendRangeSemitones * 341;
+    const long long half = (num >= 0) ? 4096 : -4096;
+    return static_cast<int>((num + half) / 8192);
 }
 
 // ---------------------------------------------------------------------------
@@ -249,17 +269,24 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     //         cutoff = (cutoff * max(velocity, 0x46) + 0x40) / 0x7F;
     //
     // Bicí (kanal 9) maji vlastni vetev a filtr se jim takhle neupravuje.
-    // Presna podoba z SBAWE.VXD (objekt 1, 0x1CF6):
-    //     if (attack < 0x7D)
-    //         cutoff = (cutoff * max(velocity, 0x46) + 0xA0) >> 7;
-    // Puvodne jsme meli zaokrouhleni +0x40 a deleni 0x7F; ovladac ma +0xA0
-    // a posun o 7 (tj. deleni 128).
+    // **Rodiny se tu lisi** a chvili jsme mely obe stejne (podle VXD),
+    // coz DOSu nesedelo:
+    //
+    //   SBAWE32.DRV 0x021E (dos):    (cutoff * v + 0x40) / 0x7F
+    //   SBAWE.VXD   0x1CF6 (win95):  (cutoff * v + 0xA0) >> 7
+    //
+    // Rozdil je videt jen nahore: pro cutoff 255 a velocity 127 da DOS
+    // 255 (32449/127 = 255,5), zatimco VXD 254 (32545/128 = 254,3).
+    // Zmereno na dvou notach kanalu 5 v intru Magic Carpet 2 - ovladac
+    // mel 0xFF, my 0xFE.
     int cutoff = (vp.ifatn >> 8) & 0xFF;
     const int attackRate = vp.atkhldv & Emu8000::kAtkhldAttackMask;
     if (channel != 9 && attackRate < 0x7D)
     {
         const int v = std::max<int>(velocity, 0x46);
-        cutoff = std::clamp((cutoff * v + 0xA0) >> 7, 0, 255);
+        cutoff = (drv == Awe32::Driver::Dos) ? (cutoff * v + 0x40) / 0x7F
+                                            : ((cutoff * v + 0xA0) >> 7);
+        cutoff = std::clamp(cutoff, 0, 255);
     }
 
     const uint16_t ifatn = static_cast<uint16_t>((cutoff << 8) | atten);
@@ -450,7 +477,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         // Poradi a nazvy sloupcu odpovidaji poli bloku v `SBAWE.VXD`
         // (offsety v zavorce), aby se to dalo klast vedle patch_struct.py.
         std::fprintf(static_cast<FILE*>(m_noteDump),
-                     "%d,%d,%d,%d,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%06X,%06X,%06X\n",
+                     "%d,%d,%d,%d,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%06X,%06X,%06X,%d,%d,%d\n",
                      static_cast<int>(channel), static_cast<int>(note),
                      static_cast<int>(velocity), voice,
                      static_cast<unsigned>((vp.ccca >> Emu8000::kCccaQShift) & 0xF), // 0x12 Q
@@ -465,7 +492,13 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
                      static_cast<unsigned>((vp.atkhldv >> 8) & 0x7F),                // 0x48
                      static_cast<unsigned>(pitch),
                      static_cast<unsigned>(ccca & Emu8000::kCccaAddressMask),
-                     static_cast<unsigned>(vp.csl & Emu8000::kLoopAddressMask));
+                     static_cast<unsigned>(vp.csl & Emu8000::kLoopAddressMask),
+                     // Ohyb vysky se do vysledneho IP uz zapocital;
+                     // pro rozbor rozdilu proti ovladaci je potreba
+                     // videt i jeho vstupy a samotny prispevek.
+                     static_cast<int>(ch.pitchBend),
+                     static_cast<int>(ch.pitchBendRangeSemitones),
+                     PitchBendOffset(channel));
     }
 
     if (m_debugVoices > 0)
@@ -630,6 +663,21 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
     case 91: ch.reverbSend = value; break;
     case 93: ch.chorusSend = value; break;
 
+    // Rozsah ohybu vysky se nastavuje pres RPN 0,0. Bez toho jsme meli
+    // natvrdo dva pultony, coz je vychozi hodnota MIDI - jenze Miles
+    // ovladac ve hre pouziva **dvanact**, a bylo to videt: ctyri noty
+    // na ch6 v intru Magic Carpet 2 mely IP o 10 pultonu vys, protoze
+    // na nich lezi plny ohyb dolu (u nas 2 pultony misto 12).
+    case 101: ch.rpnMsb = value; break;
+    case 100: ch.rpnLsb = value; break;
+    case 6:
+        if (ch.rpnMsb == 0 && ch.rpnLsb == 0)
+            ch.pitchBendRangeSemitones = value;
+        break;
+    // Jemna cast rozsahu (centy) se do registru stejne nevejde -
+    // ovladac pocita v celych pultonech, takze ji jen prijmeme.
+    case 38: break;
+
     case 64:
     {
         const bool wasOn = ch.sustain;
@@ -674,7 +722,7 @@ bool Synth::OpenNoteDump(const std::string& path)
     FILE* f = std::fopen(path.c_str(), "wb");
     if (!f) return false;
     std::fprintf(f, "ch,note,vel,voice,Q,reverb,panAux,atten,cutoff,"
-                    "envvalDelay,modAttack,envvolDelay,volAttack,volHold,ip,ccca,loopEnd\n");
+                    "envvalDelay,modAttack,envvolDelay,volAttack,volHold,ip,ccca,loopEnd,bend,bendRange,bendOffset\n");
     m_noteDump = f;
     return true;
 }

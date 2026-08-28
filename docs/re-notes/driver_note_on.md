@@ -936,14 +936,11 @@ takze na nich to poznat neslo.
 
 ### Proc ne linearni konstanta
 
-Krok 725 us (`floor(ms*1000/725)`) trefi vsech sest hodnot v bance take - ale
-proti exponenciale se lisi u **19 400 z 24 000** celych milisekund. Na
-SYNTHGM.SBK se oba shodnou jen nahodou, protoze bance staci sest hodnot. Na
-jine bance by 725 us selhalo, proto je v kodu exponenciala.
-
-Zbyva doplnit presnou 16.16 verzi `2^x` pres mantisu a posun; ta cast kodu
-bezi az pri nacitani banky a ve vypisu pameti zatim neni. `exp2` se od ni
-muze lisit o jednicku na hranach.
+**Tenhle zaver byl chybny, viz oprava nize.** Puvodne tu stalo, ze krok 725 us
+sice trefi vsech sest hodnot v bance, ale proti exponenciale se lisi u 19 400
+z 24 000 milisekund, takze jde o nahodu. Ta uvaha porovnavala krok 725 us
+proti slozenine `floor(1200*log2(ms/1000))` + `exp2`, kterou ovladac u SF1
+nedela. Spravne je 725 us - je to **dokumentovany** krok registru.
 
 ### Vysledek
 
@@ -1050,3 +1047,77 @@ v souboru - objekt LE nezacina na zacatku souboru.
 Zmereno: na Georgii, JUMPu a RELAXu (14 931 not) je utlum vzdy 16..255
 a `ComputeAttenuation*` ho stejne orezava na 0..255, takze zaporna vetev
 dnes nenastane. Je tu kvuli shode s ovladacem, ne kvuli zvuku.
+
+## Ring-3 cast: `SBAWE32.DRV` - a s ni cely SDK
+
+Hledani ring-3 casti, ktera cte `.SBK`, skoncilo u **`SBAWE32.DRV`** (44 176 B,
+`WIN95/DRIVERS/`). Je to **16bitovy NE**, tedy ring 3 (hlavicka na 0x80,
+signatura `NE`). Dukazy:
+
+| misto | co tam je |
+|---|---|
+| 0x03B4C | tabulka pripon `.SBK` / `.SF2` |
+| 0x03DCE | vlozena minimalni banka "WaveFx" (`RIFF..sfbk LIST INFO ... pdta phdr ...`) |
+| 0x057E0 | `cmp dword ptr es:[bx+8], 'sfbk'` - kontrola typu RIFF |
+| 0x05AF5 | totez podruhe (velka i mala pismena) |
+
+Ma vsechny nazvy bloku SoundFontu (`sfbk`, `phdr`, `pbag`, `pmod`, `pgen`,
+`inst`, `ibag`, `imod`, `igen`, `shdr`), ale **zadnou z prevodnich konstant**
+(12516, 5484, -12000). Rozebira se pres `tests/dis16.py` (rezim CS_MODE_16).
+
+### Podstatnejsi nalez: AWE32 SDK
+
+Cestou vyplavalo `docs/next docs/extracted/sdk/awe32-sdk/`, a v nem
+`WINDOWS/INCLUDE/SFTYPE.H` od Creative. **Struktura `_SFTYPE` je presne ten
+blok parametru hlasu, ktery jsme cely cas louskali po offsetech** - 59 poli
+typu `short`, 0x76 bajtu. Vsech jedenact offsetu, ktere jsme si odecetli
+z instrukcni stopy, sedi s hlavickou na hlavu:
+
+| offset | SDK | nase drivejsi oznaceni |
+|---|---|---|
+| 0x0E | `env1ToPitch` | f0E ("pri vypoctu ciloveho filtru" - bylo spatne) |
+| 0x12 | `initialFilterQ` | Q |
+| 0x20 | `reverbEffectsSend` | reverb |
+| 0x24 | `auxEffectsSend` | panAux |
+| 0x26 | `sampleVolume` | atten |
+| 0x32 | `delayEnv1` | envvalDelay |
+| 0x34 | `attackEnv1` | modAttack |
+| 0x42 | `delayEnv2` | envvolDelay |
+| 0x44 | `attackEnv2` | volAttack |
+| 0x48 | `decayEnv2` | volHoldLo |
+| 0x4A | `sustainEnv2` | volHoldHi |
+
+Env1 je modulacni obalka, env2 hlasitostni. `tests/patch_struct.py` uz pouziva
+jmena z hlavicky.
+
+SDK ma navic **dve oddelene knihovny**: `DOS/LIB/SBKLIB/` a `DOS/LIB/SF2LIB/`.
+Konstanty prevodu pres timecents (12516, -12000) jsou **jen v SF2LIB**.
+To je ta delici cara.
+
+## Oprava: prodleva je linearni, krok 725 us
+
+`SFTYPE.H` pise u vsech ctyr poli prodlevy primo:
+
+    short delayLfo1;   /* delay 0x8000-n*(725us) */
+    short delayEnv1;   /* delay 0x8000 - n(725us) */
+
+Takze pro SF1, ktery ma casy v milisekundach, plati proste `n = ms / 0,725`.
+Sedi to na vsech trech namerenych hodnotach (20 ms -> 27, 140 ms -> 193,
+440 ms -> 606).
+
+**V cem byla drivejsi uvaha spatne.** Z toho, ze ovladac obsahuje exponencialni
+prevod pres timecents, se vyvodilo, ze linearni krok byt nemuze. Jenze ta
+rutina je pro **SF2** - u SF1 se nevola vubec, coz je zmerene: instrukcni stopa
+pres cely objekt ovladace ma 3 171 895 instrukci a v rozsahu prevodniku nulu.
+Porovnani "725 us proti exponenciale se lisi u 19 400 z 24 000 milisekund"
+navic porovnavalo krok 725 us proti slozenine `floor(1200*log2(ms/1000))` +
+`exp2`, kterou ovladac nikde nedela.
+
+Obe cesty jsou fyzikalne totez a lisi se az v zaokrouhleni:
+
+    1000/725                = 1,37931 kroku na ms
+    2^(12516/1200)/1000     = 1,37957
+
+Stav v kodu: `DelayFromMs` = krok 725 us (SF1), `DelayFromTimecents` = 1:1
+prepis vetve `C119C116` (SF2). Otazka "jak ovladac dela ms -> timecents" tim
+padem **odpada** - u SF1 zadny takovy krok neni.
