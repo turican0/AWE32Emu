@@ -109,6 +109,10 @@ private:
         bool sustain = false;        // CC64
         int16_t pitchBend = 0;
         uint8_t pitchBendRangeSemitones = 2;
+        // Vybrany RPN (CC101 horni, CC100 dolni bajt). 0x7F/0x7F je
+        // "zadny" - po nem uz data entry nic nenastavuje.
+        uint8_t rpnMsb = 0x7F;
+        uint8_t rpnLsb = 0x7F;
     };
 
     int  EffectiveChannelVolume(int cc7) const

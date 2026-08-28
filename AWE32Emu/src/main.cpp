@@ -20,6 +20,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <fstream>
+#include <sstream>
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
@@ -56,6 +58,7 @@ namespace
             "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
             "  --chip nas|86box   Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
+            "  --conf <soubor>    Pocatecni stav MIDI kanalu, jak ho posila hra\n"
             "  --dump-notes <csv> Mezivysledky pri note-onu, sloupce podle bloku\n"
             "                      parametru v SBAWE.VXD (viz tests/patch_struct.py)\n"
             "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
@@ -77,6 +80,132 @@ namespace
     }
 }
 
+// Pocatecni stav MIDI kanalu ze souboru `--conf`.
+//
+// Hry casto pred prvni notou nastavi vsech sestnact kanalu na sve
+// hodnoty a bez toho nas render zacina jinde nez hra. Magic Carpet 2
+// napriklad posila CC7 127 (my mame vychozich 100) a CC91 40 (my 0).
+//
+// Zprávy se posilaji **normalni cestou** pres Synth::ControlChange
+// a spol., ne obchazenim - jinak by se lisilo chovani RPN a stopa by
+// neodpovidala tomu, co dela ovladac.
+namespace {
+
+struct ConfMessage
+{
+    enum class Kind { Control, Program, Bend } kind;
+    int a = 0;
+    int b = 0;
+};
+
+// `master` zustane -1, kdyz soubor hlavni hlasitost neuvadi.
+bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
+              int& master, std::string& err)
+{
+    std::ifstream f(path);
+    if (!f)
+    {
+        err = "nelze otevrit '" + path + "'";
+        return false;
+    }
+
+    std::string line;
+    int lineNo = 0;
+    while (std::getline(f, line))
+    {
+        ++lineNo;
+        const auto hash = line.find('#');
+        if (hash != std::string::npos)
+            line.erase(hash);
+
+        std::istringstream is(line);
+        std::string word;
+        if (!(is >> word))
+            continue;
+
+        ConfMessage m;
+        if (word == "cc")
+        {
+            m.kind = ConfMessage::Kind::Control;
+            if (!(is >> m.a >> m.b))
+            {
+                err = path + ":" + std::to_string(lineNo)
+                    + ": `cc` chce cislo ridici zpravy a hodnotu";
+                return false;
+            }
+        }
+        else if (word == "program")
+        {
+            m.kind = ConfMessage::Kind::Program;
+            if (!(is >> m.a))
+            {
+                err = path + ":" + std::to_string(lineNo)
+                    + ": `program` chce cislo programu";
+                return false;
+            }
+        }
+        else if (word == "bend")
+        {
+            m.kind = ConfMessage::Kind::Bend;
+            if (!(is >> m.a))
+            {
+                err = path + ":" + std::to_string(lineNo)
+                    + ": `bend` chce hodnotu 0..16383";
+                return false;
+            }
+        }
+        else if (word == "master_volume")
+        {
+            if (!(is >> master) || master < 0 || master > 127)
+            {
+                err = path + ":" + std::to_string(lineNo)
+                    + ": `master_volume` chce hodnotu 0..127";
+                return false;
+            }
+            continue;                       // neni to zprava na kanal
+        }
+        else
+        {
+            err = path + ":" + std::to_string(lineNo)
+                + ": neznamy prikaz '" + word + "'";
+            return false;
+        }
+        out.push_back(m);
+    }
+    return true;
+}
+
+// Posle nactene zpravy na vsech sestnact kanalu, v poradi ze souboru.
+// Na poradi zalezi: CC100/CC101 musi predchazet CC6, jinak by se rozsah
+// ohybu nikam nezapsal.
+void ApplyConf(Synth& synth, const std::vector<ConfMessage>& msgs)
+{
+    for (uint8_t ch = 0; ch < 16; ++ch)
+    {
+        for (const ConfMessage& m : msgs)
+        {
+            switch (m.kind)
+            {
+            case ConfMessage::Kind::Control:
+                synth.ControlChange(ch, static_cast<uint8_t>(m.a),
+                                    static_cast<uint8_t>(m.b));
+                break;
+            case ConfMessage::Kind::Program:
+                synth.ProgramChange(ch, static_cast<uint8_t>(m.a));
+                break;
+            case ConfMessage::Kind::Bend:
+                // V souboru je surova hodnota z MIDI (0..16383, stred 8192),
+                // `Synth::PitchBend` ale chce odchylku se stredem v nule -
+                // stejne jako Sequencer, ktery odecita tuhle konstantu.
+                synth.PitchBend(ch, static_cast<int16_t>(m.a - 8192));
+                break;
+            }
+        }
+    }
+}
+
+}  // namespace
+
 int main(int argc, char** argv)
 {
     if (argc < 2)
@@ -91,6 +220,7 @@ int main(int argc, char** argv)
     std::string tracePath;
     Awe32::Driver driver = Awe32::kDefaultDriver;
     int masterVolume = 127;
+    bool masterFromCmdline = false;
     double filterTop = -1;
     int filterPoles = -1;
     int debugVoices = 0;
@@ -98,6 +228,7 @@ int main(int argc, char** argv)
     std::string interp;
     std::string chip;
     std::string noteDumpPath;
+    std::string confPath;
     int revPreset = -1, choPreset = -1;
     double revRoom = -1, revDamp = -1, revReturn = -1, choReturn = -1;
     // (cesta, vzorky lezi ve wave ROM, cislo MIDI banky nebo -1) v poradi nacitani
@@ -182,10 +313,15 @@ int main(int argc, char** argv)
         else if (arg == "--master-volume" && i + 1 < argc)
         {
             masterVolume = std::clamp(std::atoi(argv[++i]), 0, 127);
+            masterFromCmdline = true;
         }
         else if (arg == "--dump-notes" && i + 1 < argc)
         {
             noteDumpPath = argv[++i];
+        }
+        else if (arg == "--conf" && i + 1 < argc)
+        {
+            confPath = argv[++i];
         }
         else if (arg == "--chip" && i + 1 < argc)
         {
@@ -243,6 +379,22 @@ int main(int argc, char** argv)
 
     std::cout << "Nacteno: " << inputPath << " (" << sequence.events.size() << " udalosti, "
         << sequence.ticksPerQuarterNote << " ticku/ctvrtovou notu)\n";
+
+    // Konfigurace se cte driv, nez se nastavi hlavni hlasitost - muze ji
+    // totiz sama urcovat. Prepinac `--master-volume` ma prednost.
+    std::vector<ConfMessage> confMessages;
+    int confMaster = -1;
+    if (!confPath.empty())
+    {
+        std::string err;
+        if (!LoadConf(confPath, confMessages, confMaster, err))
+        {
+            std::cerr << "Chyba v konfiguraci: " << err << "\n";
+            return 1;
+        }
+        if (confMaster >= 0 && !masterFromCmdline)
+            masterVolume = confMaster;
+    }
 
     constexpr uint32_t kSampleRate = 44100;
     constexpr uint32_t kFramesPerBuffer = 1024;
@@ -369,6 +521,18 @@ int main(int argc, char** argv)
 
     if (!noteDumpPath.empty() && !synth.OpenNoteDump(noteDumpPath))
         std::cerr << "Nepodarilo se otevrit '" << noteDumpPath << "'.\n";
+
+    // Az za zapnutim stopy, aby se pocatecni stav kanalu do stopy zapsal -
+    // ovladac ve hre ho taky posila az po inicializaci cipu.
+    if (!confPath.empty())
+    {
+        ApplyConf(synth, confMessages);
+        std::cout << "Konfigurace '" << confPath << "': "
+                  << confMessages.size() << " zprav na kazdy z 16 kanalu";
+        if (confMaster >= 0)
+            std::cout << ", hlavni hlasitost " << confMaster;
+        std::cout << ".\n";
+    }
 
     Sequencer sequencer;
     sequencer.Load(sequence);

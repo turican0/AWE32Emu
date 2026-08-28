@@ -113,24 +113,6 @@ namespace
         const int steps = static_cast<int>(ms / (Emu8000::kHoldSecPerStep * 1000.0));
         return std::clamp(127 - steps, 0, 127);
     }
-    // Prevod delay registru **neni linearni v milisekundach**, jak by se
-    // z kroku 32 vzorku zdalo. Ovladac pocita v timecents s pevnou radovou
-    // carkou 16.16 (spolecna prevodni rutina, volana s cislem generatoru;
-    // vytazeno z pameti guesta, viz runtime-dumps/SBAWE.VXD.obj1.mem):
-    //
-    //     cmp eax, 0xFFFFD120   ; <= -12000 -> 0x8000, tedy bez delay
-    //     cmp eax, 0x156C       ; >= 5484   -> 0
-    //     add eax, 0x30E4       ; + 12516
-    //     mov ecx, 0x4B0        ; 1200
-    //     shl eax, 0x10 / idiv ecx   ; (tc + 12516) / 1200 v 16.16
-    //     ... 2^x pres mantisu a posun ...
-    //     sub esi, edi          ; 0x8000 - vysledek
-    //
-    // Zadny **linearni** cinitel tuhle cestu nenahradi. Drivejsich
-    // 2^(12516/1200)/1000 = 1,379567 bylo prolozeni, a proti kroku 725 us
-    // se lisi u 19 400 z 24 000 celych milisekund - na SYNTHGM.SBK se oba
-    // shodnou jen nahodou, protoze bance staci sest hodnot. Pocita se tedy
-    // exponencialou tak, jak to dela ovladac.
     // 1:1 prepis vetve `C119C116` z `SBAWE.VXD` (objekt na 0xC1196C74).
     // Skokova tabulka prevodni rutiny na ni posila prave ctyri generatory
     // prodlevy: delayModLFO (21), delayVibLFO (23), delayModEnv (25)
@@ -162,42 +144,26 @@ namespace
         return (reg >= 0) ? reg : 0;
     }
 
+    // Krok registru prodlevy je **725 mikrosekund**. Neni to odhad ani
+    // prolozeni - `SFTYPE.H` z AWE32 SDK to u vsech ctyr poli prodlevy
+    // pise primo:
+    //
+    //     short delayLfo1;   /* delay 0x8000-n*(725us) */
+    //     short delayEnv1;   /* delay 0x8000 - n(725us) */
+    //
+    // SF1 (.SBK) ma casy rovnou v milisekundach, takze `n = ms / 0,725`.
+    // Sedi na vsech trech hodnotach namerenych ve stopach ovladace:
+    // 20 ms -> 27 kroku, 140 ms -> 193, 440 ms -> 606.
+    //
+    // Pozor na slepou ulicku, do ktere jsme uz jednou zabocili: ovladac
+    // **ma** i exponencialni prevod pres timecents (`DelayFromTimecents`
+    // nize), jenze ten je pro **SF2**. U SF1 se nevola vubec - overeno
+    // instrukcni stopou, 3 171 895 instrukci v objektu ovladace a v jeho
+    // rozsahu nula. Obe cesty daji temer totez (1000/725 = 1,37931 proti
+    // 2^(12516/1200)/1000 = 1,37957), lisi se az v zaokrouhleni.
     int DelayFromMs(double ms)
     {
-        if (ms <= 0.0)
-            return static_cast<int>(Emu8000::kDelayNone);
-
-        // Prevod na timecents se **zaokrouhluje dolu**, ne k nule ani
-        // matematicky. Rozhodla jedina hodnota v bance, 440 ms:
-        //
-        //     1200*log2(0,44) = -1421,31
-        //     dolu  -> -1422 -> 2^((12516-1422)/1200) = 606,65 -> 606   ovladac
-        //     k nule -> -1421 -> 2^((12516-1421)/1200) = 607,00 -> 607   my drive
-        //
-        // Ve stope JUMPu ma ovladac u vsech 504 dotcenych not ENVVAL 0x7DA2,
-        // tedy 606 kroku. Ostatnich pet hodnot v bance vychazi stejne tak i tak.
-        const int tc = static_cast<int>(std::floor(1200.0 * std::log2(ms / 1000.0)));
-        if (tc <= -12000)
-            return static_cast<int>(Emu8000::kDelayNone);
-        if (tc >= 5484)
-            return 0;
-
-        // **Tohle je prolozeni, ne prepis ovladace.** Sedi na vsech merenych
-        // notach Georgie, JUMPu i RELAXu, ale cesta ovladace je jina:
-        //
-        //   1. SF1 milisekundy -> timecents. Tenhle krok **zmereny nemame**.
-        //      Ze tri namerenych hodnot vyplyva, ze timecents ovladace jsou
-        //      proti presnemu 1200*log2(ms/1000) **nizsi** o 44 az 118,
-        //      a odchylka kolisa nemonotonne (20 ms -81, 140 ms -98,
-        //      440 ms -74). To vypada na tabulku s interpolaci; ani linearni
-        //      nahrada logaritmu, ani posun konstantou na to nesedne.
-        //   2. timecents -> registr, to uz je `DelayFromTimecents` vyse.
-        //
-        // Nase `floor(log2)` a `exp2` jsou tedy dve odchylky proti ovladaci,
-        // ktere se na sesti hodnotach v SYNTHGM.SBK vzajemne vyrusi. Na jine
-        // SF1 bance to vyrusit nemusi. Az bude krok 1 zmereny, ma se tahle
-        // funkce nahradit `DelayFromTimecents(msNaTimecents(ms))`.
-        const int steps = static_cast<int>(std::exp2((tc + 12516) / 1200.0));
+        const int steps = static_cast<int>(ms * 1000.0 / 725.0);
         return std::clamp(static_cast<int>(Emu8000::kDelayNone) - steps, 0, 0x8000);
     }
 
