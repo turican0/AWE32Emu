@@ -642,12 +642,32 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     cents += g.Get(Gen::CoarseTune, 0) * 100.0;
     cents += g.Get(Gen::FineTune, 0);
 
-    const double scale = g.Get(Gen::ScaleTuning, 100) / 100.0;
-    const double semis = (key - rootKey) * scale + cents / 100.0;
+    // `scaleTuning` **neni v procentech**, jak ma SF2. Ovladac testuje jen
+    // rovnost jedne a pak cely vysledek **puli** - prepis z `SBAWE.VXD`
+    // (objekt na 0xC0FF7BE0), C0FFAF54..C0FFAF87:
+    //
+    //     ecx = keynum - rootKey + coarseTune
+    //     ecx = (ecx + 60) * 100 - samplePitch + fineTune
+    //     cmp word [esi+0x70], 1        ; scaleTuning
+    //     jne dal
+    //         eax = ecx; cdq; sub eax,edx; sar eax,1   ; deleni 2 k nule
+    //
+    // Jmena poli jsou z `SFTYPE.H` v AWE32 SDK (0x6E samplePitch,
+    // 0x70 scaleTuning, 0x74 rootKey).
+    //
+    // Zmereno: preset 122 SeaShore v SYNTHGM.SBK ma `scaleTuning 1`
+    // a byly to posledni ctyri nesedici noty RELAXu. Pro notu 69
+    // se samplePitch 8781 vyjde (69-60+60)*100 - 8781 = -1881, pulka
+    // je -940 - presne to, co ovladac zapsal.
+    double pitchCents = (key - rootKey) * 100.0 + cents;
+    if (g.Get(Gen::ScaleTuning, 100) == 1)
+        pitchCents = static_cast<int>(pitchCents) / 2;
+
     // Frekvence vzorku se do centu prevede zvlast - ovladac ma tuhle slozku
     // uz zapecenou v `gen55`, my ji drzime v hlavicce vzorku.
-    const double centsTotal = semis * 100.0
+    const double centsTotal = pitchCents
         + std::log2(s.sampleRate / static_cast<double>(44100)) * 1200.0;
+    vp.ipCents = static_cast<int>(centsTotal);
     vp.ip = static_cast<uint16_t>(std::clamp(PitchFromCents(centsTotal), 0, 65535));
 
     // ---- utlum patche a filtr -> IFATN ------------------------------------
@@ -867,6 +887,12 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.lfo2val = delayReg(Gen::DelayVibLFO);
 
     return vp;
+}
+
+int PitchToIp(int cents)
+{
+    return std::clamp(PitchFromCents(static_cast<double>(cents)),
+                      0, 65535);
 }
 
 } // namespace SoundFont

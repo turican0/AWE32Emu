@@ -1121,3 +1121,69 @@ Obe cesty jsou fyzikalne totez a lisi se az v zaokrouhleni:
 Stav v kodu: `DelayFromMs` = krok 725 us (SF1), `DelayFromTimecents` = 1:1
 prepis vetve `C119C116` (SF2). Otazka "jak ovladac dela ms -> timecents" tim
 padem **odpada** - u SF1 zadny takovy krok neni.
+
+## Ohyb vysky: rodiny maji jinou konstantu na pulton
+
+Obe rodiny pricitaji ohyb **k hotovemu IP** (ne v centech), obe deli
+celociselne az nakonec a utinaji k nule. Lisi se ale v konstante:
+
+    win95  ohyb * rozsah * 4096 / (8192*12)     ; 4096/12 presne
+    dos    ohyb * rozsah * 341 / 8192           ; 341, tedy utnute
+
+Pro win95 to sedi na **jedenacti** namerenych bodech z Georgie a RELAXu
+(ohyb, rozsah -> presne -> ovladac):
+
+| ohyb | rozsah | presne | ovladac | | ohyb | rozsah | presne | ovladac |
+|---|---|---|---|---|---|---|---|---|
+| 8064 | 2 | 672,000 | 672 | | -768 | 12 | -384,000 | -384 |
+| -4729 | 12 | -2364,50 | -2364 | | -682 | 12 | -341,000 | -341 |
+| 1280 | 12 | 640,000 | 640 | | -512 | 12 | -256,000 | -256 |
+| -1280 | 12 | -640,000 | -640 | | 176 | 12 | 88,000 | 88 |
+| -1312 | 12 | -656,000 | -656 | | 8191 | 2 | 682,583 | 682 |
+| -6720 | 2 | -560,000 | -560 | | | | | |
+
+Pro dos je doklad plny ohyb dolu s rozsahem 12 v intru Magic Carpet 2:
+ovladac zapsal -4092, kdezto 4096/12 by dalo presne -4096.
+
+**Rozsah ohybu se bere z RPN 0,0** (CC101/CC100 vyberou RPN, CC6 nastavi
+hodnotu). `Synth` to drive vubec neumel a drzel vychozi dva pultony,
+prestoze MIDI posila 12 - to byla ta stara zahada "ovladac se na ch7 chova
+jako 22 pultonu".
+
+### Slepa ulicka
+
+V `SBAWE.VXD` (C0FFAF8A) se pred volanim `sub_192E` k centum noty pricitaji
+dve slova ze struktury kanalu (`[eax+0x10]` a `[eax+0x12]`). Vypadalo to,
+ze tudy jde ohyb - zkusili jsme ho pricitat v centech pred prevodem a RELAX
+se **zhorsil** z 32/32 na 29/32. Jsou to tedy jina doladeni kanalu
+(nejspis RPN 1 a 2), ne ohyb.
+
+## scaleTuning neni v procentech
+
+`SBAWE.VXD`, C0FFAF54..C0FFAF87:
+
+    ecx = keynum - rootKey + coarseTune
+    ecx = (ecx + 60) * 100 - samplePitch + fineTune
+    cmp word [esi+0x70], 1        ; scaleTuning
+    jne dal
+        eax = ecx; cdq; sub eax,edx; sar eax,1    ; deleni 2 k nule
+
+Ovladac tedy **netestuje procenta**, ale rovnost jedne, a pak cely vysledek
+**puli**. Jmena poli jsou z `SFTYPE.H` v AWE32 SDK (0x6E `samplePitch`,
+0x70 `scaleTuning`, 0x74 `rootKey`).
+
+Zmereno: preset 122 SeaShore v `SYNTHGM.SBK` ma `scaleTuning 1` a byly to
+posledni ctyri nesedici noty RELAXu. Pro notu 69 se `samplePitch` 8781 vyjde
+`(69-60+60)*100 - 8781 = -1881`, pulka je -940 - presne to, co ovladac
+zapsal.
+
+## Stav: vsechno 1:1
+
+| skladba | rodina | registry |
+|---|---|---|
+| Georgia | win95 | **32/32** |
+| JUMP | win95 | **32/32** |
+| MINUET | win95 | **32/32** |
+| RELAX | win95 | **32/32** |
+| Magic Carpet 2 (intro) | dos | **24/24** |
+| cip (Georgia) | - | 0 rozdilu z 6 927 532 snimku |

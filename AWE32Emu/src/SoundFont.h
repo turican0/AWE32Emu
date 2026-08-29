@@ -157,6 +157,10 @@ namespace SoundFont
     // dramBase = adresa (ve vzorcich), kam se nahral chunk `smpl` teto banky.
     // romPoolBase = adresa zacatku zvukoveho fondu ve wave ROM.
     // -----------------------------------------------------------------------
+    // Prevod centu na registr IP (`sub_192E` z ovladace). Potrebuje ho
+    // i Synth, kdyz pricita ohyb vysky v centech.
+    int PitchToIp(int cents);
+
     struct VoiceParams
     {
         uint32_t ccca = 0;        // Q + control + pocatecni adresa
@@ -165,6 +169,9 @@ namespace SoundFont
         uint32_t psst = 0;        // pan + loop start
         uint32_t csl = 0;         // chorus send + loop end
         uint16_t ip = 0;          // vyska pro konkretni notu
+        // Tataz vyska jeste v centech, pred prevodem na IP - hodi se
+        // pri rozboru rozdilu proti ovladaci.
+        int      ipCents = 0;
         uint16_t ifatn = 0xFF00;     // horni bajt = cutoff; spodni doplni Synth
         uint8_t  patchAttenUnits = 0;// utlum patche v jednotkach 0.375 dB
         uint16_t pefe = 0, fmmod = 0, tremfrq = 0, fm2frq2 = 0;
