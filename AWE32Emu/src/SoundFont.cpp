@@ -221,6 +221,13 @@ void GenSet::AddFrom(const GenSet& other)
         }
 }
 
+void GenSet::FillFrom(const GenSet& other)
+{
+    for (int i = 0; i < Gen::Count; ++i)
+        if (other.present[i] && !present[i])
+        { value[i] = other.value[i]; present[i] = true; }
+}
+
 void GenSet::OverrideFrom(const GenSet& other)
 {
     for (int i = 0; i < Gen::Count; ++i)
@@ -487,7 +494,26 @@ std::vector<Region> Bank::Select(int bankNum, int program, int key, int velocity
                 r.sf1AttenUnits = any ? units : -1;
             }
 
-            r.gen.AddFrom(presetGen);
+            // Presetova zona uz jen **doplnuje** to, co zona nastroje
+            // nema - nescita se. Drive jsme scitali podle specifikace
+            // SF2, jenze ovladac to tak nedela.
+            //
+            // Zmereno na CRAZY: kanal 4 hraje program 97 (SeaShore ->
+            // Soundtrack), ktery ma `coarseTune` na obou urovnich -
+            // 1 u presetu a 3 u nastroje. Scitanim nam vyslo 4, ovladac
+            // pouziva 3 a hraje o pulton niz; nesedelo vsech 58 not
+            // toho kanalu. Poznalo se to podle toho, ze u dvou vrstev
+            // tehoz tonu byl posun -341 a -342, tedy nestejny - to je
+            // podpis posunu v **centech pred prevodem**, ne konstanty
+            // v jednotkach IP.
+            //
+            // Po zmene sedi CRAZY 32/32 a nic jineho se nezhorsilo:
+            // Georgia, JUMP, RELAX a MINUET zustavaji 32/32, Magic
+            // Carpet 2 24/24 - dohromady pres 22 000 not.
+            //
+            // Utlum je vyjimka a resi se vyse zvlast, protoze ho
+            // ovladac scita az v jednotkach registru.
+            r.gen.FillFrom(presetGen);
 
             out.push_back(std::move(r));
         }

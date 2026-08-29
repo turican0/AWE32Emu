@@ -77,6 +77,8 @@ namespace SoundFont
         // Slozeni preset zony (offsety) nad instrument zonou (absolutni).
         void AddFrom(const GenSet& other);
         void OverrideFrom(const GenSet& other);
+        // Doplni jen to, co jeste nemame - hodnota z nastroje vyhrava.
+        void FillFrom(const GenSet& other);
     };
 
     struct Sample
