@@ -63,5 +63,27 @@ je 100, pro jinou cast se preda `--master-volume`.
 **`AUTOEXEC.BAT` musi mit konce radku CRLF.** S unixovymi se davka
 neprovede a v guestu zustane jen prompt.
 
-**DOSMID je v `C:\DOSMID\`,** ne v korenu. Kopie v korenu existuje, ale
-nespusti se spravne.
+**DOSMID je v korenu** (`C:\DOSMID.EXE`). Adresar `C:\DOSMID\` neexistuje,
+prestoze na nej zaloha `AUTOEXEC.MID` v obrazu ukazuje - viz nize.
+
+## DOSMID: zatim zablokovane
+
+Cestu DOSMID + AWEUTIL se v teto VM nepodarilo rozjet. Odstranene priciny:
+
+1. AUTOEXEC.BAT musi mit **CRLF** - s LF se davka neprovede a v guestu
+   zustane jen prompt.
+2. DOSMID je v **korenu** (C:\DOSMID.EXE), ne v C:\DOSMID\. Zaloha
+   AUTOEXEC.MID v obrazu ma zastaralou cestu a dava "Bad command or file
+   name" - je matouci, neverit ji.
+3. AWEUTIL /EM:GM konci chybou **ERR014 (chyba cesty)**, takze se GM
+   emulace vubec nenahraje. Pokus s SET SOUND=C:\ a SYNTHGM.SBK
+   v korenu nepomohl.
+
+Ve stope je pak jen inicializace cipu (INIT1-4, ztiseni 32 hlasu) a dal uz
+jen polling AWEUTILu - desetitisice **cteni** z portu A22, zadne noty.
+Stopa pokryva jen ~3 s casu guesta a pak prestane rust.
+
+**Pozn. k hodnote testu:** i kdyby se rozjel, testuje **jiny engine** -
+DOSMID posila MIDI na MPU-401 a preklada ho TSR z AWEUTILu, kdezto nase
+rodina `dos` odpovida `SBAWE32.MDI` z Magic Carpet 2. Pripadne rozdily
+by se musely vyhodnocovat zvlast, ne rovnou jako chyba u nas.
