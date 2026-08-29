@@ -202,36 +202,31 @@ int Synth::BankNumberFor(uint8_t channel) const
 int Synth::PitchBendOffset(uint8_t channel) const
 {
     const ChannelState& ch = m_channels[channel];
+    const long long span =
+        static_cast<long long>(ch.pitchBend) * ch.pitchBendRangeSemitones;
 
-    // Ovladac ma na pulton **celociselnou konstantu 341** (= 4096/12
-    // utnuto), ne zlomek, a deli az nakonec - se **zaokrouhlenim na
-    // nejblizsi**.
+    // **Rodiny se lisi v tom, co maji na pulton.** Obe deli celociselne az
+    // nakonec a utinaji k nule, ale konstanta je jina:
     //
-    // Drivejsi poznamka tvrdila, ze se utina; byl to omyl vzniknuty
-    // z te druhe chyby. -682,667 pochazelo z konstanty 4096/12, kdezto
-    // s celociselnou 341 vyjde presne -682 a zaokrouhlovat neni co.
-    // Sest namerenych bodu na RELAXu ukazuje nejblizsi hodnotu
-    // jednoznacne (ohyb, rozsah -> presne -> ovladac):
+    //   win95  4096/12 presne:  ohyb * rozsah * 4096 / (8192*12)
+    //   dos    341 (utnute):    ohyb * rozsah * 341 / 8192
     //
-    //   -768, 12 -> -383,625 -> -384      176, 12 ->  87,914 ->  88
-    //   -682, 12 -> -340,667 -> -341     8191,  2 -> 681,917 -> 682
-    //   -512, 12 -> -255,750 -> -256
+    // Pro win95 to sedi na jedenacti namerenych bodech (ohyb, rozsah ->
+    // presne -> ovladac), z Georgie a RELAXu:
     //
-    // Doklad jsou dva nezavisle namerene body, ktere oba sedi jen na
-    // tuhle podobu:
+    //    8064,  2 ->  672,000 ->  672     -768, 12 -> -384,000 -> -384
+    //   -4729, 12 -> -2364,50 -> -2364    -682, 12 -> -341,000 -> -341
+    //    1280, 12 ->  640,000 ->  640     -512, 12 -> -256,000 -> -256
+    //   -1280, 12 -> -640,000 -> -640      176, 12 ->   88,000 ->   88
+    //   -1312, 12 -> -656,000 -> -656     8191,  2 ->  682,583 ->  682
+    //   -6720,  2 -> -560,000 -> -560
     //
-    //   rozsah 2, plny ohyb dolu:   -8192*2*341/8192  = -682   (drive
-    //       jsme davali -683; nesedelo IP u 67 not Georgie na kanalech
-    //       1, 3 a 7, tedy prave tech s ohybem)
-    //   rozsah 12, plny ohyb dolu:  -8192*12*341/8192 = -4092  (vzorec
-    //       se zlomkem by dal presne -4096; nesedely 4 noty na ch6
-    //       v intru Magic Carpet 2)
-    // Pricte se pulka delitele se znamenkem a pak se utne - obvykly
-    // tvar zaokrouhleni i v assembleru.
-    const long long num =
-        static_cast<long long>(ch.pitchBend) * ch.pitchBendRangeSemitones * 341;
-    const long long half = (num >= 0) ? 4096 : -4096;
-    return static_cast<int>((num + half) / 8192);
+    // Pro dos je doklad plny ohyb dolu s rozsahem 12 v intru Magic Carpet 2:
+    // ovladac zapsal posun -4092, kdezto 4096/12 by dalo presne -4096.
+    // S 341 sedi cele intro na vsech 24 registrech.
+    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+        return static_cast<int>(span * 341 / 8192);
+    return static_cast<int>(span * 4096 / (8192LL * 12));
 }
 
 // ---------------------------------------------------------------------------
