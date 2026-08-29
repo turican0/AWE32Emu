@@ -66,24 +66,64 @@ neprovede a v guestu zustane jen prompt.
 **DOSMID je v korenu** (`C:\DOSMID.EXE`). Adresar `C:\DOSMID\` neexistuje,
 prestoze na nej zaloha `AUTOEXEC.MID` v obrazu ukazuje - viz nize.
 
-## DOSMID: zatim zablokovane
+## DOSMID
 
-Cestu DOSMID + AWEUTIL se v teto VM nepodarilo rozjet. Odstranene priciny:
+### Cesta pres MPU-401 v teto VM fungovat nemuze
 
-1. AUTOEXEC.BAT musi mit **CRLF** - s LF se davka neprovede a v guestu
-   zustane jen prompt.
-2. DOSMID je v **korenu** (C:\DOSMID.EXE), ne v C:\DOSMID\. Zaloha
-   AUTOEXEC.MID v obrazu ma zastaralou cestu a dava "Bad command or file
-   name" - je matouci, neverit ji.
-3. AWEUTIL /EM:GM konci chybou **ERR014 (chyba cesty)**, takze se GM
-   emulace vubec nenahraje. Pokus s SET SOUND=C:\ a SYNTHGM.SBK
-   v korenu nepomohl.
+Ne kvuli konfiguraci, ale z principu. Zjisteno tim, ze se vystup AWEUTILu
+nechal v guestu presmerovat do souboru a precetl se `fat16.py get`:
 
-Ve stope je pak jen inicializace cipu (INIT1-4, ztiseni 32 hlasu) a dal uz
-jen polling AWEUTILu - desetitisice **cteni** z portu A22, zadne noty.
-Stopa pokryva jen ~3 s casu guesta a pak prestane rust.
+- `/EM:GM` **v nabídce je** (dokumentace rika, ze nepodporovane volby se
+  nezobrazi), a TSR se i nainstaluje - jen hlasi `ERR014` a nenajde sva data.
+- `AWEUTIL.TXT`: MIDI emulace potrebuje **propojku MFBEN** na karte, tedy
+  zpetnou smycku, kterou karta vidi vlastni provoz na MPU.
+- V 86Boxu **zadna takova smycka neni**: `snd_mpu401.c` posila vystup do
+  `midi_raw_out_byte()`, tedy na hostitelske MIDI. Slovo MFBEN se v celem
+  zdrojaku nevyskytuje.
 
-**Pozn. k hodnote testu:** i kdyby se rozjel, testuje **jiny engine** -
-DOSMID posila MIDI na MPU-401 a preklada ho TSR z AWEUTILu, kdezto nase
-rodina `dos` odpovida `SBAWE32.MDI` z Magic Carpet 2. Pripadne rozdily
-by se musely vyhodnocovat zvlast, ne rovnou jako chyba u nas.
+Pozn.: `AWEUTIL.COM` je zabaleny, disassembly v `SBAWE32/AWEUTIL.COM.asm`
+obsahuje jen rozbalovaci stub - staticky se z nej cesta nedocte.
+
+### Cesta ven: DOSMID /awe
+
+DOSMID umi ridit EMU8000 **primo**, bez MPU i bez AWEUTILu:
+
+    C:\DOSMID.EXE /awe C:\TEST.MID
+
+Tim se testuje **ctvrta nezavisla implementace ovladace** vedle
+`SBAWE.VXD`, `SBAWE32.MDI` a AWEUTILu. Pozor pri vyhodnocovani: rozdily
+proti nasi rodine `win95` nebo `dos` nemusi znamenat chybu u nas - DOSMID
+je jiny program s vlastnimi rozhodnutimi.
+
+### Dalsi pasti
+
+- `AUTOEXEC.BAT` musi mit **CRLF**; s LF se davka neprovede.
+- DOSMID je v **korenu** (`C:\DOSMID.EXE`), adresar `C:\DOSMID\` neexistuje,
+  prestoze na nej zaloha `AUTOEXEC.MID` v obrazu ukazuje.
+- `fat16.py` se musi volat s **windowsovymi** cestami; s cestami ve tvaru
+  `/c/prenos/...` Python soubor nenajde.
+
+## Zatezovy test renderu
+
+    python ../AWE32EmuData/tests/render_sweep.py
+
+Prozene renderem kolekci MIDI a hlida pady, prazdne vystupy a nesmyslne
+pocty hlasu. **60 souboru, 0 problemu, 0 prazdnych.** Neni to test shody
+s ovladacem, ale zatezovy test parseru a syntezy.
+
+## Nalez: presetove generatory se **nescitaji**
+
+Nasla to az pata skladba (CRAZY), kdyz ctyri predchozi vypadaly hotove.
+
+Kanal 4 hraje program 97 "Soundtrack", ktery ma `coarseTune` na obou
+urovnich - 1 u presetu a 3 u nastroje. Scitali jsme je podle specifikace
+SF2 (4), ovladac pouziva 3 a hraje o pulton niz; nesedelo vsech 58 not
+toho kanalu.
+
+Poznalo se to podle detailu: u dvou vrstev tehoz tonu byl posun **-341
+a -342**, tedy nestejny. To je podpis posunu v **centech pred prevodem**,
+ne konstanty v jednotkach IP - a tim padla uvaha, ze jde o ohyb vysky.
+
+Oprava: presetova zona uz jen **doplnuje** to, co zona nastroje nema.
+Utlum zustava vyjimkou, ten ovladac scita az v jednotkach registru.
+Po zmene sedi CRAZY 32/32 a nic jineho se nezhorsilo.
