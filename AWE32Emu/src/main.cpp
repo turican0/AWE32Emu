@@ -433,6 +433,12 @@ int main(int argc, char** argv)
 
     // Banky se nacitaji v poradi, v jakem byly zadany; pozdejsi prebiji
     // drivejsi. Typicky nejdriv popis GM banky v ROM, pak banka hry.
+    // Varianta ovladace se musi nastavit **pred** nactenim bank: rodiny
+    // se lisi v tom, kde zacina uzivatelska DRAM (viz Synth::DramReserve).
+    // Varianta ovladace musi byt nastavena pred PowerOnInit, protoze meni
+    // osm hodnot v init polich.
+    synth.Core().SetDriver(driver);
+
     for (const auto& [path, inRom, midiBank] : bankPaths)
     {
         std::string err;
@@ -472,9 +478,6 @@ int main(int argc, char** argv)
         }
     }
 
-    // Varianta ovladace musi byt nastavena pred PowerOnInit, protoze meni
-    // osm hodnot v init polich.
-    synth.Core().SetDriver(driver);
     synth.Core().PowerOnInit();
     std::cout << "Ovladac: " << Awe32::DriverName(driver) << "\n";
 
