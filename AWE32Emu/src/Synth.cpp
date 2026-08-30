@@ -116,6 +116,14 @@ bool Synth::LoadBank(const std::string& path, std::string& error, bool samplesIn
         for (SoundFont::Preset& p : bank.presets)
             if (p.bank == 0) p.bank = midiBank;
 
+    if (m_nextDramBase == 0)
+    {
+        const uint32_t reserve =
+            (m_core.DriverVariant() == Awe32::Driver::Dos) ? kDramReserveDos
+                                                           : kDramReserveWin95;
+        m_nextDramBase = Emu8000::kDramOffset + reserve;
+    }
+
     LoadedBank lb;
     lb.dramBase = m_nextDramBase;
 
@@ -254,7 +262,19 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     //
     // Ovladac to jeste podminuje bajtovym priznakem (`cmp byte ptr [eax], 0`),
     // ktery jsme nerozklicovali; u vsech 242 not se vetev provedla.
-    if (drv == Awe32::Driver::Win95 && bank && bank->romName == "1MGM")
+    // Ten nerozklicovany bajtovy priznak je **"lezi vzorek v ROM?"**.
+    // Odhalila to vymena banky v guestu: kdyz se misto SYNTHGM.SBK
+    // (popisuje jen ROM) nacte SYNTH02S.SBK (ma vlastni vzorky v DRAM),
+    // ovladac tech 16 jednotek **nepricte** - u vsech 242 not MINUETu
+    // mel utlum presne o 16 nizsi nez my a cilovy objem proto dvojnasobny
+    // (16 jednotek = 6 dB = faktor 2).
+    //
+    // Dava to smysl i fyzikalne: vzorky ve wave ROM jsou o 6 dB hlasitejsi
+    // nez to, co ovladac sam nahraje do DRAM.
+    const bool sampleInRom = region && region->sample
+                          && (region->sample->inRom || bank->samplesInRom);
+    if (drv == Awe32::Driver::Win95 && bank && bank->romName == "1MGM"
+        && sampleInRom)
         atten = std::min(atten + 16, 255);
 
     // Velocity ovlivnuje i mezni kmitocet filtru - tisi noty jsou tmavsi.
@@ -564,13 +584,18 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
     //      GM bicí banka casto obsahuje jen zakladni sadu a skladba pritom
     //      posle jine cislo programu; bez tohoto kroku by se cely bicí part
     //      nahradil melodickym presetem z banky 0.
-    //   3) banka 0 se stejnym programem
+    //   3) banka 0 se stejnym programem - ale **jen u melodickych kanalu**.
+    // Na bicim kanalu ovladac do banky 0 nesahne: kdyz sadu nenajde,
+    // vezme rovnou prvni preset banky. Zmereno na RELAX.SBK (32 presetu
+    // 0..31, zadna bicí banka) se skladbou RELAX_VX, kde ma kanal 9
+    // program 16: ovladac hral u vsech 1849 not preset 0 (0x20000C),
+    // kdezto my jsme brali melodicky preset 16 z banky 0.
     int chain[3];
     int chainLen = 0;
     chain[chainLen++] = bankNum;
     const bool drums = (bankNum == kDrumBank);
     if (drums) chain[chainLen++] = -1;          // znacka pro (128, program 0)
-    if (bankNum != 0) chain[chainLen++] = 0;
+    if (bankNum != 0 && !drums) chain[chainLen++] = 0;
 
     for (int pass = 0; pass < chainLen; ++pass)
     {
@@ -599,6 +624,30 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
         }
     }
 
+    // Kdyz program v bance neni, ovladac sahne po **prvnim presetu banky**,
+    // ne po nejake vlastni nahrade. Zmereno na RELAX.SBK (32 vokalnich
+    // presetu 0..31) prehravane skladbou RELAX_VX, ktera pouziva GM programy
+    // az do 122: u vsech chybejicich hral ovladac vzorek na 0x20000C, tedy
+    // preset 0. My jsme misto toho pousteli nahradni sinusovku z `kDramOffset`,
+    // coz bylo v CCCA videt jako 0x1FFFFC.
+    for (size_t i = m_banks.size(); i-- > 0; )
+    {
+        const SoundFont::Bank& b = *m_banks[i].bank;
+        const std::vector<SoundFont::Region> regions =
+            b.Select(0, 0, note, velocity);
+        if (regions.empty()) continue;
+        for (const SoundFont::Region& r : regions)
+        {
+            const SoundFont::VoiceParams vp = SoundFont::MakeVoiceParams(
+                b, r, note, velocity, m_banks[i].dramBase, kRomPoolBase,
+                m_core.DriverVariant());
+            StartVoice(AllocateVoice(), channel, note, velocity, vp, &b, &r);
+        }
+        return;
+    }
+
+    // Az kdyz nema banka ani preset 0 - to uz je banka bez pouzitelneho
+    // obsahu a hraje se nahradni vzorek.
     StartFallbackVoice(AllocateVoice(), channel, note, velocity);
 }
 

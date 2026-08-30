@@ -140,8 +140,13 @@ private:
     // Zmereno proti SBAWE32.MDI - jeho prvni vzorek v DRAM zacina na
     // 0x200032 a nas na 0x200000, u vsech 52 not bicich z Magic Carpet 2
     // vychazel rozdil presne 50.
-    static constexpr uint32_t kDramReserve = 50;
-    uint32_t m_nextDramBase = Emu8000::kDramOffset + kDramReserve;
+    // **Rodiny se lisi.** U SBAWE32.MDI zacina prvni vzorek na 0x200032
+    // (rezerva 50), u SBAWE.VXD o 34 niz - rezerva 16. Zmereno vymenou
+    // banky v guestu: se SYNTH02S.SBK misto SYNTHGM.SBK mel ovladac
+    // u vsech 242 not MINUETu CCCA, PSST i CSL presne o 34 nizsi nez my.
+    static constexpr uint32_t kDramReserveDos   = 50;
+    static constexpr uint32_t kDramReserveWin95 = 16;
+    uint32_t m_nextDramBase = 0;   // dopocita se pri prvnim nacteni banky
     int m_debugVoices = 0;
     void* m_noteDump = nullptr;   // FILE*
     uint16_t m_channelMask = 0xFFFF;
