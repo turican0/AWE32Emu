@@ -41,8 +41,13 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros">
-    <!-- snd_emu8k.c z 86Boxu se needituje ani nekopiruje; preklada se rovnou
-         z datoveho adresare, at je cip v obou projektech tentyz soubor. -->
+    <!-- Cip je doslova tentyz soubor jako v 86Boxu: preklada se primo ze
+         stromu, ze ktereho se stavi 86Box pro VM (docs/86box-src). Zadna
+         kopie, takze se nemuzou rozejit - co se doladi tady, plati i tam.
+         Volani emu8k_trace_* z toho souboru jsou u nas prazdna, viz
+         ref86box/include/86box/snd_emu8k_trace.h.
+         Netykave upstreamove znenim zustava v ref86box/upstream/ jako
+         doklad puvodu (hlida ho verify_upstream.py) - neprekládá se. -->
     <Awe32EmuData Condition="'$(AWE32EMU_DATA)' != ''">$(AWE32EMU_DATA)</Awe32EmuData>
     <Awe32EmuData Condition="'$(Awe32EmuData)' == ''">$(SolutionDir)..\AWE32EmuData</Awe32EmuData>
   </PropertyGroup>
@@ -93,7 +98,7 @@
   <ItemGroup>
     <ClCompile Include="src\Emu8000.cpp" />
     <ClCompile Include="src\Emu8000Box.cpp" />
-    <ClCompile Include="$(Awe32EmuData)\ref86box\upstream\snd_emu8k.c">
+    <ClCompile Include="$(Awe32EmuData)\docs\86box-src\master-full\src\sound\snd_emu8k.c">
       <CompileAs>CompileAsC</CompileAs>
       <SDLCheck>false</SDLCheck>
       <ConformanceMode>false</ConformanceMode>
