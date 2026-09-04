@@ -143,6 +143,25 @@ namespace
         return std::pow(10.0, -db / 20.0);
     }
 
+    // Utlum vstupu filtru podle Q, prevzato z `filter_atten` v snd_emu8k.c
+    // 86Boxu (tam odvozeno z awe32faq: utlum je zhruba polovina Q v dB).
+    // V 8.8 pevne radove carce, 65536 = beze zmeny.
+    constexpr int32_t kFilterAtten86[16] = {
+        65536, 61869, 57079, 53269, 49145, 44820, 40877, 34792,
+        32845, 30653, 28607, 26392, 24630, 22463, 20487, 18470
+    };
+
+    // Mez filtru tak, jak ji 86Box plni do tabulky koeficientu:
+    // zacina na 125 Hz a kazdy z 256 kroku nasobi 1.016378315
+    // (= 42,66 dilku na oktavu).
+    double Cutoff86Hz(int index)
+    {
+        double out = 125.0;
+        for (int i = 0; i < std::clamp(index, 0, 255); ++i)
+            out *= 1.016378315;
+        return out;
+    }
+
     inline int8_t HiSigned(uint16_t w)  { return static_cast<int8_t>(w >> 8); }
     inline int8_t LoSigned(uint16_t w)  { return static_cast<int8_t>(w & 0xFF); }
     inline int    HiByte(uint16_t w)    { return (w >> 8) & 0xFF; }
@@ -300,8 +319,17 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
             vs.lfo2Phase = 0.0;
             vs.lfo1Delay = DelaySeconds(RegVal(Port::Data1Hi, 5, voice));
             vs.lfo2Delay = DelaySeconds(RegVal(Port::Data1Hi, 7, voice));
+            // Vsech pet stavovych promennych filtru, ne jen prvni dve.
+            // Hlasy se recykluji: kdyby v druhem stupni (--filter-poles 4)
+            // nebo v jednopolove vetvi zustala energie z predchozi noty,
+            // zacatek te nove by ji doznival - lupnuti, ktere skutecny cip
+            // nedela.
             vs.filtIc1   = 0.0;
             vs.filtIc2   = 0.0;
+            vs.filtIc3   = 0.0;
+            vs.filtIc4   = 0.0;
+            vs.filtLp1   = 0.0;
+            vs.filtIc5   = 0.0;
         }
     }
 }
@@ -671,13 +699,30 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
 
     // Pan: PSST bity 31..24, kde 0 = zcela VPRAVO a 0xFF = zcela VLEVO [PG].
     const double panNorm = panReg / 255.0;   // 0 = vpravo, 1 = vlevo
-    const float gainL = static_cast<float>(std::sin(panNorm * kPi * 0.5));
-    const float gainR = static_cast<float>(std::cos(panNorm * kPi * 0.5));
+    // Cip ma pan jako **prostou nasobicku**, ne constant-power krivku:
+    // snd_emu8k.c dela  vol_l = psst_pan, vol_r = 255 - psst_pan  a obe
+    // deli 256. Uprostred panoramy tedy jde do kazdeho kanalu polovina
+    // (-6 dB), kdezto sin/cos tam dava 0,7071 (-3 dB). Ten rozdil 3,01 dB
+    // presne odpovida plochemu posunu, ktery se meril proti 86Boxu.
+    // Constant-power zustava jako volba (`--pan power`) na porovnani.
+    const float gainL = m_panLinear
+        ? static_cast<float>(panNorm)
+        : static_cast<float>(std::sin(panNorm * kPi * 0.5));
+    const float gainR = m_panLinear
+        ? static_cast<float>(1.0 - panNorm)
+        : static_cast<float>(std::cos(panNorm * kPi * 0.5));
 
     // Rezonance filtru: CCCA bity 31..28, 0 = bez rezonance,
     // 15 = cca 24 dB rezonance [PG].
     const double resonanceDb = filterQ * (kResonanceMaxDb / kCccaQMax);
-    const double qFactor = std::max(0.7071, std::pow(10.0, resonanceDb / 20.0));
+    // Zaklad, od ktereho rezonance stoupa. Puvodne tu bylo
+    //     max(0.7071, pow(10, res/20))
+    // jenze `pow` je pro res >= 0 vzdycky >= 1, takze se 0.7071 nikdy
+    // neuplatnilo a Q = 0 davalo Q = 1.0, tedy hrb ~1,25 dB u meze.
+    // Ma-li Q = 0 znamenat "bez rezonance", je zaklad 0.7071
+    // (Butterworth) a rezonance se **nasobi**. Vychozi 1.0 nechava
+    // puvodni chovani, aby se dalo merit obe.
+    const double qFactor = m_qBase * std::pow(10.0, resonanceDb / 20.0);
     // Manual: pri Q = 0 a plne otevrenem filtru se signal nemeni vubec.
     const bool bypassFilter = (filterQ == 0);
     // Zvedani Q si cip vybira utlumem na vstupu filtru (viz kFilterAtten).
@@ -790,12 +835,16 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             // a sirokopasmovy sum ve vysokych kmitoctech.
             // Cteni s zalomenim do smycky - bez toho by interpolace na
             // konci smycky sahala na data za ni a delala lupnuti.
-            auto tap = [&](uint32_t offset) -> double
+            // Posun smi byt i zaporny - windowed-sinc je soumerny kolem
+            // hraneho mista, takze sahá i pred aktualni vzorek.
+            auto tap = [&](int offset) -> double
             {
-                uint32_t a = vs.address + offset;
-                if (loopEnd > loopStart)
-                    while (a > loopEnd) a -= (loopEnd - loopStart);
-                return ReadSample(a) / 32768.0;
+                int64_t a = static_cast<int64_t>(vs.address) + offset;
+                if (a < 0) a = 0;
+                uint32_t ua = static_cast<uint32_t>(a);
+                if (m_loopWrap && loopEnd > loopStart)
+                    while (ua > loopEnd) ua -= (loopEnd - loopStart);
+                return ReadSample(ua) / 32768.0;
             };
 
             const double f = vs.frac / 65536.0;
@@ -810,6 +859,52 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
                 const double c2 = -1.5 * f * f * f + 2.0 * f * f + 0.5 * f;
                 const double c3 =  0.5 * f * f * f - 0.5 * f * f;
                 sample = static_cast<float>(d0 * c0 + d1 * c1 + d2 * c2 + d3 * c3);
+            }
+            else if (m_interp == Interp::Sinc)
+            {
+                // Osmibodovy windowed-sinc (Blackmanovo okno). Hrane misto
+                // lezi mezi tapy 1 a 2 (posun interpolatoru o slovo), takze
+                // se bere osm vzorku soumerne kolem nej: -2 az 5.
+                const double x = 1.0 + f;
+                double acc = 0.0, norm = 0.0;
+                for (int i = -2; i <= 5; ++i)
+                {
+                    const double d = x - static_cast<double>(i);
+                    double w;
+                    if (std::abs(d) < 1e-9)
+                    {
+                        w = 1.0;
+                    }
+                    else
+                    {
+                        const double pd = kPi * d;
+                        // Blackmanovo okno pres celou sirku jadra
+                        const double t = (d + 3.5) / 7.0;    // 0..1
+                        const double bw = 0.42 - 0.5 * std::cos(2.0 * kPi * t)
+                                        + 0.08 * std::cos(4.0 * kPi * t);
+                        w = std::sin(pd) / pd * bw;
+                    }
+                    acc += tap(i) * w;
+                    norm += w;
+                }
+                sample = static_cast<float>(norm > 1e-9 ? acc / norm : acc);
+            }
+            else if (m_interp == Interp::Point3 || m_interp == Interp::Point3c)
+            {
+                // Kvadratika pres tri body (Lagrange). Dokumentace k AWE32
+                // uvadi u cipu "3 Point sample interpolation", takze tohle
+                // je blizs realu nez linearni i nez Catmull-Rom.
+                //
+                // Hrane misto lezi mezi druhym a tretim tapem (posun
+                // interpolatoru o slovo), takze u dopredne varianty jsou to
+                // tapy 1,2,3 a f bezi od 0 do 1 mezi tapy 1 a 2.
+                const int b = (m_interp == Interp::Point3) ? 1 : 0;
+                const double a0 = tap(b), a1 = tap(b + 1), a2 = tap(b + 2);
+                const double g = (m_interp == Interp::Point3) ? f : (f + 1.0);
+                const double l0 = 0.5 * (g - 1.0) * (g - 2.0);
+                const double l1 = -g * (g - 2.0);
+                const double l2 = 0.5 * g * (g - 1.0);
+                sample = static_cast<float>(a0 * l0 + a1 * l1 + a2 * l2);
             }
             else
             {
@@ -830,13 +925,73 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         // ---- filtr -----------------------------------------------------
         // Modulace se pocitaji rovnou v oktavach, jak je udava manual:
         // PEFE lo +-6 oktav, FMMOD lo +-3 oktavy.
-        double octaves = CutoffOctaves(initialCutoff, m_filterTopHz);
+        // Zaklad z registru. Dve mapovani, protoze prameny se neshoduji:
+        // Programmer's Guide udava krajni body 125 Hz a 8 kHz (a k tomu si
+        // protireci "ve ctvrt pultonech"), Vuova prirucka rika primo
+        //     f = 100 Hz + registr * 31,25 Hz,
+        // tedy **linearne v Hz**. U registru 128 je v tom faktor ctyri.
+        // Modulace jsou v obou pripadech v oktavach, jak je udava manual:
+        // PEFE lo +-6 oktav, FMMOD lo +-3 oktavy.
+        const double baseHz = m_cutoffLinear
+            ? (kCutoffLinearBaseHz + initialCutoff * kCutoffLinearStepHz)
+            : CutoffHz(CutoffOctaves(initialCutoff, m_filterTopHz));
+        double octaves = 0.0;
         octaves += vs.modLevel * LoSigned(pefe)  / 127.0 * kPefeFilterOctaves;
         octaves += lfo1        * LoSigned(fmmod) / 127.0 * kFmmodFilterOctaves;
 
         double filtered;
         const double filterIn = sample * filterInputGain;
-        if (bypassFilter && octaves >= CutoffOctaves(255.0, m_filterTopHz) - 1e-9)
+
+        if (m_filter86)
+        {
+            // Presne to, co dela snd_emu8k.c - branev FILTER_MOOG, ktera je
+            // v tom souboru skutecne aktivni (FILTER_INITIAL, kterou jsme
+            // portovali driv, je tam zakomentovana #if 0 a nikdy nebezi;
+            // prvni pokus proto merenim nic nezlepsil). Ctyrstupnova
+            // kaskada jednopolovych filtru se zpetnou vazbou (Moog ladder).
+            // Filtr se vynecha jen pri Q == 0 **a** celych 16 bitech
+            // cutoffu na 0xFFFF - ovladac zapisuje cutoff<<8, takze k tomu
+            // nedojde a filtr bezi i pri "plne otevreno".
+            const int qidx = std::clamp(filterQ, 0, 15);
+            const int cidx = std::clamp(static_cast<int>(initialCutoff), 0, 255);
+            const uint16_t ctoff16 = static_cast<uint16_t>(cidx << 8);
+            if (qidx == 0 && ctoff16 == 0xFFFF)
+            {
+                filtered = sample;
+            }
+            else
+            {
+                const double fc = Cutoff86Hz(cidx) * std::pow(2.0, octaves);
+                const double w0 = std::sin(2.0 * kPi
+                                           * std::clamp(fc, 20.0, kNativeSampleRate * 0.49)
+                                           / kNativeSampleRate);
+                const double qFactor86 = 1.0 - w0;
+                const double p = w0 + 0.8 * w0 * qFactor86;
+                const double coef0 = p;
+                const double coef1 = p + p - 1.0;
+                const double resonance = (1.0 - std::pow(2.0, -qidx * 24.0 / 90.0)) * 0.8;
+                const double coef2 = resonance
+                    * (1.0 + 0.5 * qFactor86 * (w0 + 5.6 * qFactor86 * qFactor86));
+
+                // Praci delame v normalizovanych jednotkach (plny rozsah =
+                // 1.0), coz je algebraicky totez jako fixed-point <<8/>>24
+                // v 86Boxu - jen bez ztraty presnosti zaokrouhlenim.
+                // "Dvojnasobek rozsahu" na oriznuti tam odpovida 2.0 tady.
+                auto clip2 = [](double v) { return std::clamp(v, -2.0, 2.0); };
+
+                const double x = sample - coef2 * vs.filtIc5;
+                const double t1 = vs.filtIc2;
+                vs.filtIc2 = clip2((x + vs.filtIc1) * coef0 - vs.filtIc2 * coef1);
+                const double t2 = vs.filtIc3;
+                vs.filtIc3 = clip2((vs.filtIc2 + t1) * coef0 - vs.filtIc3 * coef1);
+                const double t3 = vs.filtIc4;
+                vs.filtIc4 = clip2((vs.filtIc3 + t2) * coef0 - vs.filtIc4 * coef1);
+                vs.filtIc5 = clip2((vs.filtIc4 + t3) * coef0 - vs.filtIc5 * coef1);
+                vs.filtIc1 = clip2(x);
+                filtered = vs.filtIc5;
+            }
+        }
+        else if (bypassFilter && initialCutoff >= 255.0 - 1e-9 && octaves >= -1e-9)
         {
             // "If the Q of the channel is programmed to zero and the filter
             // cutoff to 0xFF, the filter does not alter the signal." [PG]
@@ -844,7 +999,7 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         }
         else
         {
-            const double cutoffHz = std::clamp(CutoffHz(octaves),
+            const double cutoffHz = std::clamp(baseHz * std::pow(2.0, octaves),
                                                20.0, kNativeSampleRate * 0.49);
 
             // Topology-preserving state variable filter. Chamberlinova

@@ -212,6 +212,12 @@ namespace Emu8000
     // Zvlastni pripad: **SF1 127 ma v SF2 hodnotu 14400 centu** (33 kHz),
     // coz neni bod na te primce, ale "filtr dokoran".
     inline constexpr double kCutoffBaseHz     = 101.81;
+
+    // Linearni mapovani meze filtru podle Vuovy prirucky (Un-official AWE32
+    // Programming Guide, 1995):  f = 100 Hz + registr * 31,25 Hz, tedy
+    // 0 -> 100 Hz a 255 -> 8068,75 Hz. Zapina se SetCutoffLinear().
+    constexpr double kCutoffLinearBaseHz = 100.0;
+    constexpr double kCutoffLinearStepHz = 31.25;
     inline constexpr double kCutoffBaseCents  = 4366.0;
     inline constexpr double kCutoffCentsStep  = 29.3843;
     inline constexpr int    kCutoffPerOctave = 48;    // ctvrt pultonu

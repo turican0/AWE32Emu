@@ -1,0 +1,88 @@
+name: release
+
+# Sestavi binarky pro Windows a Linux pokazde, kdyz se pushne znacka
+# zacinajici "v" (napr. v0.3, v1.0.2), a povesi je na vydani na GitHubu.
+#
+# Sestavuje se pres CMakeLists.txt v korenu, ne pres .sln - resenim Visual
+# Studia by Linux neprosel. Jadro cipu z 86Boxu (`--chip 86box`) se **nepribaluje**:
+# `snd_emu8k.c` lezi v datovem adresari mimo repozitar, takze v techhle binarkach
+# ohlasi, ze v nich neni. Nase vlastni jadro je uplne.
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:        # da se spustit i rucne, na zkousku
+
+permissions:
+  contents: write           # potreba na vytvoreni vydani
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+            exe: AWE32Emu.exe
+          - os: ubuntu-latest
+            name: linux-x64
+            exe: AWE32Emu
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Konfigurace
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Sestaveni
+        run: cmake --build build --config Release --parallel
+
+      # MSVC dava binarku do build/Release/, jednokonfiguracni generatory
+      # rovnou do build/. Sesbirame obe moznosti do jedne slozky.
+      - name: Sesbirani
+        shell: bash
+        run: |
+          mkdir -p dist
+          if [ -f "build/Release/${{ matrix.exe }}" ]; then
+            cp "build/Release/${{ matrix.exe }}" dist/
+          else
+            cp "build/${{ matrix.exe }}" dist/
+          fi
+          cp README.md dist/
+          cp docs/POUZITI.md dist/
+
+      - name: Rychla zkouska
+        shell: bash
+        run: ./dist/${{ matrix.exe }} --help
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AWE32Emu-${{ matrix.name }}
+          path: dist/
+
+  release:
+    name: vydani
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Zabaleni
+        run: |
+          cd artifacts
+          for d in */; do
+            n="${d%/}"
+            (cd "$n" && zip -r "../$n.zip" .)
+          done
+          ls -la
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/*.zip
+          generate_release_notes: true

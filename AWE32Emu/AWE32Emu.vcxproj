@@ -64,7 +64,7 @@
       <AdditionalIncludeDirectories>$(Awe32EmuData)\ref86box\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;AWE32EMU_WITH_86BOX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>Disabled</Optimization>
@@ -80,7 +80,7 @@
       <AdditionalIncludeDirectories>$(Awe32EmuData)\ref86box\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;_CRT_SECURE_NO_WARNINGS;AWE32EMU_WITH_86BOX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <Optimization>MaxSpeed</Optimization>
@@ -111,6 +111,7 @@
     <ClCompile Include="src\Sequencer.cpp" />
     <ClCompile Include="src\Synth.cpp" />
     <ClCompile Include="src\SoundFont.cpp" />
+    <ClCompile Include="src\SoundFontExport.cpp" />
     <ClCompile Include="src\AudioOutputWin.cpp" />
   </ItemGroup>
   <ItemGroup>

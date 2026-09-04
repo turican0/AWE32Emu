@@ -171,6 +171,16 @@ vysledky z nich neznamkovat stejne jako mereni proti Creative ovladacum.
 ### Dalsi pasti
 
 - `AUTOEXEC.BAT` musi mit **CRLF**; s LF se davka neprovede.
+- **`AUTOEXEC.BAT` v obrazu je sdileny mezi pokusy a nikdo ho neuklizi.**
+  Zachyt zvuku ze hry vysel na 411 s ticha, protoze v obrazu porad
+  sedela davka z pokusu s DOSMIDem. Stopa to rekla hned: konci na
+  snimku 1 255 506 (28,5 s) zapisy, ktere ztisi hlasy - tedy konec
+  inicializace AWEUTILu a nic dal. V obrazu jsou zalohy
+  `AUTOEXEC.MC2` (hra) a `AUTOEXEC.DSM` (DOSMID); pred kazdym behem
+  se ma nakopirovat ta spravna:
+
+        python ../AWE32EmuData/tests/fat16.py <obraz> get AUTOEXEC.MC2 ae.txt
+        python ../AWE32EmuData/tests/fat16.py <obraz> put ae.txt AUTOEXEC.BAT
 - DOSMID je v **korenu** (`C:\DOSMID.EXE`), adresar `C:\DOSMID\` neexistuje,
   prestoze na nej zaloha `AUTOEXEC.MID` v obrazu ukazuje.
 - `fat16.py` se musi volat s **windowsovymi** cestami; s cestami ve tvaru
