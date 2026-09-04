@@ -13,7 +13,10 @@
 #include "Sequencer.h"
 #include "Synth.h"
 #include "SoundFont.h"
+#include "SoundFontExport.h"
+#ifdef _WIN32
 #include "AudioOutputWin.h"
+#endif
 #include "WavWriter.h"
 
 #include <cstring>
@@ -57,26 +60,30 @@ namespace
             "  --debug-voices <n>  Vypise prvnich n spustenych hlasu i s registry\n"
             "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
-            "  --chip nas|86box   Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
-            "  --conf <soubor>    Pocatecni stav MIDI kanalu, jak ho posila hra\n"
-            "  --dump-notes <csv> Mezivysledky pri note-onu, sloupce podle bloku\n"
-            "                      parametru v SBAWE.VXD (viz tests/patch_struct.py)\n"
+            "  --chip nas|86box    Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
             "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
-            "                      (SBAWE.VXD). Rodiny se lisi osmi hodnotami\n"
-            "                      v init polich, tabulkou velocity a vzorcem\n"
-            "                      utlumu - viz src/Awe32Driver.h.\n"
+            "  --conf <soubor>     Pocatecni stav MIDI kanalu, jak ho posila hra\n"
+            "  --dump-notes <csv>  Mezivysledky pri note-onu, sloupce podle bloku\n"
+            "                      parametru v SBAWE.VXD (viz tests/patch_struct.py)\n"
             "  --master-volume N   Hlavni hlasitost sekvenceru AIL 0..127 (vychozi 127)\n"
             "  --sbk <soubor>@<N>  Nacte banku do MIDI banky N (vyber pres CC0);\n"
             "                      uzivatelske banky maji v phdr banku 0\n"
             "  --only-ch <maska>   Prehraje jen vybrane MIDI kanaly\n"
-            "  --interp linear|cubic   Interpolace vzorku\n"
+            "  --interp linear|cubic|3point|3pointc|sinc   Interpolace (vychozi sinc)\n"
             "  --reverb 0..7  --chorus 0..7   Preset efektu\n"
             "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n"
             "  --filter-top <Hz>   Mezni kmitocet pri registru 0xFF (vychozi 8000)\n"
+            "  --q-base <x>        Zaklad rezonance filtru (1.0 vychozi, 0.7071 Butterworth)\n"
+            "  --cutoff-map exp|lin  Prevod registru na mez filtru (lin = 100+31,25*reg Hz)\n"
+            "  --filter-mode tpt|86box  Podoba filtru (86box = presne jako snd_emu8k.c)\n"
+            "  --pan linear|power  Krivka panoramy (linear = nasobicka jako v cipu)\n"
+            "  --loop-wrap on|off  Zalamovat vzorky interpolace do smycky (vychozi on)\n"
+            "  --export-sf2 <soubor>  Zapise nactene banky (vcetne ROM) jako jeden .sf2\n"
             "  --filter-poles 1|2|4  Strmost filtru 6/12/24 dB na oktavu (vychozi 2)\n\n"
             "Banky lze zadat vicekrat a vrstvi se - pozdejsi prebiji drivejsi.\n"
             "Typicke pouziti:\n"
-            "  --rom rom/awe32.raw --rombank rom/1mgm.sf2 --sbk sbk/BULLFROG.SBK\n";
+            "  --rom rom/awe32.raw --rombank rom/1mgm.sf2 --sbk sbk/BULLFROG.SBK\n"
+            "\nPodrobny popis vsech voleb i s priklady je v docs/POUZITI.md.\n";
     }
 }
 
@@ -222,6 +229,12 @@ int main(int argc, char** argv)
     int masterVolume = 127;
     bool masterFromCmdline = false;
     double filterTop = -1;
+    double qBase = -1;
+    std::string cutoffMap;
+    std::string filterMode;
+    std::string panMode;
+    std::string loopWrap;
+    std::string exportSf2;
     int filterPoles = -1;
     int debugVoices = 0;
     uint16_t channelMask = 0xFFFF;
@@ -302,6 +315,30 @@ int main(int argc, char** argv)
         {
             tracePath = argv[++i];
         }
+        else if (arg == "--export-sf2" && i + 1 < argc)
+        {
+            exportSf2 = argv[++i];
+        }
+        else if (arg == "--loop-wrap" && i + 1 < argc)
+        {
+            loopWrap = argv[++i];
+        }
+        else if (arg == "--pan" && i + 1 < argc)
+        {
+            panMode = argv[++i];
+        }
+        else if (arg == "--filter-mode" && i + 1 < argc)
+        {
+            filterMode = argv[++i];
+        }
+        else if (arg == "--cutoff-map" && i + 1 < argc)
+        {
+            cutoffMap = argv[++i];
+        }
+        else if (arg == "--q-base" && i + 1 < argc)
+        {
+            qBase = std::atof(argv[++i]);
+        }
         else if (arg == "--filter-top" && i + 1 < argc)
         {
             filterTop = std::atof(argv[++i]);
@@ -347,38 +384,43 @@ int main(int argc, char** argv)
         }
     }
 
-    if (inputPath.empty())
+    // Pri exportu banky se nic neprehrava, takze vstupni skladba neni potreba.
+    if (inputPath.empty() && exportSf2.empty())
     {
         std::cerr << "Chybi vstupni soubor.\n\n";
         PrintUsage();
         return 1;
     }
 
-    std::string ext = GetExtension(inputPath);
     ParsedSequence sequence;
 
-    if (ext == "mid" || ext == "midi")
+    if (!inputPath.empty())
     {
-        sequence = MidiFile::Load(inputPath);
-    }
-    else if (ext == "xmi")
-    {
-        sequence = XmiFile::Load(inputPath);
-    }
-    else
-    {
-        std::cerr << "Nerozpoznana pripona '" << ext << "' - ocekavam .mid nebo .xmi\n";
-        return 1;
-    }
+        std::string ext = GetExtension(inputPath);
 
-    if (!sequence.valid)
-    {
-        std::cerr << "Chyba pri nacitani '" << inputPath << "': " << sequence.errorMessage << "\n";
-        return 1;
-    }
+        if (ext == "mid" || ext == "midi")
+        {
+            sequence = MidiFile::Load(inputPath);
+        }
+        else if (ext == "xmi")
+        {
+            sequence = XmiFile::Load(inputPath);
+        }
+        else
+        {
+            std::cerr << "Nerozpoznana pripona '" << ext << "' - ocekavam .mid nebo .xmi\n";
+            return 1;
+        }
 
-    std::cout << "Nacteno: " << inputPath << " (" << sequence.events.size() << " udalosti, "
-        << sequence.ticksPerQuarterNote << " ticku/ctvrtovou notu)\n";
+        if (!sequence.valid)
+        {
+            std::cerr << "Chyba pri nacitani '" << inputPath << "': " << sequence.errorMessage << "\n";
+            return 1;
+        }
+
+        std::cout << "Nacteno: " << inputPath << " (" << sequence.events.size() << " udalosti, "
+            << sequence.ticksPerQuarterNote << " ticku/ctvrtovou notu)\n";
+    }
 
     // Konfigurace se cte driv, nez se nastavi hlavni hlasitost - muze ji
     // totiz sama urcovat. Prepinac `--master-volume` ma prednost.
@@ -465,6 +507,40 @@ int main(int argc, char** argv)
                          " neni nactena (--rom).\n";
     }
 
+    // Export do SF2 se dela hned po nacteni bank - dal uz se nic nerenderuje,
+    // takze se nemusi cekat na zvuk. ROM se pro nej cte znovu ze souboru:
+    // `Synth::LoadWaveRom` ji predava dal presunem, takze ji uz nemame.
+    if (!exportSf2.empty())
+    {
+        std::vector<const SoundFont::Bank*> banks;
+        for (size_t i = 0; i < synth.BankCount(); ++i)
+            banks.push_back(&synth.BankAt(i));
+
+        std::vector<int16_t> rom;
+        if (!romPath.empty())
+        {
+            std::ifstream rf(romPath, std::ios::binary);
+            if (rf)
+            {
+                std::vector<uint8_t> raw((std::istreambuf_iterator<char>(rf)),
+                                          std::istreambuf_iterator<char>());
+                rom.resize(raw.size() / 2);
+                std::memcpy(rom.data(), raw.data(), rom.size() * 2);
+            }
+        }
+
+        SoundFont::ExportOptions eo;
+        eo.name = exportSf2;
+        std::string err;
+        if (!SoundFont::ExportSf2(banks, rom, exportSf2, eo, err))
+        {
+            std::cerr << "Export do SF2 selhal: " << err << "\n";
+            return 1;
+        }
+        std::cout << "Zapsano do '" << exportSf2 << "'.\n";
+        return 0;
+    }
+
     // Vzorky bank lezi v nasi DRAM; cip z 86Boxu ma svoji vlastni, takze se
     // musi prekopirovat. Obe zacinaji na EMU8K_RAM_MEM_START, takze bez posunu.
     if (synth.Core().ChipVariant() == Emu8000Core::Chip::Box86)
@@ -485,9 +561,21 @@ int main(int argc, char** argv)
     synth.SetChannelMask(channelMask);
     synth.SetMasterVolume(masterVolume);
     if (filterTop > 0)    synth.Core().SetFilterTopHz(filterTop);
+    if (qBase > 0)        synth.Core().SetQBase(qBase);
+    if (loopWrap == "off")       synth.Core().SetLoopWrap(false);
+    else if (loopWrap == "on")   synth.Core().SetLoopWrap(true);
+    if (panMode == "power")      synth.Core().SetPanLinear(false);
+    else if (panMode == "linear") synth.Core().SetPanLinear(true);
+    if (filterMode == "86box")   synth.Core().SetFilter86Box(true);
+    else if (filterMode == "tpt") synth.Core().SetFilter86Box(false);
+    if (cutoffMap == "lin")      synth.Core().SetCutoffLinear(true);
+    else if (cutoffMap == "exp") synth.Core().SetCutoffLinear(false);
     if (filterPoles > 0)  synth.Core().SetFilterPoles(filterPoles);
     if (interp == "linear") synth.Core().SetInterpolation(Emu8000Core::Interp::Linear);
     else if (interp == "cubic") synth.Core().SetInterpolation(Emu8000Core::Interp::Cubic);
+    else if (interp == "3point") synth.Core().SetInterpolation(Emu8000Core::Interp::Point3);
+    else if (interp == "3pointc") synth.Core().SetInterpolation(Emu8000Core::Interp::Point3c);
+    else if (interp == "sinc") synth.Core().SetInterpolation(Emu8000Core::Interp::Sinc);
     if (revPreset >= 0) synth.Core().SetReverbPreset(revPreset);
     if (choPreset >= 0) synth.Core().SetChorusPreset(choPreset);
     if (revRoom >= 0 && revDamp >= 0)
@@ -584,6 +672,12 @@ int main(int argc, char** argv)
         return 0;
     }
 
+#ifndef _WIN32
+    // Zive prehravani jede pres `winmm`, takze mimo Windows umime jen
+    // renderovat do souboru. Neni to omezeni jadra - to je prenositelne.
+    std::cerr << "Zive prehravani je jen na Windows; pouzij --wav <soubor>.\n";
+    return 1;
+#else
     AudioOutputWin audioOut;
     if (!audioOut.Open(kSampleRate, kFramesPerBuffer))
     {
@@ -610,4 +704,5 @@ int main(int argc, char** argv)
     audioOut.Close();
     std::cout << "Hotovo.\n";
     return 0;
+#endif
 }

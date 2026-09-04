@@ -1,5 +1,36 @@
 #include "Emu8000Box.h"
 
+#ifndef AWE32EMU_WITH_86BOX
+
+// ---------------------------------------------------------------------------
+// Zaslepka pro sestaveni bez zdrojaku 86Boxu.
+//
+// `snd_emu8k.c` lezi v datovem adresari (`AWE32EmuData`), ktery neni soucasti
+// tohohle repozitare - je moc velky a je v nem i obsah, ktery se sirit nesmi.
+// Bez nej se `--chip 86box` proste nenabizi; vsechno ostatni, vcetne naseho
+// vlastniho jadra, funguje beze zmeny.
+//
+// Zapnout jde pres CMake: `-DAWE32EMU_WITH_86BOX=ON -DAWE32EMU_DATA=<cesta>`.
+// ---------------------------------------------------------------------------
+
+Emu8000Box::Emu8000Box() = default;
+Emu8000Box::~Emu8000Box() = default;
+
+bool Emu8000Box::Init(const std::string&, uint16_t, int, std::string& err)
+{
+    err = "sestaveno bez jadra z 86Boxu (AWE32EMU_WITH_86BOX=OFF)";
+    return false;
+}
+
+int16_t* Emu8000Box::Ram()             { return nullptr; }
+size_t   Emu8000Box::RamWords() const  { return 0; }
+void     Emu8000Box::PortWrite(uint16_t, uint16_t, bool) {}
+void     Emu8000Box::RenderFrame(int32_t& l, int32_t& r) { l = 0; r = 0; }
+void     Emu8000Box::FlushBlock()      {}
+
+#else
+
+
 #include <cstdio>
 #include <cstdlib>
 #include <cstdarg>
@@ -233,3 +264,5 @@ void Emu8000Box::RenderFrame(int32_t& l, int32_t& r)
         I.frameInBlock = 0;
     }
 }
+
+#endif  // AWE32EMU_WITH_86BOX

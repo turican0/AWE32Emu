@@ -88,10 +88,24 @@ public:
 
     bool IsVoiceActive(int voice) const;
 
-    // Interpolace vzorku. Realny cip pouzival patentovanou 3bodovou
-    // interpolaci; linearni je hrubsi nahrada, kubicka (Catmull-Rom) je
-    // blizsi a delá min artefaktu ve vysokych kmitoctech.
-    enum class Interp { Linear, Cubic };
+    // Interpolace vzorku. `Point3` je ta, kterou uvadi dokumentace
+    // ("3 Point sample interpolation", Vu, Un-official AWE32 Programming
+    // Guide 1995) - a je i **vychozi**: zmereno proti 20 dvojicim
+    // nahravka/MIDI (tests/tune.py), prumerne skore 5,937 proti 6,025
+    // u puvodni kubicke (Catmull-Rom). Zmena zavedena 2026-09-02.
+    // Dve varianty se lisi tim, ktere tri vzorky beru: `Point3` cte
+    // dopredu (tapy 1,2,3), `Point3c` je soumerna kolem hraneho mista
+    // (tapy 0,1,2) - v mereni jsou k nerozeznani (5,9369 vs 5,9370),
+    // `Point3` se drzi jen kvuli shode s konvenci "tap(1) = aktualni
+    // vzorek" pouzitou uz u Linear/Cubic.
+    // `Sinc` je osmibodovy windowed-sinc - ostrejsi nez vsechny ostatni.
+    // Neni to domnenka: zmereno na Hi-Octane, kde shoda se zeleznem roste
+    // monotonne s ostrosti jadra (linear 4,271 -> Point3 4,187 ->
+    // Cubic 3,915), a zaroven nam nad 6,4 kHz chybi energie (6,1 % proti
+    // 19,1 %). Patent US 5,111,727 popisuje u G-chipu FIR navrzeny
+    // Remezovym algoritmem, coz je taky **ostry** filtr - kvadraticka
+    // Lagrangeova interpolace (`Point3`) je proti nemu prilis mekka.
+    enum class Interp { Linear, Cubic, Point3, Point3c, Sinc };
     void SetInterpolation(Interp i) { m_interp = i; }
 
     // Ladici parametry filtru. Programmer's Guide si u meznich kmitoctu
@@ -100,6 +114,36 @@ public:
     //   topHz  - kmitocet pri registrove hodnote 0xFF
     //   poles  - 1, 2 nebo 4 (6, 12 nebo 24 dB na oktavu)
     void SetFilterTopHz(double hz) { m_filterTopHz = hz; }
+    // Zaklad rezonance filtru: 1.0 = puvodni chovani, 0.7071 = Butterworth
+    // pri Q = 0. Viz vypocet qFactor v Emu8000.cpp.
+    void SetQBase(double q)       { m_qBase = q; }
+    // Prevod registru IFATN(15..8) na mezni kmitocet. `false` = dosavadni
+    // exponencialni (125 Hz -> 8 kHz pres 255 kroku), `true` = linearni
+    // v Hz podle Vuovy prirucky:  f = 100 Hz + registr * 31,25 Hz.
+    // Rozdil je velky - u registru 128 vyjde 1006 Hz proti 4100 Hz.
+    void SetCutoffLinear(bool on)  { m_cutoffLinear = on; }
+    // Podoba filtru. `false` = nase TPT (stabilni az k Nyquistu),
+    // `true` = presne to, co dela snd_emu8k.c v 86Boxu:
+    //   - koeficient w0 = sin(2*pi*fc/fs), ne tan
+    //   - mez z tabulky 125 Hz * 1.016378315^index (42,66 dilku na oktavu)
+    //   - vstup zeslaben podle Q tabulkou filter_atten
+    //   - filtr se vynecha jen kdyz Q == 0 **a** cely 16bit cutoff je 0xFFFF
+    // Ta posledni podminka je ten podstatny rozdil: ovladac zapisuje
+    // cutoff<<8, tedy 0xFF00, takze 86Box filtruje i pri "plne otevreno",
+    // kdezto my jsme se drzeli Programmer's Guide a filtr vypinali.
+    void SetFilter86Box(bool on)   { m_filter86 = on; }
+    // Krivka panoramy. `true` (vychozi) = prosta nasobicka jako v cipu:
+    //   vlevo = pan/255, vpravo = (255-pan)/255
+    // `false` = constant-power sin/cos, coz jsme meli driv. Uprostred
+    // panoramy se lisi o 3,01 dB a je to presne ten plochy rozdil, ktery
+    // se meril proti 86Boxu (3,37-3,41 dB na izolovanych notach).
+    void SetPanLinear(bool on)     { m_panLinear = on; }
+    // Ma se druhy (treti...) vzorek interpolace zalomit zpatky do smycky?
+    // My to delame, `snd_emu8k.c` ne - jeho `EMU8K_READ` cte linearne dal
+    // za konec smycky. Zalomeni je "cistsi", ale prave tim muze ubirat
+    // vysoke kmitocty, kterych mame proti zeleze min (6,1 % proti 19,1 %
+    // nad 6,4 kHz). Vychozi je zalomeni; vypina se `--loop-wrap off`.
+    void SetLoopWrap(bool on)      { m_loopWrap = on; }
     void SetFilterPoles(int p)     { m_filterPoles = p; }
     double FilterTopHz() const     { return m_filterTopHz; }
     int    FilterPoles() const     { return m_filterPoles; }
@@ -171,6 +215,7 @@ private:
         double filtIc3 = 0.0;   // druhy stupen pri --filter-poles 4
         double filtIc4 = 0.0;
         double filtLp1 = 0.0;   // jednopolovy filtr pri --filter-poles 1
+        double filtIc5 = 0.0;   // paty stupen pro --filter-mode 86box (FILTER_MOOG)
     };
 
     void RenderNative(float* outL, float* outR, uint32_t numFrames);
@@ -183,8 +228,17 @@ private:
     uint16_t  RegVal(Emu8000::Port p, int reg, int voice) const;
 
     uint32_t m_outputRate;
-    Interp m_interp = Interp::Cubic;
+    // Zmereno na vsech 23 pouzitelnych dvojicich: sinc 5,2784, cubic 5,2856,
+    // point3 5,3212. Rozdil sinc vs. cubic dela **jen** Hi-Octane (4,138 a
+    // 4,128 proti 4,221 a 4,265) - na zbytku je sinc o ~0,007 horsi. Bereme
+    // ho proto, ze Hi-Octane je nejcistsi material, ktery mame.
+    Interp m_interp = Interp::Sinc;
     double m_filterTopHz = 8000.0;
+    double m_qBase       = 1.0;
+    bool   m_cutoffLinear = false;
+    bool   m_filter86     = false;
+    bool   m_panLinear    = true;
+    bool   m_loopWrap     = true;
     int    m_filterPoles = 2;
     float m_reverbReturn = 1.0f;
     float m_chorusReturn = 0.7f;

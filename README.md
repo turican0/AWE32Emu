@@ -1,101 +1,120 @@
 # AWE32Emu
 
-Foundation for a project aiming at a real emulation of the **EMU8000** sound
-chip (Sound Blaster AWE32), built by combining the official chip specification
-with reverse engineering of the DOS drivers (AWEUTIL, CTVDSK.SYS, etc.). The
-end goal is a C++ plugin that can be embedded into a game and play `.mid`/`.xmi`
-music through a register-accurate EMU8000 emulation instead of a generic
-softsynth.
+Register-level emulation of the **EMU8000** sound chip (Sound Blaster AWE32),
+built by combining the published chip specification with reverse engineering of
+Creative's own drivers (`SBAWE.VXD`, `SBAWE32.MDI`, `SBAWE32.DRV`, `AWEUTIL.COM`).
+It plays `.mid` / `.xmi` music the way the card did, rather than through a
+generic softsynth.
 
-**This is a basic skeleton, not a finished emulation.** Current status and
-what does (not) work yet is described below in [Project status](#project-status).
+**A detailed usage guide with worked examples is in
+[`docs/POUZITI.md`](docs/POUZITI.md)** (Czech).
 
-## What works right now
+## What works
 
-- Visual Studio 2022 console application (x64, C++17)
-- `.mid` parser (Standard MIDI File, format 0/1)
-- `.xmi` parser (Miles Sound System / AIL format - IFF container, `EVNT`
-  chunk, conversion of XMI note-length encoding into explicit Note Off events)
-- Basic sequencer that converts file ticks into real time using the tempo map
-- Optional `.sbk` (SoundFont/E-mu bank) loading - informational only for now,
-  it lists the RIFF chunks found; the data is not yet used during playback
-- Playback via Windows `winmm`/`waveOut` (no external dependencies)
-- **Register-level EMU8000 core** (`Emu8000.cpp`) built on the register map
-  decoded from the AWEUTIL.COM disassembly - see
-  `docs/re-notes/emu8000_register_map.md`. It implements the real
-  Pointer/Data0..Data3 port scheme, the documented register file (CPF, PTRX,
-  CVCF, VTFT, PSST, CSL, CCCA, ENVVOL/DCYSUSV/ENVVAL/DCYSUS, ATKHLDV/ATKHLD,
-  LFO1VAL/LFO2VAL, IP, IFATN, PEFE, FMMOD, TREMFRQ, FM2FRQ2, HWCF1-7, SM*),
-  the driver's power-on init sequence, 32-voice wavetable playback out of an
-  emulated sound DRAM, six-stage volume and modulation envelopes, both LFOs,
-  a resonant low-pass filter and panning
-- **No sample data yet** - until a SoundFont/SBK bank is wired in, the synth
-  uploads a generated sine table into the emulated DRAM and plays that. The
-  whole chip path (pitch, loop points, envelopes, filter, pan) is real; only
-  the contents of sound memory are a stand-in
-- Offline rendering to `.wav` (`--wav`) for regression tests and A/B
-  comparison against reference recordings
+- `.mid` (SMF format 0/1) and `.xmi` (Miles/AIL) parsing, tempo-mapped sequencer
+- **SoundFont banks are fully wired**: `.SBK` (SoundFont 1.0) and `.SF2`,
+  layered in load order, samples uploaded into the emulated sound DRAM, and
+  generators translated into EMU8000 registers using conversions measured
+  against the real drivers
+- Wave ROM support (`--rom`), including banks that only *describe* ROM content
+- Multiple banks in different MIDI bank slots (`--sbk bank.sbk@1`), as the
+  Creative control panel does
+- Both driver families (`--driver dos|win95`) — they differ in eight init-array
+  values, the velocity table and the attenuation formula, and are not
+  interchangeable
+- 32-voice playback with six-stage volume and modulation envelopes, both LFOs,
+  a resonant low-pass filter, panning, and the global reverb/chorus buses
+- **The unmodified `snd_emu8k.c` from 86Box as an alternative core**
+  (`--chip 86box`) — literally the same file that gets compiled into the
+  emulator, so any difference is a difference in our code, not in transcription
+- SBK → SF2 conversion (`--export-sf2`), converting units and semantics rather
+  than just repackaging
+- Offline rendering to `.wav`, per-note register dumps (`--dump-notes`) and
+  port-write traces (`--trace`) for regression testing against real hardware
+  recordings
+- Live playback on Windows via `winmm`; on Linux the renderer works and live
+  output does not
 
 ## Building
 
-1. Open `AWE32Emu.sln` in Visual Studio 2022
-2. Select the `Release` / `x64` configuration (or `Debug` / `x64`)
-3. Build - the resulting `AWE32Emu.exe` will be in `bin\x64\Release\`
+### Visual Studio (Windows)
 
-No external libraries or vcpkg packages are required - the project only uses
-standard C++17 and the Windows SDK (`winmm.lib`, linked automatically).
+Open `AWE32Emu.sln`, pick `Release|x64`, build. The result lands in
+`bin\x64\Release\`. No external libraries. This build includes the 86Box core,
+which it compiles straight out of the data directory (`../AWE32EmuData`, or
+wherever `AWE32EMU_DATA` points).
 
-## Usage
+### CMake (Windows and Linux)
 
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
 ```
-AWE32Emu.exe song.mid
-AWE32Emu.exe song.xmi
-AWE32Emu.exe song.mid --sbk bank.sbk
-AWE32Emu.exe song.mid --wav out.wav
+
+This build does **not** include the 86Box core — `snd_emu8k.c` lives in the
+data directory, which is not part of this repository. Everything else is
+identical. To include it:
+
+```bash
+cmake -B build -DAWE32EMU_WITH_86BOX=ON -DAWE32EMU_DATA=../AWE32EmuData
 ```
+
+### Prebuilt binaries
+
+Pushing a tag that starts with `v` builds Windows and Linux binaries and
+attaches them to a GitHub release — see `.github/workflows/release.yml`.
+
+## Quick examples
+
+```bash
+# render with the general MIDI bank out of the card's wave ROM
+AWE32Emu song.mid --rom awe32.raw --sbk SYNTHGM.SBK --wav out.wav
+
+# a game's own bank layered on top of GM, DOS driver family
+AWE32Emu song.xmi --rom awe32.raw --sbk SYNTHGM.SBK --sbk GAME.SBK \
+    --driver dos --wav out.wav
+
+# convert an SBK bank (including its ROM samples) into a standalone SF2
+AWE32Emu --rom awe32.raw --sbk GAME.SBK --export-sf2 game.sf2
+```
+
+See [`docs/POUZITI.md`](docs/POUZITI.md) for every option, what it means and
+when to reach for it.
 
 ## Project structure
 
 ```
-AWE32Emu.sln
-AWE32Emu/
-  AWE32Emu.vcxproj
-  src/
-    main.cpp               CLI entry point, argument parsing, main loop
-    MidiTypes.h              Shared MIDI event representation (MidiEvent, ParsedSequence)
-    MidiFile.h/.cpp           .mid (SMF) parser
-    XmiFile.h/.cpp            .xmi parser
-    Sequencer.h/.cpp          Converts ticks to real time, dispatches events to Synth
-    Emu8000Regs.h             EMU8000 register map / port + sel encoding
-    Synth.h/.cpp              MIDI -> EMU8000 register translation layer
-    WavWriter.h               Offline .wav output (--wav)
-    SoundFontSbk.h/.cpp        Basic RIFF loader for .sbk/.sf2
-    AudioOutputWin.h/.cpp      Realtime output via WinMM waveOut
+AWE32Emu.sln            Visual Studio solution
+CMakeLists.txt          portable build (CI, Linux)
+AWE32Emu/src/
+  main.cpp                CLI entry point, argument parsing
+  MidiTypes.h             shared MIDI event representation
+  MidiFile.h/.cpp         .mid (SMF) parser
+  XmiFile.h/.cpp          .xmi parser
+  Sequencer.h/.cpp        ticks -> real time, dispatch into Synth
+  Synth.h/.cpp            MIDI -> EMU8000 register translation
+  Awe32Driver.h           differences between the two driver families
+  Awe32Curves.h           volume/velocity/expression tables from the drivers
+  Emu8000Regs.h           register map, port + sel encoding, unit constants
+  Emu8000.h/.cpp          the chip core
+  Emu8000Effects.h        reverb and chorus buses
+  Emu8000Box.h/.cpp       wrapper around 86Box's snd_emu8k.c
+  SoundFont.h/.cpp        .sbk / .sf2 loader and generator conversion
+  SoundFontExport.h/.cpp  SF2 writer (--export-sf2)
+  WavWriter.h             offline .wav output
+  AudioOutputWin.h/.cpp   realtime output via WinMM (Windows only)
+docs/
+  POUZITI.md              usage guide
+  re-notes/               what was found out about the chip and drivers, and how
 ```
 
-## Project status
+## Open points
 
-A detailed, more granular task list (parsers, sequencer, EMU8000 core,
-SoundFont layer, plugin API, testing, DOS driver reverse engineering in IDA)
-lives outside this repository, in the project's TODO document. The most
-important open points directly in this code:
-
-- `SoundFontSbk.cpp` - wire up the loaded data (`shdr`, `phdr`, `sdta`/`smpl`)
-  to actual sample playback: upload samples into the emulated DRAM and
-  translate SoundFont generators into EMU8000 register values
-- `Emu8000.cpp` - the envelope time constants, filter cutoff curve, LFO and
-  pitch-modulation scalings are currently the values published for the
-  EMU8000, marked `[DOC]` / `[?]` in the code. They still need to be checked
-  against `SBAWE32.DRV` (the Windows AWE32 MIDI driver), which is where the
-  SoundFont-generator to register conversion lives
-- Chorus and reverb - the per-voice sends are already stored in the registers,
-  the two global effect buses are not implemented yet
-- `MidiFile.cpp`/`XmiFile.cpp` - SysEx messages (GS/GM/MT-32 reset), running
-  status in XMI, SMF SMPTE division support
-- `Sequencer.cpp` - currently renders one frame at a time (`RenderBlock(..., 1)`)
-  for timing-accuracy simplicity; can be optimized for performance later
-- Plugin API - everything is currently tied into the CLI `main.cpp`; splitting
-  it into a reusable library/API is the next step
+- The ~4.5 dB treble shelf above 12.8 kHz seen against hardware recordings is
+  still unexplained; it is not interpolation, reverb, chorus or the filter
+- SysEx handling (GS/GM/MT-32 reset), running status in XMI, SMF SMPTE division
+- Everything is still tied into the CLI; splitting the core into a reusable
+  library is the next step
 
 ## Note on data (licensing/legality)
 
