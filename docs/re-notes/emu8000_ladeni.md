@@ -217,6 +217,308 @@ Pres celou delku (ne kratke okno!):
 Nad 6,4 kHz mame 6,1 % proti 19,1 % na zeleze. Stejny smer se ukazal
 i proti zaznamu ze hry v 86Boxu - je to zatim nejsilnejsi otevrena stopa.
 
+## Chyba uz neni v prekladu MIDI -> registry, ale v cipu
+
+Po vsech zmenach jsem zopakoval registrovou kontrolu proti **skutecnemu
+ovladaci** (stopy z 86Boxu, ktery bezi `SBAWE.VXD`):
+
+| skladba | not | shoda registru |
+|---|---|---|
+| MINUET | 242 | **32 z 32 registru, 100 %** |
+| Georgia | 3331 | **vsechny registry, 100 %** (obe referencni stopy) |
+
+Zadna regrese. To je dulezitejsi, nez to vypada: znamena to, ze **vsechno, co
+ovladac zapisuje do cipu, zapisujeme bit po bitu stejne**. Zbyla odchylka
+proti nahravkam uz tedy nemuze byt v prevodu banky ani v obsluze MIDI - je
+v tom, co s temi registry dela zvukova cesta cipu.
+
+### Past: odchylka skupiny klesa s poctem not
+
+Chvili to vypadalo, ze chyba je ve filtru. Rozdeleni podle rezonance davalo
+napric skladbami tentyz obraz - noty s `Q = 0` kolem 0,1-0,3 dB, noty
+s `Q > 0` 0,8-2,3 dB - a znelo to prukazne.
+
+**Byl to artefakt.** Odchylka skupiny se pocita jako **median** pres jeji noty
+a median z mala not je sam rozkolisany. Skupina s 19 notami proto vyjde "hur"
+nez skupina se 665, i kdyz je na nich chyba stejna. Bylo to videt uz v datech,
+kdyby se clovek podival: ve vsech tabulkach anticorreloval sloupec "odchylka"
+s poctem not.
+
+`tests/group_signif.py` to resi tak, ze ke kazde skupine vylosuje 400x
+stejne velkou nahodnou skupinu a spocita, co by vyslo cirou nahodou. Az podil
+skutecne odchylky k te nahodne neco rika:
+
+| deleni (dance-bp) | not | odchylka | nahoda | pomer |
+|---|---|---|---|---|
+| Q 8 | 19 | 1,74 dB | 0,81 dB | **2,15** |
+| Q 0 | 665 | 0,05 dB | 0,02 dB | **2,13** |
+
+Nerozeznatelne. Totez u kanalu (vsechny 1,6-2,2) i u vzorku: po normalizaci
+jsou nejvyznamnejsi **velke** skupiny s malou odchylkou (`hatopenms` 2,86,
+`organwave` 2,51, `triangle` 2,22), ne male s velkou. Skupiny s 11-13
+notami maji pomer 1,03, tedy ciry sum.
+
+Tim padaji i drivejsi zavery "kalimba je nejhorsi nastroj", "bici maji 0,2 dB"
+a "kanal 0 je spatne" - vsechno byly jen rozdily ve velikosti skupin.
+
+### Co z toho zbyva: odchylka je skutecna, ale rovnomerna
+
+Kontrolni pokus: tyz pomer mezi **dvema nahravkami teze karty**
+(`group_signif.py --ours ... --warp-ours ...`):
+
+| skupina | nas render vs zelezo | zelezo vs zelezo |
+|---|---|---|
+| Q 8 (19 not) | 2,15 | 1,58 |
+| Q 0 (665 not) | **2,13** | **0,96** |
+
+U dvou nahravek teze karty nema skupina Q=0 zadnou strukturu (0,96 = nahoda),
+u nas 2,13. Nase odchylka tedy **je** systematicka per nastroj - jen je
+rovnomerne rozprostrena pres vsechny misto aby sedela v jednom podsystemu.
+To vysvetluje, proc kazdy parametricky sweep skonci nikde: neni co lokalne
+opravit.
+
+### Rezonance zavisi na mezi filtru
+
+V `snd_emu8k.c` je u tabulky `filter_atten` opsana **merena tabulka
+z awe32faq**, ktere jsem si driv nevsiml:
+
+| Q | rezonance pri nizke mezi | rezonance pri vysoke mezi | utlum DC |
+|---|---|---|---|
+| 0 | 5 dB | plochy | -0,0 dB |
+| 8 | 17 dB | 7 dB | -6,0 dB |
+| 15 | 28 dB | 18 dB | -11,0 dB |
+
+Rezonance tedy **klesa s rostouci mezi** - u Q = 8 ze 17 dB na 7 dB. My
+pouzivame jedine cislo `Q * 24/15 = 12,8 dB` bez ohledu na mez. Pripravena je
+volba `--resonance-curve faq`, ktera mezi obema sloupci interpoluje podle
+log2 meze; overeno vypoctem prenosu:
+
+| model | mez 7717 Hz | mez 781 Hz |
+|---|---|---|
+| nase TPT (dosud) | spicka +12,9 dB na 7634 Hz | +12,9 dB na 771 Hz |
+| TPT s krivkou z awe32faq | +7,2 dB na 7393 Hz | +12,3 dB na 770 Hz |
+| Moog z 86Boxu | +8,4 dB na **18406 Hz** | +2,6 dB na **2448 Hz** |
+
+Stoji za poznamku, ze **Moogova varianta z 86Boxu ma mez uplne jinde, nez si
+o ni rekne** - pri registru 120 (881 Hz) ma spicku na 2448 Hz a pri 255
+(7717 Hz) az na 18 kHz. Jako model skutecneho cipu tedy nesedi a nema smysl ji
+zkouset.
+
+### Slepa ulicka: zmerit strmost filtru z nahravek
+
+Napad byl vzit tyz vzorek hrany jednou s otevrenym a jednou se zavrenym
+filtrem a z podilu spekter odecist prenos. `tests/filter_slope.py` to umi,
+ale **nefunguje to**: obe skupiny se lisi i vyskou not a velocity, takze
+podil neni cista prenosova funkce. Vysledky vychazeji nefyzikalne (kladny
+sklon u dolni propusti, -3 az +4,7 dB/oktavu misto -12 nebo -24). Material,
+ktery mame, na to nestaci - chtelo by to tyz ton na dvou mezich filtru.
+
+### Zmerene vlastnosti filtru (negativni vysledky, ale pevne)
+
+Tri sweepy pres deset nejcistsich dvojic. Nizsi je lepsi; **zadna varianta
+vychozi stav neprekonala**, ale nekolik veci se tim potvrdilo natvrdo:
+
+| varianta | prumer | barva |
+|---|---|---|
+| **vychozi (2 poly, TPT, 8 kHz)** | **4,9688** | 2,5955 |
+| `--loop-wrap off` | 4,9687 | - |
+| `--resonance-curve faq` (jen Q>0) | 4,9694 | 2,6017 |
+| `--filter-atten 0` | 5,1166 | - |
+| `--filter-top 12000` | 5,1448 | - |
+| `--filter-poles 4` | 5,3877 | 2,6856 |
+| `--filter-poles 1` | 5,4460 | **2,4447** |
+| `--filter-mode 86box` | 5,5483 | 2,5976 |
+
+Co z toho plyne:
+
+- **Strmost filtru je 12 dB na oktavu.** Ctyri poly i jeden pol jsou vyrazne
+  horsi. V zadne dokumentaci to neni - je to zmerene.
+- **Utlum na vstupu podle Q je spravne** (`--filter-atten 0` je o 0,15 horsi),
+  takze tabulka `filter_atten` odpovida chovani karty.
+- **Horni mez 8 kHz je spravne** (12 kHz rozbije ho-tr5 z 2,99 na 4,74).
+- **Zalamovani do smycky je jedno** - rozdil 0,0001 na deseti dvojicich.
+- **Moogova varianta z 86Boxu je nejhorsi ze vsech**, presne jak predpovedel
+  vypocet jejiho prenosu (spicka na 18 kHz misto na 7,7 kHz).
+- Jeden pol dava nejlepsi **barvu** (2,44) a zaroven skoro nejhorsi skore.
+  Mekci filtr tedy zlepsi celkovou tonalni rovnovahu, ale rozbije shodu po
+  notach - neni to spravna oprava, jen ukazatel, ze nam v pasmu kolem 2 kHz
+  chybi energie.
+
+## Rozklad zbytku na hlasitost a barvu
+
+Skore je jedno cislo a michalo dohromady dve uplne ruzne vady: notu, ktera hraje
+spravne barevne ale je hlasitejsi, a notu, ktera ma spravnou hlasitost ale jinou
+barvu. `tests/resid_split.py` je oddeluje - u kazde noty spocita **plochy
+posun** (vazeny prumer pres pasma) a to, co po jeho odecteni zbyde:
+
+| slozka | nas render vs zelezo | zelezo vs zelezo (dno) | **zbyva nam** |
+|---|---|---|---|
+| celkem | 4,1223 | 3,2278 | **2,56** |
+| hlasitost noty | 2,4022 | 1,6921 | **1,71** |
+| barva noty | 3,3500 | 2,7487 | **1,91** |
+
+(Odectene kvadraticky, protoze se tak i skladaji.)
+
+**Skoro polovina opravitelne chyby je hlasitost jednotlivych not**, ne jejich
+barva. To se dosud vubec nemerilo - vsechny sweepy sly za filtrem a interpolaci,
+coz je ta druha polovina. Registry utlumu pritom sedi 100 % proti ovladaci,
+takze to nejsou hodnoty, ale to, co s nimi dela zvukova cesta.
+
+## Dve dalsi slepe ulicky
+
+### Rychlost attacku to nevysvetluje
+
+Rozptyl plosneho posunu podle rychlosti attacku vypadal slibne:
+
+| attack | rozptyl u nas | zelezo vs zelezo |
+|---|---|---|
+| 0x60-0x6F | **3,42 dB** | 1,58 dB |
+| 0x70-0x7F | 1,83 dB | 1,40 dB |
+
+Jenze vsech 450 not s attackem 0x60-0x6F je **jediny vzorek** - `hatopenms`.
+Neni to tedy vlastnost rychlosti attacku, jen jineho zapisu tehoz zjisteni,
+ze nejvic vybocuje otevrena hi-hat.
+
+### Vylucne tridy (`exclusiveClass`) neimplementuje ani ovladac
+
+Vypadalo to jako silna stopa: `SYNTHGM.SBK` ma 16 zon v 7 vylucnych
+tridach a dva ze tri nejvyznamnejsich vzorku v `DANCE.MID` v nich jsou -
+`hatopenms` ve tride 1 a `triangle` ve tride 5. My je neresime vubec, takze
+nam otevrena hi-hat zni dal tam, kde by ji zavrena mela useknout.
+
+Stopa skutecneho ovladace to ale **nepotvrzuje**. Na CRAZY (7112 not, registry
+100 % shodne) vydava ovladac 7239 releasu proti nasim 7112 - o 127 vic, coz
+zpocatku vypadalo presne jako usekavani. Rozdeleni **delek not** je ale
+prakticky totozne:
+
+| | nase | ovladac |
+|---|---|---|
+| median delky noty | 54,7 ms | 53,5 ms |
+| not kratsich nez 30 ms | 3301 | 3301 |
+| not kratsich nez 50 ms | 3477 | 3489 |
+
+Kdyby ovladac usekaval hi-haty, kratkych not by mel vyrazne vic. Tech 127
+releasu navic je ucetnictvi na konci skladby, ne rezani. **Doplnit vylucne
+tridy by nas tedy od originalu vzdalilo, ne priblizilo.**
+
+### Delka jadra interpolace: osm bodu je optimum
+
+Rozklad zbytku ukazal chybu zavislou na vzorku a rovnomernou pres nastroje, coz
+odpovida interpolaci. Otestovano proto jadro sinc od 4 do 24 bodu
+(`--sinc-taps`):
+
+| jadro | prumer |
+|---|---|
+| 4 body | 4,9776 |
+| **8 bodu (vychozi)** | **4,9688** |
+| 12 bodu | 4,9726 |
+| 16 bodu | 4,9815 |
+| 24 bodu | 4,9992 |
+
+Osm bodu je lokalni optimum a delsi jadro **monotonne zhorsuje**. Ostrost
+interpolace tedy neni ta paka - a je to zajimave samo o sobe: kdyby byl cip
+"dokonaly" resampler, delsi jadro by melo pomahat. Osmibodove okno tedy nejspis
+odpovida tomu, co dela skutecny hardware.
+
+Tim je uzavrena i ctvrta rada sweepu. Celkem **14 variant ve ctyrech behech,
+vsechny horsi nez vychozi stav**: filtr (mez, poly, rezonance, utlum,
+topologie), smycka, interpolace. Vychozi nastaveni je lokalni optimum ve vsech
+smerech, ktere jsme prozkoumali - a to je duvod, proc dalsi postup uz nevede
+pres hadani parametru, ale pres **mereni na skutecnem zeleze**
+(viz test_na_zeleze.md).
+
+## Kam vubec jde dojit: sumove dno metriky
+
+Tri nahravky teze karty (CT3980) hrajici tutez `DANCE.MID` daly poprve
+prilezitost zmerit neco, co nam dosud chybelo - **kolik z naseho skore vubec
+neni nase chyba**. Staci pustit metriku mezi dvema nahravkami misto mezi
+renderem a nahravkou (`note_probe.py --warp-ours`):
+
+| srovnani | skore |
+|---|---|
+| `bpx` vs `bp` - dve digitalni nahravky, lisi se jen verzi ovladace | **2,41** |
+| `bp` vs `hw` - digitalni proti analogovemu zaznamu teze karty | **3,20** |
+| nas render vs `bp` | 4,12 |
+| nas render vs `hw` | 4,22 |
+
+Dolni mez neni nula. I dva zaznamy teze karty se na teto metrice lisi o 2,4;
+jde o zaznamovou cestu, mp3 a nepresnost zarovnani. Nase 4,12 je tedy asi
+2,4-3,3 nad dosazitelnym dnem (kvadraticky), ne 4,12.
+
+**Prakticky zaver: cil neni "0", ale priblizit se k 2,4-3,2.** Zlepseni
+o 0,01, ktera jsme drive povazovali za vysledek, jsou proti tomuhle rozptylu
+sum - rozhoduje az prumer pres cely set.
+
+## Barva zvuku: to, co skore zamerne nemeri
+
+Skore odecita celkovou krivku (ekvalizaci nahravaci cesty), takze **rozdil
+v barve se do nej nepromitne vubec**. Ted se da poprve rict, jak velky ten
+rozdil je, protoze mame srovnani zelezo-proti-zelezu:
+
+| pasmo | zelezo vs zelezo | my vs zelezo |
+|---|---|---|
+| 60 Hz | +0,5 | -3,3 |
+| 120 Hz | +0,7 | -2,7 |
+| 240 Hz | +0,5 | -3,4 |
+| 480 Hz | +0,7 | -2,6 |
+| 960 Hz | +0,7 | -2,5 |
+| **1920 Hz** | +0,6 | **-0,7** |
+| 3840 Hz | -0,5 | -2,2 |
+| **7680 Hz** | -1,3 | **-5,0** |
+| vazeny rozkyv | **0,7 dB** | **2,4 dB** |
+
+Dve nahravky teze karty jsou barevne temer totozne (rozkyv 0,7 dB). U nas je
+krivka plocha na -2,9 dB (to je jen hlasitost) **az na dve mista**: na
+1920 Hz mame o 2,2 dB min a na 7680 Hz o 2,1 dB vic, nez by odpovidalo.
+
+Obe ta mista maji spolecneho podezreleho - **rezonanci filtru**. V `DANCE.MID`
+ma 259 not `Q = 8` a `cutoff = 0xFF`, tedy rezonancni spicku prave kolem
+7,7 kHz, a zaroven dostavaji utlum na vstupu filtru (tabulka `kFilterAtten`,
+u Q = 8 je to -6,0 dB), ktery ubira ve zbytku pasma.
+
+## Co se overilo a **neni** to spatne
+
+Aby se to znovu nezkoumalo:
+
+**Prevod registru na mez filtru.** Creative vydal `SYNTHGM` jako `.SBK` i jako
+`.SF2`, takze u kazde zony jde polozit vedle sebe syrovou hodnotu SF1 a
+absolutni centy podle SF2 (`tests/cutoff_pairs.py`). Na 60 ruznych hodnotach
+vychazi primka **4366 + 29,5 centu na krok registru** - presne nase
+`kCutoffBaseCents` 4366 a `kCutoffCentsStep` 29,3843. Linearni mapovani
+z Vuovy prirucky (100 Hz + 31,25*reg) je proti tomu vedle petkrat: u registru
+120 dava 3850 Hz misto 787 Hz, ktere tam Creative ma. `--cutoff-map lin`
+je tedy slepa ulicka.
+
+Zvlastni pripad na konci tabulky: **SF1 127 -> 14400 centu (33 kHz)**, tedy
+"filtr dokoran", u 7 zon. Neni to bod na te primce. Ovladac ale do registru
+zapisuje `127*2 = 254` (zmereno na presetu `piano2`), ne 255, takze nase
+podminka na obchazeni filtru (`cutoff == 255`) se u nich neuplatni.
+
+**Hlasitostni a velocity krivky.** Rozbor po `--by vel` a `--by atten`:
+odchylka **neroste** s velocity ani s utlumem (skupina s 381 notami ma
+0,2 dB, vyskoky jsou jen v kosich s 15-20 notami). Kdyby se utlum prepocitaval
+jinak nez na zeleze, rostlo by to.
+
+**Vrstvene noty.** 706 not v `DANCE.MID` rozjede dva hlasy najednou. Melo by
+to byt podezrele misto (mira mezi vrstvami), ale neni: `--layers 2+` dava
+4,17 proti 4,23 u jednovrstvych. Vrstveni je spis lepsi nez horsi.
+
+**Bici.** Kanal 9 ma 346 not - polovinu pouzitelneho materialu - a odchylku
+**0,2 dB**. Tam neni co ladit.
+
+## Dve opravy metriky
+
+1. **Vaha pasem byla globalni.** `imp = W.mean(axis=0)` - prumer pres celou
+   skladbu. U nastroje, ktery v nekterem pasmu nema nic, se pak to pasmo
+   zapocitavalo vahou cele skladby a merilo se sumove dno. Konkretne kalimba
+   (kanal 0) vychazela jako nejhorsi skupina s "60 Hz +8,9 dB" - po prechodu
+   na vahu **te noty** z toho zbylo "762 Hz +1,1 dB" a odchylka spadla
+   z 2,8 na 1,6 dB. Vychozi je ted `--weight note`; stara se da vratit
+   `--weight global`. Cisla pred touto zmenou nejsou srovnatelna s temi po ni.
+
+2. **`--layers`** oddeluje jedno- a vicevrstve noty, `--warp-ours` umi
+   porovnat dve nahravky mezi sebou (to je ta tabulka se sumovym dnem vyse).
+
 ## Export SBK -> SF2: tri chyby, ktere nasel round-trip
 
 Prevod banky do SF2 se da overit tvrde: nacist ji zpatky a porovnat, co z ni

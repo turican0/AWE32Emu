@@ -678,9 +678,15 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
     // Konstanty obalek (rate registry se za behu obvykle nemeni, takze je
     // staci prevest jednou na blok).
     const double volDelay   = DelaySeconds(envvol);
-    const double volAttack  = AttackSeconds(atkhldv & kAtkhldAttackMask);
-    const double volHold    = HoldSeconds((atkhldv & kAtkhldHoldMask) >> 8);
-    const double volDecayDb = DecayDbPerSecond(dcysusv & kDcysusvRateMask);
+    // Meritka jsou vychozi 1.0; slouzi k mereni, viz SetHoldScale.
+    const double volAttackRaw = AttackSeconds(atkhldv & kAtkhldAttackMask);
+    const double volAttack  = (volAttackRaw < 0.0) ? volAttackRaw
+                                                   : volAttackRaw * m_attackScale;
+    const double volHold    = HoldSeconds((atkhldv & kAtkhldHoldMask) >> 8)
+                            * m_holdScale;
+    const double volDecayRaw = DecayDbPerSecond(dcysusv & kDcysusvRateMask);
+    const double volDecayDb = (volDecayRaw < 0.0) ? volDecayRaw
+                                                  : volDecayRaw * m_decayScale;
     const double volSustain = SustainDb((dcysusv & kDcysusvSustainMask) >> 8);
 
     const double modDelay   = DelaySeconds(envval);
@@ -714,7 +720,7 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
 
     // Rezonance filtru: CCCA bity 31..28, 0 = bez rezonance,
     // 15 = cca 24 dB rezonance [PG].
-    const double resonanceDb = filterQ * (kResonanceMaxDb / kCccaQMax);
+    const double resonanceDb = filterQ * (m_resonanceDb / kCccaQMax);
     // Zaklad, od ktereho rezonance stoupa. Puvodne tu bylo
     //     max(0.7071, pow(10, res/20))
     // jenze `pow` je pro res >= 0 vzdycky >= 1, takze se 0.7071 nikdy
@@ -727,8 +733,14 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
     const bool bypassFilter = (filterQ == 0);
     // Zvedani Q si cip vybira utlumem na vstupu filtru (viz kFilterAtten).
     // Bez toho hraji rezonancni patche vyrazne hlasiteji, nez maji.
-    const double filterInputGain =
+    const double filterAttenRaw =
         kFilterAtten[std::clamp(filterQ, 0, 15)] / 65536.0;
+    // `m_filterAtten` je mocnina, takze 0,5 znamena polovicni utlum v dB
+    // a 0 zadny. Slouzi k mereni, jestli cip opravdu tlumi cele pasmo, nebo
+    // jen srovnava spicku u meze - viz docs/re-notes/emu8000_ladeni.md.
+    const double filterInputGain =
+        (m_filterAtten == 1.0) ? filterAttenRaw
+                               : std::pow(filterAttenRaw, m_filterAtten);
 
     for (uint32_t i = 0; i < numFrames; ++i)
     {
@@ -862,12 +874,17 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             }
             else if (m_interp == Interp::Sinc)
             {
-                // Osmibodovy windowed-sinc (Blackmanovo okno). Hrane misto
-                // lezi mezi tapy 1 a 2 (posun interpolatoru o slovo), takze
-                // se bere osm vzorku soumerne kolem nej: -2 az 5.
+                // Windowed-sinc (Blackmanovo okno) o `m_sincTaps` bodech.
+                // Hrane misto lezi mezi tapy 1 a 2 (posun interpolatoru
+                // o slovo), takze se bere soumerne kolem nej: pri osmi
+                // bodech -2 az 5, pri sestnacti -6 az 9.
+                const int    half = m_sincTaps / 2;
+                const int    lo   = -(half - 2);
+                const int    hi   = half + 1;
+                const double sirka = static_cast<double>(m_sincTaps - 1);
                 const double x = 1.0 + f;
                 double acc = 0.0, norm = 0.0;
-                for (int i = -2; i <= 5; ++i)
+                for (int i = lo; i <= hi; ++i)
                 {
                     const double d = x - static_cast<double>(i);
                     double w;
@@ -879,7 +896,7 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
                     {
                         const double pd = kPi * d;
                         // Blackmanovo okno pres celou sirku jadra
-                        const double t = (d + 3.5) / 7.0;    // 0..1
+                        const double t = (d + sirka * 0.5) / sirka;
                         const double bw = 0.42 - 0.5 * std::cos(2.0 * kPi * t)
                                         + 0.08 * std::cos(4.0 * kPi * t);
                         w = std::sin(pd) / pd * bw;
@@ -1006,7 +1023,26 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             // varianta se pri vyssich mezich rozkmitava (podminka f + 1/Q < 2
             // pri 4 kHz a Q=0.707 uz neplati), tahle je stabilni az k Nyquistu.
             const double g = std::tan(kPi * cutoffHz / kNativeSampleRate);
-            const double k = 1.0 / qFactor;
+            // S krivkou z awe32faq se rezonance pocita az tady, protoze
+            // zavisi na **aktualni** mezi filtru (tedy i na modulaci).
+            double qNow = qFactor;
+            // Jen pro Q > 0. Radek "Coeff 0" v tabulce awe32faq uvadi pri
+            // nizke mezi 5 dB, ale ve druhem sloupci "Flat" - tezko to bude
+            // rezonance, kdyz Q je nula. Zmereno: kdyz se ten radek uplatnil,
+            // dostalo 779 not v DANCE.MID rezonanci 2,6 dB, kterou driv
+            // nemely, a obe nahravky Dance se zhorsily (4,122 -> 4,168).
+            if (m_resonanceCurve && filterQ > 0)
+            {
+                const int qi = std::clamp(filterQ, 0, 15);
+                const double t = std::clamp(
+                    std::log2(cutoffHz / Emu8000::kResonanceLowHz)
+                        / std::log2(Emu8000::kResonanceHighHz
+                                    / Emu8000::kResonanceLowHz), 0.0, 1.0);
+                const double db = Emu8000::kResonanceLowDb[qi] * (1.0 - t)
+                                + Emu8000::kResonanceHighDb[qi] * t;
+                qNow = m_qBase * std::pow(10.0, db / 20.0);
+            }
+            const double k = 1.0 / qNow;
             const double a1 = 1.0 / (1.0 + g * (g + k));
             const double a2 = g * a1;
             const double a3 = g * a2;
