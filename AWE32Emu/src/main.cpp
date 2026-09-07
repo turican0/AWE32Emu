@@ -74,6 +74,12 @@ namespace
             "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n"
             "  --filter-top <Hz>   Mezni kmitocet pri registru 0xFF (vychozi 8000)\n"
             "  --q-base <x>        Zaklad rezonance filtru (1.0 vychozi, 0.7071 Butterworth)\n"
+            "  --filter-atten <x>  Sila utlumu na vstupu filtru (1 = tabulka cipu, 0 = zadny)\n"
+            "  --resonance-db <x>  Rezonance pri Q=15 v dB (vychozi 24)\n"
+            "  --resonance-curve faq|flat  Zavisi rezonance na mezi filtru? (vychozi flat)\n"
+            "  --sinc-taps <n>     Kolik bodu bere sinc (sude, 4-32; vychozi 8)\n"
+            "  --hold-scale <x>  --decay-scale <x>  --attack-scale <x>\n"
+            "                      Meritka casovych konstant obalky (vychozi 1)\n"
             "  --cutoff-map exp|lin  Prevod registru na mez filtru (lin = 100+31,25*reg Hz)\n"
             "  --filter-mode tpt|86box  Podoba filtru (86box = presne jako snd_emu8k.c)\n"
             "  --pan linear|power  Krivka panoramy (linear = nasobicka jako v cipu)\n"
@@ -235,6 +241,12 @@ int main(int argc, char** argv)
     std::string panMode;
     std::string loopWrap;
     std::string exportSf2;
+    double filterAtten = 1.0;
+    double resonanceDb = -1.0;
+    std::string resonanceCurve;
+    int sincTaps = 0;
+    double holdScale = 1.0, decayScale = 1.0, attackScale = 1.0;
+    bool   filterAttenSet = false;
     int filterPoles = -1;
     int debugVoices = 0;
     uint16_t channelMask = 0xFFFF;
@@ -314,6 +326,29 @@ int main(int argc, char** argv)
         else if (arg == "--trace" && i + 1 < argc)
         {
             tracePath = argv[++i];
+        }
+        else if (arg == "--hold-scale" && i + 1 < argc)
+            holdScale = std::atof(argv[++i]);
+        else if (arg == "--decay-scale" && i + 1 < argc)
+            decayScale = std::atof(argv[++i]);
+        else if (arg == "--attack-scale" && i + 1 < argc)
+            attackScale = std::atof(argv[++i]);
+        else if (arg == "--sinc-taps" && i + 1 < argc)
+        {
+            sincTaps = std::atoi(argv[++i]);
+        }
+        else if (arg == "--resonance-curve" && i + 1 < argc)
+        {
+            resonanceCurve = argv[++i];
+        }
+        else if (arg == "--resonance-db" && i + 1 < argc)
+        {
+            resonanceDb = std::atof(argv[++i]);
+        }
+        else if (arg == "--filter-atten" && i + 1 < argc)
+        {
+            filterAtten = std::atof(argv[++i]);
+            filterAttenSet = true;
         }
         else if (arg == "--export-sf2" && i + 1 < argc)
         {
@@ -562,6 +597,20 @@ int main(int argc, char** argv)
     synth.SetMasterVolume(masterVolume);
     if (filterTop > 0)    synth.Core().SetFilterTopHz(filterTop);
     if (qBase > 0)        synth.Core().SetQBase(qBase);
+    if (filterAttenSet)   synth.Core().SetFilterAtten(filterAtten);
+    if (resonanceDb >= 0)  synth.Core().SetResonanceDb(resonanceDb);
+    if (!resonanceCurve.empty())
+        synth.Core().SetResonanceCurve(resonanceCurve == "faq");
+    if (holdScale   != 1.0) synth.Core().SetHoldScale(holdScale);
+    if (decayScale  != 1.0) synth.Core().SetDecayScale(decayScale);
+    if (attackScale != 1.0) synth.Core().SetAttackScale(attackScale);
+    if (sincTaps >= 4 && sincTaps <= 32 && (sincTaps % 2) == 0)
+        synth.Core().SetSincTaps(sincTaps);
+    else if (sincTaps != 0)
+    {
+        std::cerr << "--sinc-taps musi byt sude cislo 4 az 32.\n";
+        return 1;
+    }
     if (loopWrap == "off")       synth.Core().SetLoopWrap(false);
     else if (loopWrap == "on")   synth.Core().SetLoopWrap(true);
     if (panMode == "power")      synth.Core().SetPanLinear(false);

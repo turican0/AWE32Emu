@@ -1,0 +1,9 @@
+# Borland C++ 4.x / 5.x, real mode, LARGE model.
+#   make -f MAKEFILE.BC
+# AWESDK must be a copy of the Creative AWE32 DOS SDK.
+AWESDK = c:\awesdk
+INC = $(AWESDK)\LIB\SBKLIB\INCLUDE
+LIB = $(AWESDK)\LIB\SBKLIB\LARGE\RAWE32L.LIB
+
+awetest.exe : AWETEST.C
+	bcc -ml -O2 -DSBKLIB -I$(INC) -eawetest.exe AWETEST.C $(LIB)

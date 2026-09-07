@@ -1,0 +1,155 @@
+AWETEST - calibration recording from a real Sound Blaster AWE32
+===============================================================
+
+Thank you for doing this. It takes about 25 minutes of your time and it gives
+us something no amount of guessing can: measurements of what the EMU8000 chip
+actually does.
+
+The program is NOT music. It plays single tones, each one changing exactly one
+setting and leaving everything else alone. That is what makes it measurable.
+
+
+WHAT YOU NEED
+-------------
+
+  * A Sound Blaster AWE32 or AWE64 in a DOS machine.
+  * Some way to record the card's LINE OUT.
+  * About 25 minutes.
+
+
+SETUP
+-----
+
+1. Copy AWETEST.EXE into the Magic Carpet 2 directory - the one that contains
+   BULLFROG.SBK. If you do not have that game, any directory works; only the
+   very last block is skipped.
+
+   One file is all you need. The program runs in 32-bit protected mode and
+   carries its own DOS extender inside the executable, so there is nothing
+   else to copy and nothing to install.
+
+2. Make sure the BLASTER environment variable is set. It normally is, and
+   looks something like:
+
+       SET BLASTER=A220 I5 D1 H5 P330 E620 T6
+
+
+RECORDING
+---------
+
+Record in STEREO. One of the tests measures the left/right pan law and is
+useless in mono. 44.1 kHz or 48 kHz, 16 bit.
+
+Turn OFF every kind of processing on the recorder: no equaliser, no
+normalisation, no automatic gain, no noise reduction, no "enhancement". The
+whole point is comparing loudness between tones, and any of those destroys it.
+Record on the quiet side rather than loud - a little headroom is much better
+than clipping.
+
+Then:
+
+    AWETEST
+
+The program prints what it found, waits five seconds so you can start the
+recorder, and then plays for 22.6 minutes. Let it run to the end. The last
+sound is a three second reference tone.
+
+
+WHAT TO SEND BACK
+-----------------
+
+  * The recording (WAV or FLAC, whatever your recorder makes - please do not
+    convert it to MP3).
+  * AWETEST.LOG, which the program writes next to itself. It lists what played
+    at which millisecond.
+  * The card model - the CT???? number printed on the board - and anything you
+    know about it, for instance how much extra RAM it has. The program prints
+    the amount of sample RAM it found when it starts; that line is useful too.
+
+
+IF SOMETHING GOES WRONG
+-----------------------
+
+Each block of the test starts with its number beeped out as short high ticks:
+block 7 begins with seven ticks. Every minute you also hear two low ticks.
+So if one part of the recording gets spoiled, only that block needs redoing:
+
+    AWETEST /FROM:7 /TO:7
+
+plays block 7 by itself. /FROM and /TO can be combined freely.
+
+
+OPTIONAL: LET THE CARD RECORD ITSELF
+------------------------------------
+
+    AWETEST /REC:OUT.WAV
+
+also captures the card's own output through its ADC, at 44.1 kHz stereo.
+
+The capture is collected in memory, not written to the disk as it goes. A
+period drive cannot keep up with 176 kB every second, and anything it drops
+is gone for good. So the program fills as much memory as it can spare, then
+stops, saves that piece, and carries on. At startup it tells you what it
+worked out, for example:
+
+    Memory: 30 MB free, 15 MB taken for the capture.
+    That is 85 s per file - about 141 notes.
+    The whole run is about 22 minutes, so expect roughly 16 files.
+    Free disk space: 370 MB - room for 24 of them.
+
+The pieces are numbered before the extension - OUT001.WAV, OUT002.WAV and so
+on. Each one begins with four high ticks and ends with four low ticks, so the
+pieces can be told apart and put back in order; the log AWETEST.LOG records
+which test time each file covers.
+
+If you want smaller files - to copy them off as they appear, say - use
+
+    AWETEST /MB:4 /REC:OUT.WAV
+
+which limits one file to 4 MB.
+
+This is a bonus, not a replacement for your recording. Whether the wavetable
+output can be routed into the recording input differs from card to card. The
+program checks and tells you at the end: if it says the capture is silent,
+nothing went wrong with the test itself - it just means this card cannot
+record its own synth, and your external recording is the one that matters.
+
+
+WHAT IS BEING MEASURED
+----------------------
+
+     1  reference tone
+     2  attenuation: how many dB per register step
+     3  pan law
+     4  pitch accuracy, sine
+     5  the same with white noise - this measures the interpolator
+     6  filter cutoff: register value to frequency, and the slope
+     7  resonance at six different cutoffs
+   8-13  volume envelope: attack, hold, decay, sustain, release, delay
+  14-15  modulation envelope to pitch and to filter
+  16-21  both LFOs: rate, depth, and delay
+  22-23  reverb and chorus, all eight presets
+    24  loop behaviour on long sustained tones
+    25  what happens when many voices sound at once
+    26  the ROM General MIDI presets, played through the normal MIDI path
+    27  the same for BULLFROG.SBK
+    28  reference tone again
+
+Blocks 1 to 25 talk to the chip registers directly, one variable at a time.
+Blocks 26 and 27 go through Creative's own MIDI code, the same way a game
+does, which checks the whole chain rather than the chip alone.
+
+The tones themselves come from the card's wave ROM - a sine, white noise and a
+short tick - so they are identical on every AWE32 and known exactly in
+advance.
+
+
+NOTES
+-----
+
+The program does not install anything, does not stay resident, and does not
+touch the system clock or any interrupt. It uses timer channel 2, the one
+that would otherwise drive the PC speaker.
+
+If it says "no AWE32 found", check the BLASTER variable. If it says the DSP
+does not respond, that only affects the optional /REC capture.

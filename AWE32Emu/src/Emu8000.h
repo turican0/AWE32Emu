@@ -107,6 +107,20 @@ public:
     // Lagrangeova interpolace (`Point3`) je proti nemu prilis mekka.
     enum class Interp { Linear, Cubic, Point3, Point3c, Sinc };
     void SetInterpolation(Interp i) { m_interp = i; }
+    // Kolik bodu bere windowed-sinc. Osm je vychozich (zmereno); vic bodu
+    // = ostrejsi jadro. Meri se tim, jestli zbyla odchylka neni v interpolaci -
+    // je totiz rozprostrena rovnomerne pres vsechny nastroje, coz odpovida
+    // chybe zavisle na vzorku a rychlosti prehravani.
+    void SetSincTaps(int n) { m_sincTaps = n; }
+
+    // Meritka casovych konstant obalky hlasitosti. Slouzi k mereni, protoze
+    // registry sedi 100 % proti ovladaci, ale to, **jak rychle** na ne cip
+    // reaguje, je nas model z Programmers Guide. Rozklad zbytkove odchylky
+    // ukazal, ze skoro polovina je chyba hlasitosti not a ze je nejvetsi
+    // 50-150 ms po nastupu - tedy prave ve fazi hold/decay.
+    void SetHoldScale(double x)  { m_holdScale = x; }
+    void SetDecayScale(double x) { m_decayScale = x; }
+    void SetAttackScale(double x) { m_attackScale = x; }
 
     // Ladici parametry filtru. Programmer's Guide si u meznich kmitoctu
     // protireci (ctvrt pultony vs "0xFF = 8 kHz") a proti skutecne karte nam
@@ -117,6 +131,18 @@ public:
     // Zaklad rezonance filtru: 1.0 = puvodni chovani, 0.7071 = Butterworth
     // pri Q = 0. Viz vypocet qFactor v Emu8000.cpp.
     void SetQBase(double q)       { m_qBase = q; }
+    // Jak silne se uplatni utlum na vstupu filtru, kterym si cip vybira
+    // zvednutou rezonanci (tabulka kFilterAtten). 1 = cela tabulka,
+    // 0 = zadny utlum. Mezihodnoty jsou mocnina, takze skala je v dB linearni.
+    void SetFilterAtten(double x) { m_filterAtten = x; }
+    // Kolik dB rezonance odpovida Q = 15. Programmers Guide uvadi "cca 24 dB",
+    // awe32faq spis 21. Rozdil je videt jen u not s Q > 0 a je to presne to
+    // misto, kde nam proti zeleze prebyva energie kolem 7,7 kHz.
+    void SetResonanceDb(double db) { m_resonanceDb = db; }
+    // `true` = rezonance se bere z merene tabulky awe32faq a meni se s mezi
+    // filtru (viz kResonanceLowDb/kResonanceHighDb), `false` = jedno cislo
+    // `Q * kResonanceMaxDb / 15` jako dosud.
+    void SetResonanceCurve(bool on) { m_resonanceCurve = on; }
     // Prevod registru IFATN(15..8) na mezni kmitocet. `false` = dosavadni
     // exponencialni (125 Hz -> 8 kHz pres 255 kroku), `true` = linearni
     // v Hz podle Vuovy prirucky:  f = 100 Hz + registr * 31,25 Hz.
@@ -233,8 +259,15 @@ private:
     // 4,128 proti 4,221 a 4,265) - na zbytku je sinc o ~0,007 horsi. Bereme
     // ho proto, ze Hi-Octane je nejcistsi material, ktery mame.
     Interp m_interp = Interp::Sinc;
+    int    m_sincTaps = 8;
+    double m_holdScale   = 1.0;
+    double m_decayScale  = 1.0;
+    double m_attackScale = 1.0;
     double m_filterTopHz = 8000.0;
     double m_qBase       = 1.0;
+    double m_filterAtten = 1.0;
+    double m_resonanceDb = Emu8000::kResonanceMaxDb;
+    bool   m_resonanceCurve = false;
     bool   m_cutoffLinear = false;
     bool   m_filter86     = false;
     bool   m_panLinear    = true;

@@ -158,6 +158,31 @@ namespace Emu8000
 
     inline constexpr double   kResonanceMaxDb  = 24.0;
 
+    // Rezonance filtru **zavisi na jeho mezi**. Neni to domnenka: v awe32faq
+    // je merena tabulka (opsana i v snd_emu8k.c 86Boxu u `filter_atten`),
+    // ktera ke kazdemu Q uvadi zvlast hodnotu pri nizke mezi (~100 Hz) a pri
+    // vysoke (7-8,5 kHz):
+    //
+    //   Q     nizka mez   vysoka mez   utlum DC
+    //   0        5 dB       plochy      -0,0 dB
+    //   8       17 dB        7 dB       -6,0 dB
+    //   15      28 dB       18 dB      -11,0 dB
+    //
+    // Nase puvodni `Q * 24/15` je jedno cislo pro obe krajni polohy, takze
+    // pri otevrenem filtru prebijelo spicku o ~6 dB - a presne tam nam proti
+    // zeleze prebyvala energie (7680 Hz, viz docs/re-notes/emu8000_ladeni.md).
+    inline constexpr double kResonanceLowDb[16] = {
+         5.0,  6.0,  8.0, 10.0, 11.0, 13.0, 14.0, 16.0,
+        17.0, 19.0, 20.0, 22.0, 23.0, 25.0, 26.0, 28.0
+    };
+    inline constexpr double kResonanceHighDb[16] = {
+         0.0,  0.5,  1.0,  2.0,  3.0,  4.0,  5.0,  6.0,
+         7.0,  9.0, 10.0, 11.0, 13.0, 15.0, 16.0, 18.0
+    };
+    // Meze, ke kterym se ty dva sloupce vztahuji.
+    inline constexpr double kResonanceLowHz  = 100.0;
+    inline constexpr double kResonanceHighHz = 7700.0;
+
     // PSST: bity 31..24 = pan, POZOR 0 = zcela vpravo, 0xFF = zcela vlevo. [PG]
     // CSL:  bity 31..24 = chorus send (0 = nic, 0xFF = maximum). [PG]
     inline constexpr uint32_t kLoopAddressMask = 0x00FFFFFFu;
