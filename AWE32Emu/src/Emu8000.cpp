@@ -1078,7 +1078,9 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         }
 
         // ---- hlasitost --------------------------------------------------
-        // Tremolo: TREMFRQ bity 15..8, +-12 dB pri 0x7F/0x80 [PG].
+        // Tremolo: TREMFRQ bity 15..8. Rozkmit je 12 dB celkem pri
+        // plne hloubce, tj. +-6 - zmereno na skutecne karte, viz
+        // kTremoloMaxDb. Programmer's Guide to pise jako "+-12 dB".
         double db = vs.volDb + initialAtten;
         db -= lfo1 * HiSigned(tremfrq) * (kTremoloMaxDb / 127.0);
         const double gain = DbToLinear(db);

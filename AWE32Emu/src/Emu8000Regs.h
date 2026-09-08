@@ -258,7 +258,11 @@ namespace Emu8000
     inline constexpr double kPefeFilterOctaves = 6.0;   // PEFE lo:  env -> filtr
     inline constexpr double kFmmodPitchOctaves = 1.0;   // FMMOD hi: LFO1 vibrato
     inline constexpr double kFmmodFilterOctaves = 3.0;  // FMMOD lo: LFO1 -> filtr
-    inline constexpr double kTremoloMaxDb      = 12.0;  // TREMFRQ hi: LFO1 tremolo
+    // Zmereno na skutecne karte (ver3.wav, blok 17, 5 kroku):
+    // rozkmit je 0,0945 dB spicka-spicka na jednotku hloubky, tj.
+    // 6 dB pri plne hloubce. "+-12 dB" v Programmer's Guide znamena
+    // 12 dB CELKEM, ne +-12 - drzeli jsme dvojnasobek.
+    inline constexpr double kTremoloMaxDb      = 6.0;   // TREMFRQ hi: LFO1 tremolo
     inline constexpr double kFm2PitchOctaves   = 1.0;   // FM2FRQ2 hi: LFO2 vibrato
     inline constexpr double kLfoHzPerStep      = 0.042; // 0xFF = 10.72 Hz
 
