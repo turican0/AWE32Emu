@@ -773,13 +773,31 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         case EnvStage::Release:
             // Rate 0 = "bez decay"; hlas by na realnem cipu znel dal, ale
             // ovladac pri Note Off vzdy zapisuje nenulovy release rate.
+            //
+            // Uvolneni klesa k urovni SUSTAINU, ne k tichu. Ovladac pri
+            // note-offu zapisuje sustain 0 (Synth::ReleaseVoice), takze
+            // v hudbe je to totez - ale na karte se sustainem 0x7F nota
+            // neklesne vubec. Zmereno 2026-09-09, blok 12 nahravky testera.
             vs.volDb += (volDecayDb < 0.0 ? kFullScaleDb : volDecayDb) * dt;
-            if (vs.volDb >= kFullScaleDb)
+            if (volSustain >= kFullScaleDb - kSustainDbPerStep)
             {
-                vs.volDb = kFullScaleDb;
-                vs.volStage = EnvStage::Off;
-                vs.playing = false;
-                return;
+                // Sustain 0 - tak to pise ovladac pri kazdem note-offu.
+                // Chovani musi zustat presne jako drive, jinak se posune
+                // okamzik uvolneni hlasu a s nim cele prideleni hlasu.
+                if (vs.volDb >= kFullScaleDb)
+                {
+                    vs.volDb = kFullScaleDb;
+                    vs.volStage = EnvStage::Off;
+                    vs.playing = false;
+                    return;
+                }
+            }
+            else if (vs.volDb >= volSustain)
+            {
+                // Vyssi sustain: uroven se na nem zastavi a nota drzi.
+                // Zmereno na karte blokem 12, kde AWETEST psal sustain 0x7F
+                // a nota neklesla vubec.
+                vs.volDb = volSustain;
             }
             break;
         default:
