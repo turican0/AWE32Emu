@@ -99,13 +99,27 @@ static unsigned long BiosTicks(void)
     return a;
 }
 
+/* Cykly PITu skutecne spotrebovane cekanim. Citac kanalu 2 bezi sam a na
+   preruseni nezavisi, takze je to hodinovy zdroj nezavisly na BIOS tikach.
+   Slouzi k tomu, aby slo poznat, kde se ztraci cas. */
+static unsigned long g_pit_lo;         /* cykly PITu, spodni cast   */
+static unsigned long g_pit_sec;        /* a cele sekundy z nich     */
+
+static void PitAdd(unsigned long cycles)
+{
+    g_pit_lo += cycles;
+    while (g_pit_lo >= PIT_HZ) {
+        g_pit_lo -= PIT_HZ;
+        g_pit_sec++;
+    }
+}
+
 static void DelayMs(unsigned ms)
 {
     unsigned long ticks;
     unsigned      last, cur;
     unsigned long done = 0;
     unsigned long bios0, bdelta, floor_ticks;
-    unsigned      guard = 0;
 
     if (!ms) return;
     ticks = (PIT_HZ / 1000L) * (unsigned long) ms;
@@ -133,19 +147,22 @@ static void DelayMs(unsigned ms)
            prisel a cekani by bezelo dlouho. Tiky BIOSu davaji spodni mez,
            ktera se ztratit nemuze: n tiku znamena aspon (n-1) pretoceni, tedy
            (n-1)*65536 tiku PITu. Je to mez, ne presny cas, takze cekani nikdy
-           nezkrati pod spravnou hodnotu - jen dozene, co se ztratilo. */
-        if (++guard >= 64) {
-            guard  = 0;
-            bdelta = BiosTicks() - bios0;
-            if (bdelta > 1UL) {
-                floor_ticks = (bdelta - 1UL) * 65536UL;
-                if (floor_ticks > done) done = floor_ticks;
-            }
+           nezkrati pod spravnou hodnotu - jen dozene, co se ztratilo.
+
+           Drive se to zkouselo az kazdou 64. iteraci. Kdyz ale RecPoll trva
+           desitky ms, projde kratkym cekanim jen par iteraci a pojistka se
+           nikdy neuplatnila - beh pak zaostaval o 12 % (zmereno u testera
+           2026-09-08). Dve cteni z pameti stoji proti RecPoll nic. */
+        bdelta = BiosTicks() - bios0;
+        if (bdelta > 1UL) {
+            floor_ticks = (bdelta - 1UL) * 65536UL;
+            if (floor_ticks > done) done = floor_ticks;
         }
 
         RecPoll();          /* the capture is drained from right here */
     }
     OUTB(0x61, INB(0x61) & 0xFC);
+    PitAdd(done);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -338,7 +355,12 @@ static int rec_gain;                  /* 0..3 -> 0 / 6 / 12 / 18 dB */
    proti 2,6 % u tissiho behu. Mixer ma 2 dB na krok, takze 0xC8 je 12 dB
    pod maximem - to staci, aby se nejhlasitejsi nota vesla bez orezu, a
    zaroven zustava dost odstupu od sumu. */
+/* Vychozi uroven wavetable v mixeru: 12 dB pod plnou. Vic prebudi vystupni
+   stupen karty (zmereno na test4.wav: 58 % zkresleni proti 2,6 %). Tataz
+   hodnota ale urcuje i uroven do zaznamoveho multiplexeru, takze pri
+   vnitrnim zaznamu stoji 12 dB odstupu - na to je /WT. */
 #define WT_LEVEL 0xC8
+static unsigned wt_level = WT_LEVEL;
 
 /* Vystupni cesty na znamou hodnotu. Bez toho zavisi hlasitost na tom, co v
    mixeru nechal predchozi program, a dve mereni na stejne karte se lisi.
@@ -348,8 +370,8 @@ static void MixerInit(void)
 {
     MixerW(0x30, 0xF8);               /* master  L */
     MixerW(0x31, 0xF8);               /* master  R */
-    MixerW(0x34, WT_LEVEL);           /* MIDI / wavetable L */
-    MixerW(0x35, WT_LEVEL);           /* MIDI / wavetable R */
+    MixerW(0x34, (unsigned char) wt_level);   /* MIDI / wavetable L */
+    MixerW(0x35, (unsigned char) wt_level);   /* MIDI / wavetable R */
     MixerW(0x36, 0x00);               /* CD      L */
     MixerW(0x37, 0x00);               /* CD      R */
     MixerW(0x38, 0x00);               /* line    L - jen do vystupu */
@@ -616,6 +638,50 @@ static unsigned long FreeMemBytes(void)
 /* Vyrovnavaci pamet na jeden cyklus. Bereme pulku volne pameti - zbytek
    patri systemu a extenderu, a kdybychom si vzali vsechno, zacne to
    strankovat na disk, tedy presne to, cemu se vyhybame. */
+/* Vychozi velikost kusu. Mensi nez drive: pri zamrznuti zapisu se opakuje
+   min prace a samotny zapis je kratsi. Kdo chce vetsi, ma /MB. */
+#define CAP_DEFAULT (4UL * 1024UL * 1024UL)
+
+/* Opravdu otestuje pridelenou pamet.
+ *
+ * `malloc` jen rekne, ze slo alokovat. Pod DOS extenderem to jeste neznamena,
+ * ze je pamet skutecne v RAM - muze byt odstrankovana na disk, a to je presne
+ * to, cemu se vyrovnavaci pamet ma vyhnout. Prochazi se proto cela vzorem,
+ * cte zpet a meri se cas. Poctivá RAM zvladne megabajt hluboko pod jednim
+ * tikem BIOSu (54,9 ms); kdyz to trva pres dva tiky na megabajt, strankuje se.
+ *
+ * Vraci 0, kdyz se obsah lisi nebo je pamet podezrele pomala. */
+static int MemUsable(unsigned char *p, unsigned long n)
+{
+    const unsigned long STEP = 61UL;      /* prvocislo - projde vsechny stranky */
+    unsigned long i, t0, ticks, limit;
+    unsigned char v;
+
+    t0 = BiosTicks();
+
+    for (i = 0; i < n; i += STEP)
+        p[i] = (unsigned char) (i & 0xFF);
+    for (i = 0; i < n; i += STEP) {
+        v = (unsigned char) (i & 0xFF);
+        if (p[i] != v) {
+            printf("  memory check FAILED at offset %lu\n", i);
+            Trace("MemUsable: mismatch at %ld", (long) i);
+            return 0;
+        }
+    }
+
+    ticks = BiosTicks() - t0;
+    limit = (n / (1024UL * 1024UL)) * 2UL + 2UL;    /* 2 tiky na MB a rezerva */
+    if (ticks > limit) {
+        printf("  %lu MB is too slow (%lu ticks, limit %lu) - probably swapped\n",
+               n / (1024UL * 1024UL), ticks, limit);
+        Trace("MemUsable: too slow, %ld ticks", (long) ticks);
+        return 0;
+    }
+    Trace("MemUsable: %ld ticks", (long) ticks);
+    return 1;
+}
+
 static int CapAlloc(void)
 {
     unsigned long freeb = FreeMemBytes();
@@ -623,14 +689,22 @@ static int CapAlloc(void)
 
     if (freeb == 0UL) freeb = 8UL * 1024UL * 1024UL;   /* neznamo: opatrne */
 
-    want = freeb / 2UL;
-    if (want > 8UL * 1024UL * 1024UL) want = 8UL * 1024UL * 1024UL;
-    if (cap_cap && want > cap_cap)     want = cap_cap;
+    /* /MB ma prednost pred vsim ostatnim. Drive tu byl strop 8 MB pred
+       timhle radkem, takze prepinac mohl velikost uz jen snizovat a
+       `/MB:20` se tise ignorovalo - nahlasil tester 2026-09-08. */
+    if (cap_cap) {
+        want = cap_cap;
+        if (want > freeb) want = freeb;         /* vic nez je, stejne nejde */
+    } else {
+        want = freeb / 2UL;
+        if (want > CAP_DEFAULT) want = CAP_DEFAULT;
+    }
     want -= want % 4UL;                                /* cele ramce */
 
     while (want >= 512UL * 1024UL) {
         cap_buf = (unsigned char *) malloc((size_t) want);
-        if (cap_buf) break;
+        if (cap_buf && MemUsable(cap_buf, want)) break;
+        if (cap_buf) { free(cap_buf); cap_buf = 0; }
         want /= 2UL;
         want -= want % 4UL;
     }
@@ -686,23 +760,49 @@ static void CommitFile(FILE *f)
 static int CapWriteAll(FILE *f, const unsigned char *buf, unsigned long n,
                        const char *name)
 {
-    const unsigned long CHUNK = 32768UL;
-    unsigned long       done  = 0UL;
-    unsigned long       shown = 0UL;
+    unsigned long chunk  = 32768UL;
+    unsigned long done   = 0UL;
+    unsigned long marked = 0UL;
+    int           fails  = 0;
 
     while (done < n) {
         unsigned long k = n - done;
 
-        if (k > CHUNK) k = CHUNK;
-        if (fwrite(buf + done, 1, (size_t) k, f) != (size_t) k)
-            return 1;
-        done += k;
+        if (k > chunk) k = chunk;
 
-        if (done - shown >= 1048576UL || done == n) {
-            shown = done;
-            printf("\r  saving %s ... %lu of %lu MB ",
-                   name, done / 1048576UL, (n + 1048575UL) / 1048576UL);
+        if (fwrite(buf + done, 1, (size_t) k, f) != (size_t) k) {
+            /* Kus se nepovedl. Vratime se PRESNE na jeho zacatek a zkusime
+               to znovu s polovicnim - vysledny soubor je proto bajt po bajtu
+               tentyz, jako by se zapsal najednou. Puli se az na 2 kB, coz je
+               pod desetinou nejkratsi noty (0,35 s = 62 kB). */
+            clearerr(f);
+            if (fseek(f, (long) (44UL + done), SEEK_SET) != 0) return 1;
+            if (chunk > 2048UL) {
+                chunk /= 2UL;
+                fails  = 0;
+                Trace("CapWriteAll: chunk down to %ld", (long) chunk);
+            } else if (++fails > 8) {
+                Trace("CapWriteAll: stuck at %ld", (long) done);
+                return 1;
+            }
+            continue;
+        }
+        done += k;
+        fails = 0;
+
+        /* Hlavicka a commit po 256 kB: pri zabiti programu zbyde platny WAV
+           s presnosti na 1,5 s zaznamu. */
+        if (done - marked >= 262144UL || done == n) {
+            marked = done;
+            printf("\r  saving %s ... %lu of %lu kB ",
+                   name, done / 1024UL, (n + 1023UL) / 1024UL);
             fflush(stdout);
+            Trace("CapFlush: %ld B written", (long) done);
+            if (fseek(f, 0L, SEEK_SET) == 0) {
+                WavHeader(f, done);
+                if (fseek(f, (long) (44UL + done), SEEK_SET) != 0) return 1;
+            }
+            CommitFile(f);
         }
     }
     return 0;
@@ -719,23 +819,45 @@ static int CapFlush(void)
     CapName(name, cap_pattern, cap_index);
     Trace("CapFlush: writing %ld B", (long) cap_used);
 
-    f = fopen(name, "wb");
-    if (!f) {
-        printf("\n*** Cannot create %s - out of disk space?\n", name);
-        Trace("CapFlush: cannot create file", 0);
-        cap_used = 0UL;
-        return 1;
+    /* Tri pokusy, kazdy do dalsiho poradoveho cisla. Co se stihlo zapsat,
+       zustava platnym WAV - hlavicka se prepisuje po kazdem megabajtu -
+       takze ani neuspesny pokus neni k zahozeni. */
+    {
+        int try_i;
+
+        for (try_i = 0; ; try_i++) {
+            f = fopen(name, "wb");
+            if (f) {
+                WavHeader(f, cap_used);
+                if (!CapWriteAll(f, cap_buf, cap_used, name)) {
+                    fclose(f);
+                    break;                       /* povedlo se */
+                }
+                fclose(f);
+                printf("\n*** Could not write all of %s.\n", name);
+                Trace("CapFlush: write failed", (long) try_i);
+            } else {
+                printf("\n*** Cannot create %s - out of disk space?\n", name);
+                Trace("CapFlush: cannot create file", (long) try_i);
+            }
+
+            if (try_i >= 2) {
+                printf("    giving up on this cycle; the run continues.\n");
+                Trace("CapFlush: giving up", 0);
+                cap_used = 0UL;
+                return 1;
+            }
+            printf("    retrying as the next file...\n");
+            cap_index++;
+            CapName(name, cap_pattern, cap_index);
+        }
     }
-    WavHeader(f, cap_used);
-    if (CapWriteAll(f, cap_buf, cap_used, name)) {
-        printf("\n*** Could not write all of %s - the disk is full.\n", name);
-        Trace("CapFlush: write failed", 0);
-        fclose(f);
-        cap_used = 0UL;
-        return 1;
-    }
-    fclose(f);
     Trace("CapFlush: done", 0);
+    /* Ztraty se dosud psaly jen na obrazovku, takze z odevzdane nahravky
+       nebylo poznat, jestli je uplna. */
+    if (g_log)
+        fprintf(g_log, "%8lu -- QUALITY ring overruns %lu, dropped %lu B\n",
+                g_ms, rec_drops, cap_lost);
 
     printf("\n  saved %s - %lu s of audio, test time %lu..%lu s\n",
            name, cap_used / ((unsigned long) REC_RATE * 4UL),
@@ -1056,7 +1178,7 @@ static SAMPLE SMP_TICK  = { 491098L, 491104L, 491164L };  /* sinetick       */
    soucasne prejmenovat vystup v BUILD32.CMD na AWETESTnn.EXE. Cislo je
    v hlavicce i na prvnim radku logu, takze u kazde nahravky je poznat,
    cim vznikla. */
-#define AWETEST_VER "05"
+#define AWETEST_VER "15"
 
 #define V_TEST      29
 #define V_MARK      28
@@ -1209,8 +1331,11 @@ static void ToneStart(unsigned v, TONE *t)
 
 static void ToneRelease(unsigned v, TONE *t)
 {
-    RegW(P_DATA1, R_DCYSUSV, v,
-         (unsigned) (0x8000 | ((t->sustain & 0x7F) << 8) | (t->release & 0x7F)));
+    /* Pole sustainu zustava NULOVE - presne tak to dela ovladac
+       (Synth::ReleaseVoice: kDcysusvRelease | releaseRate). Drive se sem
+       psal `t->sustain`, tedy 0x7F, a cip pak nemel kam klesat: blok 12
+       se na karte nahral jako plocha nota bez poklesu. */
+    RegW(P_DATA1, R_DCYSUSV, v, (unsigned) (0x8000 | (t->release & 0x7F)));
 }
 
 /* Nothing should be left sounding when the program stops to ask a question -
@@ -1277,6 +1402,81 @@ static int WaitKey(int seconds, const char *prompt)
     return -1;
 }
 
+static int AutoLevel(int src, int *gain_out, int *too_hot);
+
+/* Uroven wavetable podle toho, kam se nahrava.
+ *
+ * Pri VNEJSIM nahravani se nechava 12 dB headroomu, protoze pri plne urovni
+ * se vystupni stupen karty prebudi (test4.wav: 58 % zkresleni proti 2,6 %).
+ * Pri VNITRNIM zaznamu je ale tataz hodnota zaroven urovni do zaznamoveho
+ * multiplexeru, takze ten headroom stoji 12 dB odstupu - a tise bloky se
+ * pak ztraci v sumu. Zmereno 2026-09-08: spicka 1544 z 32767.
+ *
+ * Zveda se po 6 dB, dokud neni signal pohodlny nebo dokud neni plno. */
+static void WavetableForInternal(int src)
+{
+    int gain = 0, hot = 0, peak, prev_peak = 0;
+    unsigned prev_level = wt_level;
+
+    for (;;) {
+        peak = AutoLevel(src, &gain, &hot);
+        if (peak < 0) return;
+
+        /* Prebuzeni se pozna z toho, ze spicka po zvyseni nenarostla tak,
+           jak mela. Krok mixeru je 4 dB, tedy 1,585x; kdyz je narust pod
+           1,4x, vystupni stupen uz stlacuje. Digitalni PEAK_CLIP tohle
+           nechyti - pri 58 % zkresleni na test4.wav mel ton spicku kolem
+           9500 z 32767, tedy zdaleka ne plno. */
+        if (prev_peak > 0 && peak < prev_peak * 14 / 10) {
+            wt_level = prev_level;
+            MixerW(0x34, (unsigned char) wt_level);
+            MixerW(0x35, (unsigned char) wt_level);
+            printf("  output stage starts compressing - back to 0x%02X\n",
+                   wt_level);
+            Trace("wavetable compressing at 0x%02lX, back", (long) prev_level);
+            peak = AutoLevel(src, &gain, &hot);
+            break;
+        }
+
+        if (hot || peak >= PEAK_TARGET || wt_level >= 0xF8) break;
+
+        prev_peak  = peak;
+        prev_level = wt_level;
+        wt_level  += 0x10;
+        if (wt_level > 0xF8) wt_level = 0xF8;
+        MixerW(0x34, (unsigned char) wt_level);
+        MixerW(0x35, (unsigned char) wt_level);
+        printf("  capture quiet (peak %d) - wavetable up to 0x%02X\n",
+               peak, wt_level);
+        Trace("wavetable up to 0x%02lX", (long) wt_level);
+    }
+
+    if (peak >= 0 && !hot) RecGain(gain);
+    printf("  internal capture: wavetable 0x%02X, gain %d dB, peak %d of 32767\n",
+           wt_level, gain * 6, peak);
+    Trace("internal capture peak %ld", (long) peak);
+}
+
+/* Cekani, ktere prubezne vyprazdnuje prstenec.
+ *
+ * Obycejny Wait() ho nechava byt. Prstenec je 64 kB, tj. 371 ms zaznamu,
+ * takze pri delsim cekani pretece - a RecPoll pak cely obsah zahodi
+ * pojistkou proti prejeti, aniz by ho zmeril. Vsechny sondy tak merily
+ * naslepo. */
+static void WaitPolling(unsigned ms)
+{
+    unsigned done = 0;
+
+    while (done < ms) {
+        unsigned k = ms - done;
+
+        if (k > 20) k = 20;
+        Wait(k);
+        RecPoll();
+        done += k;
+    }
+}
+
 /* One measurement: play a full-level sine and report the loudest sample that
    came back through the ADC. */
 static int Probe(int src, int gain)
@@ -1291,7 +1491,7 @@ static int Probe(int src, int gain)
     ToneDefaults(&t);
     t.atten = 0;
     ToneStart(V_TEST, &t);
-    Wait(PROBE_MS);
+    WaitPolling(PROBE_MS);
     VoiceOff(V_TEST);
     RecHwStop();
     SilenceAll();
@@ -1356,7 +1556,7 @@ static long ProbeZc(unsigned ip)
         t.atten = 0;
         t.ip    = ip;
         ToneStart(V_TEST, &t);
-        Wait(500);
+        WaitPolling(500);
         VoiceOff(V_TEST);
         RecHwStop();
 
@@ -1562,9 +1762,11 @@ static int BlockMark(int n, const char *name)
     Trace("block %ld", (long) n);
     {   /* planovany vs skutecny cas - 1 tik BIOSu = 54,925 ms */
         unsigned long real_ms = (BiosTicks() - g_bios0) * 10985UL / 200UL;
+        unsigned long pit_ms  = g_pit_sec * 1000UL + g_pit_lo / (PIT_HZ / 1000UL);
         if (g_log)
-            fprintf(g_log, "%8lu %2d ---- planned %lu ms, real %lu ms\n",
-                    g_ms, n, g_ms, real_ms);
+            fprintf(g_log,
+                    "%8lu %2d ---- planned %lu ms, PIT %lu ms, BIOS %lu ms\n",
+                    g_ms, n, g_ms, pit_ms, real_ms);
         CommitFile(g_log);
     }
     if (g_bname[0]) printf("\n");     /* dokonci radek predchoziho bloku */
@@ -1791,8 +1993,14 @@ static void BlockDecay(int n)
     for (r = 4; r <= 0x7F; r += 4) {
         ToneDefaults(&t);
         t.decay   = (unsigned) r;
-        t.sustain = 0x20;            /* low enough for the drop to show */
-        LogLine("decay 0x%02lX, sustain 0x20", (long) r, 0, 0);
+        /* Sustain 0x20 je 71 dB pod plnou urovni. Pri nejpomalejsim kroku
+           (8,4 dB/s) trva takovy pokles 8,4 s, ale nota je 3,2 s - pokles
+           se nestihl a kroky 0x04..0x20 se nedaly zmerit. Spodni cast
+           navic mizela v sumu nahravky (podlaha ~ -37 dB). Sustain 0x60
+           je pokles o 23,25 dB: vejde se nad sum a stihne se i u toho
+           nejpomalejsiho. Zmereno na nahravce testera 2026-09-08. */
+        t.sustain = 0x60;
+        LogLine("decay 0x%02lX, sustain 0x60", (long) r, 0, 0);
         PlayTone(&t, EnvHold(r) + 400, 400);
         StepDone();
     }
@@ -2048,7 +2256,10 @@ static void MidiNote(WORD ch, WORD note, WORD vel, unsigned on, unsigned off)
    jako zmena barvy. Sum, aby ta zmena byla videt v celem spektru. */
 static void BlockModEnvTime(int n)
 {
-    static int rate[8] = { 0x7F, 0x74, 0x6C, 0x64, 0x5C, 0x54, 0x4C, 0x44 };
+    /* Delitele 16..112, tedy nabeh 742 az 106 ms. Puvodni rozsah
+       (0x7F..0x44) daval 6 az 74 ms a z nahravky se nedal zmerit -
+       zmena podle mereni z 2026-09-09. */
+    static int rate[8] = { 0x10, 0x14, 0x18, 0x20, 0x24, 0x2C, 0x34, 0x3C };
     TONE t;
     int  i;
 
@@ -2541,9 +2752,15 @@ int main(int argc, char **argv)
             rec_name = argv[n] + 5;
         else if (!strncmp(argv[n], "/SBK:", 5) || !strncmp(argv[n], "/sbk:", 5))
             sbk_arg = argv[n] + 5;
+        else if (!strncmp(argv[n], "/WT:", 4) || !strncmp(argv[n], "/wt:", 4)) {
+            /* Rucni prebiti urovne wavetable. Bezne neni potreba -
+               pri vnitrnim zaznamu si ji program nastavi sam. */
+            wt_level = (unsigned) strtoul(argv[n] + 4, 0, 16);
+            if (wt_level > 0xFF) wt_level = 0xFF;
+        }
         else {
             printf("Usage: AWETEST [/FROM:n] [/TO:n] [/MB:n] [/REC:file.wav]"
-                   " [/SBK:path]\n");
+                   " [/SBK:path] [/WT:hex]\n");
             printf("  with no switches all 28 blocks play (22.6 minutes)\n");
             printf("  /REC also captures the card's own output to a WAV file\n");
             printf("       (44.1 kHz stereo, about 240 MB for the full run)\n");
@@ -2627,7 +2844,8 @@ int main(int argc, char **argv)
 
         printf("\nChecking how this card can record itself...\n");
         MixerInit();
-        printf("  Mixer set to a known state: master full, wavetable 12 dB\n");
+        printf("  Mixer set to a known state: master full, wavetable 0x%02X\n",
+               wt_level);
         printf("  below full (headroom - at full the card's output stage\n");
         printf("  clips and the loudest notes come out distorted), CD and\n");
         printf("  line muted in the output mix.\n");
@@ -2723,6 +2941,10 @@ int main(int argc, char **argv)
                        " otherwise.\n");
         }
     }
+
+    /* Uroven se dolaďuje jen kdyz je vystupem vnitrni zaznam - pri
+       vnejsim nahravani by to prebudilo vystup karty. */
+    if (rec_ok && rec_name) WavetableForInternal(rec_src);
 
     if (rec_ok) PitchCheck();
 

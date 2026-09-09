@@ -30,9 +30,9 @@ if errorlevel 1 goto done
 rem Cislo verze je i v AWETEST_VER v AWETEST.C - zvedat obe naraz.
 rem Jmeno musi zustat v 8.3, takze AWETSTnn.EXE, ne AWETESTnn.EXE.
 echo === linking, extender bound in as the stub ===
-wlink system dos4g option stub=%WATCOM%\binw\dos32a.exe file awetest.obj library %AWESDK%\LIB\SBKLIB\FLAT\PAWE32.LIB name AWETST05.EXE
+wlink system dos4g option stub=%WATCOM%\binw\dos32a.exe file awetest.obj library %AWESDK%\LIB\SBKLIB\FLAT\PAWE32.LIB name AWETST15.EXE
 if errorlevel 1 goto done
 
 echo.
-echo Done. AWETST05.EXE carries its own extender - still one file to copy.
+echo Done. AWETST15.EXE carries its own extender - still one file to copy.
 :done
