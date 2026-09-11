@@ -1,6 +1,6 @@
 # AWETEST — calibration recording from a real AWE32
 
-This program plays **22.6 minutes** of precisely defined sounds. It is not
+This program plays about **50 minutes** of precisely defined sounds. It is not
 music: every tone changes one single thing and leaves everything else alone.
 That is the only way the behaviour of the chip can be measured back out of a
 recording.
@@ -9,8 +9,9 @@ recording.
 
 - A Sound Blaster AWE32 (or AWE64) under DOS, with the `BLASTER` environment
   variable set.
-- Copy `AWETEST.EXE` and `DOS4GW.EXE` into the Magic Carpet 2 directory — the
-  one that holds `BULLFROG.SBK`. Without that file only the last block is
+- Copy `AWETSTnn.EXE` (nn = version; the DOS extender is bound in, nothing
+  else is needed) into the Magic Carpet 2 directory — the one that holds
+  `BULLFROG.SBK`. Without that file only the last block is
   skipped; everything else still works.
 - Something to record the card's line output.
 
@@ -65,10 +66,49 @@ how much sample RAM it has; the program prints that at startup.
 | 25 | voice summing 1–16 | 19 s |
 | 26 | **as a game does**: ROM GM presets 0–15 | 115 s |
 | 27 | **as a game does**: BULLFROG.SBK | 108 s |
-| 28 | reference tone | 7 s |
+| 28 | filter measured with a sine, PEFE and FMMOD depth | 3 min |
+| 29 | GM drum kit (probes, full set, v25: again with effects off) | 4 min |
+| 30 | modulation envelope timing | 42 s |
+| 31 | note off during attack / decay / sustain | 18 s |
+| 32 | pitch changed while the note sounds | 8 s |
+| 33 | filter changed while the note sounds | 8 s |
+| 34 | PTRX pitch target | 27 s |
+| 35 | **v25** EMU8000 equalizer: treble and bass settings, noise | 100 s |
+| 36 | **v25** filter map vs Q, top of the map, modulation clamps | 150 s |
+| 37 | **v25** capture diagnostics: silence, isolated notes | 45 s |
+| 38 | **v25** quiet material again at +12 and +24 dB capture level | 5 min |
+| 39 | reference tone and clock probes (was block 35 before v25) | 18 s |
+
+v25 widened the gaps between notes where tails ran into the next note
+(blocks 2–7, 12, 22, 23, 26–29) and sizes envelope notes from the expected
+envelope time, so the lengths above blocks 28 are those of v24 plus that.
 
 `AWETEST /FROM:n /TO:n` plays only part of that, so a single block can be
 repeated if it went wrong.
+
+## What is checked and logged before the first sound (v25)
+
+Lines starting with `#` in `AWETEST.LOG`:
+
+- `# CARD` — BLASTER, DSP version and copyright string, sample RAM, EMU8000
+  configuration words, equalizer and mixer registers as found, and a guess
+  at the model from the DSP version. Please still write down the CT number
+  printed on the board.
+- `# CHIP` — the chip's sample clock measured silently from its play position
+  against the PC timer, and whether the play position really wraps inside
+  the sine / noise loops.
+- `# LEVEL`, `# LADDER` — whether the internal capture is linear at full level
+  (a tone and the same tone 12 dB down must differ by 12 dB); if not, input
+  gain, mixer level and finally the chip attenuation are lowered.
+- `# STEREO` — each capture channel on its own with a hard-left and a
+  hard-right tone; if one is dead, which input still works, and block 3 is
+  then played a second time with the other chip channel.
+
+Every event line carries a stamp taken at the moment the note starts:
+`<tab>@rt <BIOS tick>:<PIT phase> cap <file from ms>:<frame>` — the frame in
+the capture file is exact, so the analysis no longer has to guess the grid.
+`QUALITY` lines add the number of frames and the real start/stop time of each
+capture file, which gives the true sample rate and any lost audio.
 
 ## Optional capture on the card itself
 
@@ -131,7 +171,8 @@ Borland C++ 4.x/5.x (real mode, LARGE model):
 make -f MAKEFILE.BC
 ```
 
-With the Watcom build, `DOS4GW.EXE` has to be shipped next to `AWETEST.EXE`.
+`BUILD32.CMD` binds DOS/32A into the executable and names it after
+`AWETEST_VER`, so there is a single file to ship.
 
 ## Timing
 
