@@ -211,6 +211,16 @@ namespace Emu8000
     inline constexpr uint16_t kAtkhldHoldMask   = 0x7F00;
     inline constexpr uint16_t kAtkhldAttackMask = 0x007F;
     inline constexpr double   kHoldSecPerStep   = 0.092;
+    // Jak dlouho cip hold SKUTECNE drzi - oddelene od prevodu banky vyse
+    // (SBAWE32.DRV `idiv -92`), ktery musi zustat kvuli shode registru.
+    //
+    // Na run5 (AWETST05, blok 9) vyslo 102,74 ms na krok, ALE v tomtez behu
+    // bezi o ~9-10 % pomaleji cela ridici cast cipu: LFO1 2,448 Hz misto
+    // 2,698 (blok 28), a po vydeleni timto taktem se hold (1,013), decay,
+    // attack i ENVVOL vraci k [PG]. Stara nahravka ver3 dala LFO1 i ENVVOL
+    // shodne s [PG] na 0,1 %. Hold +11,7 % je tedy vlastnost behu run5
+    // (karta nebo inicializace AWETESTu v05), ne cipu - zustava 92 ms.
+    inline constexpr double   kHoldSecPerStepChip = 0.092;
 
     // IFATN [PG]: bity 15-8 = pocatecni mezni kmitocet filtru po ctvrt
     // pultonu od 125 Hz, bity 7-0 = utlum po 0.375 dB (0xFF = 96 dB).

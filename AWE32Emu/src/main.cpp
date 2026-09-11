@@ -59,6 +59,8 @@ namespace
             "  --wav <soubor>      Misto prehrani v realnem case zapise vystup do .wav\n"
             "  --debug-voices <n>  Vypise prvnich n spustenych hlasu i s registry\n"
             "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
+            "  --replay <stopa>    Prehraje stopu portovych zapisu jadrem a zapise --wav\n"
+            "                      (format jako emu8k_ref; MIDI soubor se pak nezadava)\n"
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
             "  --chip nas|86box    Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
             "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
@@ -73,6 +75,8 @@ namespace
             "  --reverb 0..7  --chorus 0..7   Preset efektu\n"
             "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n"
             "  --filter-top <Hz>   Mezni kmitocet pri registru 0xFF (vychozi 8000)\n"
+            "  --cutoff-base <Hz>  Mezni kmitocet pri registru 0 (vychozi 101,81)\n"
+            "  --q-cutoff-shift <okt>  Pokles meze pri Q=15 v oktavach (vychozi 0)\n"
             "  --q-base <x>        Zaklad rezonance filtru (1.0 vychozi, 0.7071 Butterworth)\n"
             "  --filter-atten <x>  Sila utlumu na vstupu filtru (1 = tabulka cipu, 0 = zadny)\n"
             "  --resonance-db <x>  Rezonance pri Q=15 v dB (vychozi 24)\n"
@@ -231,6 +235,7 @@ int main(int argc, char** argv)
     std::string romPath;
     std::string wavPath;
     std::string tracePath;
+    std::string replayPath;
     Awe32::Driver driver = Awe32::kDefaultDriver;
     int masterVolume = 127;
     bool masterFromCmdline = false;
@@ -246,6 +251,7 @@ int main(int argc, char** argv)
     std::string resonanceCurve;
     int sincTaps = 0;
     double holdScale = 1.0, decayScale = 1.0, attackScale = 1.0;
+    double cutoffBase = 0.0, qCutoffShift = 0.0;
     bool   filterAttenSet = false;
     int filterPoles = -1;
     int debugVoices = 0;
@@ -327,6 +333,10 @@ int main(int argc, char** argv)
         {
             tracePath = argv[++i];
         }
+        else if (arg == "--replay" && i + 1 < argc)
+        {
+            replayPath = argv[++i];
+        }
         else if (arg == "--hold-scale" && i + 1 < argc)
             holdScale = std::atof(argv[++i]);
         else if (arg == "--decay-scale" && i + 1 < argc)
@@ -378,6 +388,14 @@ int main(int argc, char** argv)
         {
             filterTop = std::atof(argv[++i]);
         }
+        else if (arg == "--cutoff-base" && i + 1 < argc)
+        {
+            cutoffBase = std::atof(argv[++i]);
+        }
+        else if (arg == "--q-cutoff-shift" && i + 1 < argc)
+        {
+            qCutoffShift = std::atof(argv[++i]);
+        }
         else if (arg == "--filter-poles" && i + 1 < argc)
         {
             filterPoles = std::atoi(argv[++i]);
@@ -420,7 +438,7 @@ int main(int argc, char** argv)
     }
 
     // Pri exportu banky se nic neprehrava, takze vstupni skladba neni potreba.
-    if (inputPath.empty() && exportSf2.empty())
+    if (inputPath.empty() && exportSf2.empty() && replayPath.empty())
     {
         std::cerr << "Chybi vstupni soubor.\n\n";
         PrintUsage();
@@ -596,6 +614,8 @@ int main(int argc, char** argv)
     synth.SetChannelMask(channelMask);
     synth.SetMasterVolume(masterVolume);
     if (filterTop > 0)    synth.Core().SetFilterTopHz(filterTop);
+    if (cutoffBase > 0)   synth.Core().SetCutoffBaseHz(cutoffBase);
+    if (qCutoffShift != 0.0) synth.Core().SetQCutoffShift(qCutoffShift);
     if (qBase > 0)        synth.Core().SetQBase(qBase);
     if (filterAttenSet)   synth.Core().SetFilterAtten(filterAtten);
     if (resonanceDb >= 0)  synth.Core().SetResonanceDb(resonanceDb);
@@ -672,6 +692,79 @@ int main(int argc, char** argv)
         if (confMaster >= 0)
             std::cout << ", hlavni hlasitost " << confMaster;
         std::cout << ".\n";
+    }
+
+    // Prehrani stopy portovych zapisu - misto MIDI se do jadra poslou presne
+    // ty zapisy, ktere zachytil 86Box (napr. AWETEST s bankou ze SDK).
+    if (!replayPath.empty())
+    {
+        if (wavPath.empty())
+        {
+            std::cerr << "--replay potrebuje --wav <soubor>.\n";
+            return 1;
+        }
+        struct Ev { unsigned long long t; unsigned port, val; };
+        std::vector<Ev> evs;
+        size_t byteWrites = 0;
+        if (FILE* tf = std::fopen(replayPath.c_str(), "rb"))
+        {
+            char line[256];
+            while (std::fgets(line, sizeof(line), tf))
+            {
+                char* q = line;
+                while (*q == ' ' || *q == '\t') ++q;
+                if (*q == '#' || *q == 'R' || *q == '\r' || *q == '\n' || *q == 0) continue;
+                unsigned long long t; unsigned port, val; char width = 'w';
+                const int got = std::sscanf(q, "%llu %x %x %c", &t, &port, &val, &width);
+                if (got < 3) continue;
+                if (width == 'b' || width == 'B') { ++byteWrites; continue; }
+                evs.push_back({ t, port, val });
+            }
+            std::fclose(tf);
+        }
+        else
+        {
+            std::cerr << "Nepodarilo se otevrit stopu '" << replayPath << "'.\n";
+            return 1;
+        }
+
+        WavWriter wav;
+        if (!wav.Open(wavPath, kSampleRate))
+        {
+            std::cerr << "Nepodarilo se otevrit vystupni soubor '" << wavPath << "'.\n";
+            return 1;
+        }
+        std::vector<int16_t> buf(static_cast<size_t>(kFramesPerBuffer) * 2);
+        uint32_t skip = synth.Core().ChipLatencyFrames();
+        auto emit = [&](uint32_t frames)
+        {
+            synth.Core().RenderBlock(buf.data(), frames);
+            if (skip >= frames) { skip -= frames; return; }
+            wav.Write(buf.data() + skip * 2, frames - skip);
+            skip = 0;
+        };
+        unsigned long long cur = 0;
+        for (const Ev& ev : evs)
+        {
+            while (cur < ev.t)
+            {
+                const uint32_t n = static_cast<uint32_t>(
+                    std::min<unsigned long long>(kFramesPerBuffer, ev.t - cur));
+                emit(n);
+                cur += n;
+            }
+            synth.Core().PortOut16(static_cast<uint16_t>(ev.port),
+                                   static_cast<uint16_t>(ev.val));
+        }
+        const unsigned long long tail = 2ull * kSampleRate + synth.Core().ChipLatencyFrames();
+        for (unsigned long long done = 0; done < tail; done += kFramesPerBuffer)
+            emit(kFramesPerBuffer);
+        wav.Close();
+        std::cout << "Stopa '" << replayPath << "': " << evs.size() << " zapisu"
+                  << (byteWrites ? ", bajtove zapisy preskoceny: " : "")
+                  << (byteWrites ? std::to_string(byteWrites) : std::string())
+                  << ", " << cur << " snimku -> '" << wavPath << "'.\n";
+        return 0;
     }
 
     Sequencer sequencer;

@@ -128,6 +128,12 @@ public:
     //   topHz  - kmitocet pri registrove hodnote 0xFF
     //   poles  - 1, 2 nebo 4 (6, 12 nebo 24 dB na oktavu)
     void SetFilterTopHz(double hz) { m_filterTopHz = hz; }
+    // Kmitocet pri registru 0 (dnes 101,81 Hz). Krok na registr se dopocita
+    // z --filter-top. Fit run5 (bloky 7 + 28): 117,8 Hz.
+    void SetCutoffBaseHz(double hz) { m_cutoffBaseHz = hz; }
+    // O kolik oktav klesne mez filtru pri Q 15; mezi Q 0 a 15 linearne.
+    // Na zeleze se vrchol s Q posouva dolu, nas SVF ne. Fit run5: 0,16.
+    void SetQCutoffShift(double oct) { m_qCutoffShiftOct = oct; }
     // Zaklad rezonance filtru: 1.0 = puvodni chovani, 0.7071 = Butterworth
     // pri Q = 0. Viz vypocet qFactor v Emu8000.cpp.
     void SetQBase(double q)       { m_qBase = q; }
@@ -264,6 +270,8 @@ private:
     double m_decayScale  = 1.0;
     double m_attackScale = 1.0;
     double m_filterTopHz = 8000.0;
+    double m_cutoffBaseHz = Emu8000::kCutoffBaseHz;
+    double m_qCutoffShiftOct = 0.0;
     double m_qBase       = 1.0;
     double m_filterAtten = 1.0;
     double m_resonanceDb = Emu8000::kResonanceMaxDb;
