@@ -59,11 +59,13 @@ static unsigned g_sb_base = 0x220;
   #define OUTB(p,v)   outp((p),(v))
   #define OUTW(p,v)   outpw((p),(v))
   #define INB(p)      inp((p))
+  #define INW(p)      inpw((p))
 #else
   #include <dos.h>
   #define OUTB(p,v)   outportb((p),(v))
   #define OUTW(p,v)   outport((p),(v))
   #define INB(p)      inportb((p))
+  #define INW(p)      inport((p))
 #endif
 
 /* ------------------------------------------------------------------------ *
@@ -112,6 +114,64 @@ static void PitAdd(unsigned long cycles)
         g_pit_lo -= PIT_HZ;
         g_pit_sec++;
     }
+}
+
+/* Skutecny cas pro razitka v logu.
+ *
+ * g_ms je PLANOVANY cas a PIT kanal 2 pocita jen cekani, takze ani jedno
+ * nezahrne rezii (zapis logu, registry, disk). V run5 proto mrizka logu
+ * ujela a v bloku 4 byla kazda nota prirazena o jednu vedle. Tady se bere
+ * tik BIOSu plus faze kanalu 0: to je cas, ktery neztrati nic.
+ *
+ * Kanal 0 se prepne do rezimu 2 (delic 65536 zustava, preruseni dal chodi
+ * 18,2x za sekundu). V rezimu 3, jak ho nechava BIOS, citac bezi dvakrat za
+ * periodu po dvou a z jednoho cteni nejde poznat, ve ktere pulce je.
+ * Razitko je "tik:faze", faze 0..65535 v cyklech PITu (1193182 za sekundu).
+ */
+static int g_rt_mode2;
+
+static void RtInit(void)
+{
+    OUTB(0x43, 0x34);                 /* kanal 0, LSB+MSB, rezim 2 */
+    OUTB(0x40, 0x00);
+    OUTB(0x40, 0x00);
+    g_rt_mode2 = 1;
+}
+
+static void RtDone(void)
+{
+    if (!g_rt_mode2) return;
+    OUTB(0x43, 0x36);                 /* zpet rezim 3, jak ho nastavuje BIOS */
+    OUTB(0x40, 0x00);
+    OUTB(0x40, 0x00);
+    g_rt_mode2 = 0;
+}
+
+static void RtNow(unsigned long *ticks, unsigned *phase)
+{
+    unsigned long t0, t1;
+    unsigned      c, ph;
+
+    for (;;) {
+        t0 = BiosTicks();
+        OUTB(0x43, 0x00);             /* zachytit kanal 0 */
+        c  = (unsigned) INB(0x40);
+        c |= ((unsigned) INB(0x40)) << 8;
+        t1 = BiosTicks();
+        ph = (unsigned) ((0x10000UL - (unsigned long) c) & 0xFFFFUL);
+        /* Tesne po prelozeni citace uz faze zacala znovu, ale preruseni,
+           ktere zvysi tik, jeste nemuselo probehnout - cas by vysel o 55 ms
+           driv. Prvni milisekundu periody proto radeji pockame. */
+        if (t0 == t1 && ph >= 0x0500u) break;
+    }
+    *ticks = t0;
+    *phase = ph;
+}
+
+static long RtCycles(unsigned long tk0, unsigned ph0,
+                     unsigned long tk1, unsigned ph1)
+{
+    return (long) ((tk1 - tk0) * 65536UL) + (long) ph1 - (long) ph0;
 }
 
 static void DelayMs(unsigned ms)
@@ -184,7 +244,7 @@ static void DelayMs(unsigned ms)
 #define REC_RATE     44100
 /* Zmereno na skutecnem stroji: bloky 1-22 trvaly 999 s, cely beh vyjde
    pres pul tretiho tisice sekund i s MIDI bloky na konci. */
-#define AWETEST_SECONDS 1330L
+#define AWETEST_SECONDS 3000L     /* v25: delsi mezery + bloky 35-38; VM +13 % proti odhadu */
 /* 64 kB = 372 ms zvuku, tedy dvojnasobna rezerva proti tomu, kdyz disk na
    chvili nestiha. Kdyz se 128 kB v DOSu nesezene, spadne se na 32 kB. */
 static long rec_ring = 65536L;         /* ring buffer, ~372 ms of audio     */
@@ -212,6 +272,11 @@ static int            rec_peak;        /* loudest sample seen, 0..32767     */
 static int            rec_peak_l;      /* spicka leveho kanalu (od QUALITY) */
 static int            rec_peak_r;      /* spicka praveho kanalu             */
 static unsigned long  rec_scan_bytes;  /* kolik bajtu uz RecScan prosel     */
+static unsigned long  rec_rt0_tk;      /* skutecny cas startu DMA (tik)     */
+static unsigned       rec_rt0_ph;      /* a faze PITu                       */
+static unsigned long  rec_rt1_tk;      /* totez pri zastaveni               */
+static unsigned       rec_rt1_ph;
+static unsigned long  rec_rereads;     /* citac DMA precten znovu (v25)     */
 static long           rec_zc;          /* pruchody nulou v levem kanalu     */
 static int            rec_zc_on;       /* pocitat je jen pri kontrole vysky */
 static int            rec_zc_sign;     /* znamenko posledniho vzorku        */
@@ -258,10 +323,24 @@ static int DspReset(void)
     return 1;
 }
 
+static int DspRead(void)
+{
+    long i;
+    for (i = 0; i < 100000L; i++)
+        if (INB(SbBase() + 0x0E) & 0x80) return (int) INB(SbBase() + 0x0A);
+    return -1;
+}
+
 static void MixerW(unsigned char reg, unsigned char val)
 {
     OUTB(SbBase() + 0x04, reg);
     OUTB(SbBase() + 0x05, val);
+}
+
+static unsigned MixerR(unsigned char reg)
+{
+    OUTB(SbBase() + 0x04, reg);
+    return (unsigned) INB(SbBase() + 0x05);
 }
 
 /* --- DOS memory for the DMA buffer -------------------------------------- *
@@ -351,6 +430,9 @@ static void RecFree(void)
 
 static int rec_src  = SRC_WAVETABLE;
 static int rec_gain;                  /* 0..3 -> 0 / 6 / 12 / 18 dB */
+/* Rucni smerovani vstupu (0x3D/0x3E), -1 = podle rec_src. RecHwStart ho
+   aplikuje az po RecSource, takze prezije i restart zaznamu mezi soubory. */
+static int g_mix3d = -1, g_mix3e = -1;
 
 /* Uroven wavetable v mixeru. Maximum (0xF8) prebudi vystupni stupen karty:
    zmereno na nahravce z realneho zeleza, prvnich 28 kroku IFATN pak misto
@@ -556,6 +638,12 @@ static int RecHwStart(void)
 
     RecSource(rec_src);
     RecGain(rec_gain);
+    if (g_mix3d >= 0) {
+        MixerW(0x3D, (unsigned char) g_mix3d);
+        MixerW(0x3E, (unsigned char) g_mix3e);
+    }
+    rec_scan_bytes = 0UL;   /* novy prstenec zacina na hranici ramce (v25) */
+    rec_rereads    = 0UL;
 
     /* DMA channel 5: auto-init, device writes into memory */
     words = REC_BYTES / 2L;
@@ -582,6 +670,7 @@ static int RecHwStart(void)
     DspWrite((unsigned char) ((((words / 2L) - 1) >> 8) & 0xFF));
 
     rec_on = 1;
+    RtNow(&rec_rt0_tk, &rec_rt0_ph);
     Trace("RecHwStart: running, DMA %ld", (long) rec_dma);
     return 0;
 }
@@ -602,6 +691,7 @@ static int            g_block;
  *  znacku, aby se daly soubory pri rozboru poskladat za sebe.
  * ------------------------------------------------------------------------ */
 static void CommitFile(FILE *f);        /* donutit DOS zapsat delku souboru  */
+static void LogFinish(void);            /* dopsat razitko otevreneho radku   */
 static void CycleMark(int start);       /* znacka na konci a zacatku cyklu    */
 static void RefTone(void);              /* uroven na obou koncich souboru    */
 static void ChannelMark(void);          /* ktery kanal je ktery              */
@@ -714,9 +804,13 @@ static int CapAlloc(void)
     if (!cap_buf) return 1;
 
     cap_size = want;
-    /* rezerva, aby se doslo dohrat rozdelanou notu a doteklo z prstence */
-    cap_limit = cap_size - (unsigned long) REC_RATE * 4UL * 3UL;
-    if (cap_limit > cap_size) cap_limit = cap_size / 2UL;   /* podteceni */
+    /* Rezerva na nejdelsi krok bloku (release 7,1 s) a na RefTone se
+       znackami, ktere CapCheck hraje jeste do stareho souboru (1,7 s).
+       Do v25 byla 3 s: ve VM (/MB:8) pretekl kazdy soubor, protoze krok
+       bloku 35 ma 3,5 s - konec noty skoncil v cap_lost. */
+    cap_limit = cap_size - (unsigned long) REC_RATE * 4UL * 10UL;
+    if (cap_limit > cap_size || cap_limit < cap_size / 4UL)
+        cap_limit = cap_size / 4UL;                         /* maly /MB */
     return 0;
 }
 
@@ -818,6 +912,7 @@ static int CapFlush(void)
 
     if (!cap_buf || cap_used == 0UL) return 0;
 
+    LogFinish();
     cap_index++;
     CapName(name, cap_pattern, cap_index);
     Trace("CapFlush: writing %ld B", (long) cap_used);
@@ -858,10 +953,15 @@ static int CapFlush(void)
     Trace("CapFlush: done", 0);
     /* Ztraty se dosud psaly jen na obrazovku, takze z odevzdane nahravky
        nebylo poznat, jestli je uplna. */
+    /* v25: pocet ramcu a skutecny cas startu a konce DMA - z toho vyjde
+       skutecna vzorkovaci frekvence zaznamu a kolik ho chybi. */
     if (g_log)
-        fprintf(g_log, "%8lu -- QUALITY ring overruns %lu, dropped %lu B,"
-                " peak L %d R %d\n",
-                g_ms, rec_drops, cap_lost, rec_peak_l, rec_peak_r);
+        fprintf(g_log, "%8lu -- QUALITY ring overruns %lu, dropped so far %lu B,"
+                " peak L %d R %d, counter rereads %lu, frames %lu,"
+                " dma rt %lu:%u..%lu:%u\n",
+                g_ms, rec_drops, cap_lost, rec_peak_l, rec_peak_r,
+                rec_rereads, cap_used / 4UL,
+                rec_rt0_tk, rec_rt0_ph, rec_rt1_tk, rec_rt1_ph);
     /* Spicky po kanalech se pocitaji znovu pro kazdy soubor - v run5 byl
        pravy kanal cely beh mrtvy a nikde to nebylo videt. */
     rec_peak_l = 0;
@@ -947,7 +1047,10 @@ static long RecWritePos(void)
         OUTB(0xD8, 0x00);
         b = (unsigned) INB(0xC6);
         b |= ((unsigned) INB(0xC6)) << 8;
-        if (b <= a) break;            /* counts down, so b <= a is consistent */
+        /* counts down, so b <= a is consistent - a obe cteni musi byt
+           blizko sebe. Samotne b <= a propustilo i cteni roztrzene pres
+           hranici bajtu (chyba 256 slov, 3 ms). */
+        if (b <= a && a - b < 0x40u) break;
     }
     left = (long) ((unsigned long) b + 1UL) * 2L;   /* words -> bytes */
     if (left > REC_BYTES) left = REC_BYTES;
@@ -979,8 +1082,11 @@ static void RecScan(const unsigned char *p, long n)
     /* Pri kontrole vysky projdeme kazdy ramec - kazdy 32. vzorek by na
        1357 Hz uz nestacil. Prah 256 drzi sum mimo pocitani. */
     if (rec_zc_on) {
-        for (i = 0; i + 3 < n; i += 4) {
-            int v = (int) ((short) (p[i] | (p[i + 1] << 8)));
+        for (i = i0; i + 3 < n; i += 4) {
+            /* Soucet obou kanalu a od hranice ramce: v run5 byl pravy kanal
+               mrtvy a kdyby mrtvy byl levy, kontrola vysky by nevidela nic. */
+            int v = (int) ((short) (p[i] | (p[i + 1] << 8)))
+                  + (int) ((short) (p[i + 2] | (p[i + 3] << 8)));
             int sg = (v > 256) ? 1 : ((v < -256) ? -1 : 0);
 
             rec_zc_pos++;
@@ -1033,6 +1139,19 @@ static void RecPoll(void)
     if (n < 0) n += REC_BYTES;             /* prstenec se pretocil */
 
     if (n > (REC_BYTES / 4) * 3) {
+        /* v25: nejdriv citac precist znovu. Kdyz predchozi cteni bylo
+           roztrzene a skocilo o kus dopredu, vypada tohle jako skoro cely
+           prstenec a zahodilo by se 370 ms zaznamu. */
+        long pos2 = RecWritePos();
+        long n2   = pos2 - rec_read;
+        if (n2 < 0) n2 += REC_BYTES;
+        rec_rereads++;
+        if (n2 <= (REC_BYTES / 4) * 3) {
+            pos = pos2;
+            n   = n2;
+        }
+    }
+    if (n > (REC_BYTES / 4) * 3) {
         /* Za jedno vyprazdneni se pul prstence nasbirat nemuze, pokud nas
            neco nezdrzelo. Data uz nedohonime, jen se srovnáme.
 
@@ -1084,6 +1203,7 @@ static void RecHwStop(void)
     if (!rec_on) return;
     Trace("RecHwStop: enter, peak %ld", (long) rec_peak);
     rec_on = 0;
+    RtNow(&rec_rt1_tk, &rec_rt1_ph);
     DspWrite(0xD9);                        /* stop 16-bit auto-init */
     DspWrite(0xD5);                        /* pause 16-bit          */
     OUTB(0xD4, 0x04 | (REC_DMA - 4));      /* mask the channel      */
@@ -1194,6 +1314,9 @@ static SAMPLE SMP_NOISE = { 458995L, 459001L, 467282L };  /* whitenoisewave */
    slouzi k rozliseni "smycka nefunguje" od "zaznam ma vypadky". */
 static SAMPLE SMP_NOISE_SHORT = { 458995L, 459001L, 460001L };
 static SAMPLE SMP_TICK  = { 491098L, 491104L, 491164L };  /* sinetick       */
+/* Jen pro tichou sondu hodin cipu: smycka pres 900 000 vzorku ROM (20 s),
+   aby se adresa za mereni neprotocila. Hraje s utlumem 255. */
+static SAMPLE SMP_LONG  = { 100000L, 100000L, 1000000L };
 
 #define IP_UNITY    0xE000u           /* IP for 1:1 playback                */
 #define IP_OCT      4096              /* IP units per octave                */
@@ -1208,7 +1331,7 @@ static SAMPLE SMP_TICK  = { 491098L, 491104L, 491164L };  /* sinetick       */
    soucasne prejmenovat vystup v BUILD32.CMD na AWETESTnn.EXE. Cislo je
    v hlavicce i na prvnim radku logu, takze u kazde nahravky je poznat,
    cim vznikla. */
-#define AWETEST_VER "24"
+#define AWETEST_VER "25"
 
 #define V_TEST      29
 #define V_MARK      28
@@ -1227,12 +1350,53 @@ static int          g_from = 1, g_to = 99;
 
 static void RecPoll(void);
 
+/* Razitka (v25). Radek logu se nezakonci hned: razitko dopise az nejblizsi
+ * nota (ToneStart / MidiNote), tesne pred zapisem, ktery ji spousti. Radek
+ * pak nese presny okamzik nastupu:
+ *
+ *     <ms> <blok> <popis>\t@rt <tik>:<faze> cap <soubor od ms>:<ramec>
+ *
+ *   rt   skutecny cas (RtNow), faze v cyklech PITu
+ *   cap  soubor zaznamu podle "from ms" z radku FILE a poradi ramce v nem,
+ *        vcetne toho, co uz karta nahrala a jeste lezi v prstenci
+ *
+ * Kdyz zadna nota neprijde (dalsi LogLine, znacka bloku, ulozeni souboru),
+ * zakonci se radek razitkem v tu chvili. */
+static int g_line_open;
+
+static void LogStamp(void)
+{
+    unsigned long tk, frames = 0UL;
+    unsigned      ph;
+    int           have_cap = 0;
+
+    if (!g_log) return;
+    if (rec_on && cap_buf) {
+        long pend = RecWritePos() - rec_read;
+        if (pend < 0) pend += REC_BYTES;
+        frames   = (cap_used + (unsigned long) pend) / 4UL;
+        have_cap = 1;
+    }
+    RtNow(&tk, &ph);
+    fprintf(g_log, "\t@rt %lu:%u", tk, ph);
+    if (have_cap) fprintf(g_log, " cap %lu:%lu", cap_t0, frames);
+}
+
+void LogFinish(void)
+{
+    if (!g_log || !g_line_open) return;
+    LogStamp();
+    fputc('\n', g_log);
+    g_line_open = 0;
+}
+
 static void LogLine(const char *fmt, long a, long b, long c)
 {
     if (!g_log) return;
+    LogFinish();
     fprintf(g_log, "%8lu %2d ", g_ms, g_block);
     fprintf(g_log, fmt, a, b, c);
-    fputc('\n', g_log);
+    g_line_open = 1;
 }
 
 static void Wait(unsigned ms)
@@ -1274,7 +1438,13 @@ typedef struct {
     unsigned mod_sustain; /* DCYSUS  bity 14..8, 0x7F = bez poklesu        */
     unsigned mod_delay;   /* ENVVAL, 0x8000 = bez prodlevy                 */
     unsigned ptrx_target; /* PTRX horni pulka - pitch target               */
+    unsigned raw;         /* 1 = bez g_att_offset (absolutni utlum)        */
 } TONE;
+
+/* Posun utlumu vsech primych tonu (v25). Nastavi ho LevelLadder, kdyz zaznam
+   stlacuje a ubrat mixer nepomohlo. V run5 mel zaznam strop ~1495 a noty
+   hlasitejsi nez atten 32 vysly vsechny stejne. Posun je v logu (LEVEL). */
+static unsigned g_att_offset;
 
 static void ToneDefaults(TONE *t)
 {
@@ -1317,6 +1487,7 @@ static void VoiceOff(unsigned v)
 static void ToneStart(unsigned v, TONE *t)
 {
     unsigned long ccca, psst, csl;
+    unsigned      att;
 
     /* Same write order the driver uses: silence first, set everything up, and
        write DCYSUSV last - that is what starts the envelope. */
@@ -1335,7 +1506,9 @@ static void ToneStart(unsigned v, TONE *t)
     RegDW(P_DATA1, R_CCCA, v, ccca);
 
     RegW(P_DATA3,   R_IP,      v, t->ip);
-    RegW(P_DATA3,   R_IFATN,   v, (unsigned) ((t->cutoff << 8) | (t->atten & 0xFF)));
+    att = t->atten + (t->raw ? 0u : g_att_offset);
+    if (att > 255u) att = 255u;
+    RegW(P_DATA3,   R_IFATN,   v, (unsigned) ((t->cutoff << 8) | (att & 0xFF)));
     RegW(P_DATA3,   R_PEFE,    v, t->pefe);
     RegW(P_DATA3,   R_FMMOD,   v, t->fmmod);
     RegW(P_DATA3,   R_TREMFRQ, v, t->tremfrq);
@@ -1359,6 +1532,9 @@ static void ToneStart(unsigned v, TONE *t)
     RegDW(P_DATA0, R_PTRX, v,
           ((unsigned long) (t->ptrx_target & 0xFFFF) << 16)
           | ((unsigned long) (t->reverb & 0xFF) << 8));
+
+    /* razitko otevreneho radku logu = okamzik nastupu (znacky ne) */
+    if (v != V_MARK) LogFinish();
 
     /* this one starts the note */
     RegW(P_DATA1, R_DCYSUSV, v,
@@ -1676,6 +1852,388 @@ static void ChannelMark(void)
 }
 
 /* ------------------------------------------------------------------------ *
+ *  Kontroly pri startu (v25)
+ * ------------------------------------------------------------------------ */
+
+/* Adresa prehravani hlasu (CCCA dolnich 24 bitu). Horni slovo se cte dvakrat,
+   aby se nevzala dvojice pres prenos. */
+static unsigned long ReadCcca(unsigned v)
+{
+    unsigned hi1 = 0, lo = 0, hi2 = 0;
+    int      k;
+
+    OUTW(P_PTR, (unsigned) ((R_CCCA << 5) | (v & 31)));
+    for (k = 0; k < 4; k++) {
+        hi1 = (unsigned) INW(P_DATA1HI);
+        lo  = (unsigned) INW(P_DATA1);
+        hi2 = (unsigned) INW(P_DATA1HI);
+        if (hi1 == hi2) break;
+    }
+    return ((((unsigned long) hi2) << 16) | (unsigned long) lo) & 0xFFFFFFUL;
+}
+
+/* Hodiny cipu a smycky - TICHE mereni, jen do logu.
+ *
+ * 1) Kolik vzorku ROM hlas projde za 4 s pri IP 1:1, proti PITu. Je to takt
+ *    cipu nezavisly na zaznamu i na zvuku (nominal 44100/s).
+ * 2) Jestli se adresa u smycek sinu, sumu a kratkeho sumu opravdu vraci.
+ *    Blok 24 v run5 opakovani sumu v nahravce nenasel - tady je odpoved
+ *    primo z cipu, bez zaznamove cesty.
+ */
+static void ChipProbe(void)
+{
+    static SAMPLE *loops[3];
+    TONE          t;
+    unsigned long tk0, tk1, a0, a1, a, prev, amin, amax;
+    unsigned      ph0, ph1;
+    long          cyc;
+    int           i, k, wraps;
+
+    loops[0] = &SMP_SINE;
+    loops[1] = &SMP_NOISE;
+    loops[2] = &SMP_NOISE_SHORT;
+
+    printf("\nMeasuring the chip's own sample clock (silent, 6 s)...\n");
+    ToneDefaults(&t);
+    t.smp   = &SMP_LONG;
+    t.atten = 255;
+    t.raw   = 1;
+    ToneStart(V_TEST, &t);
+    DelayMs(200);
+    RtNow(&tk0, &ph0);
+    a0 = ReadCcca(V_TEST);
+    DelayMs(4000);
+    RtNow(&tk1, &ph1);
+    a1 = ReadCcca(V_TEST);
+    VoiceOff(V_TEST);
+    cyc = RtCycles(tk0, ph0, tk1, ph1);
+    if (g_log)
+        fprintf(g_log, "# CHIP clock: CCCA %lu -> %lu, %ld samples in %ld PIT"
+                " cycles (1193182/s) at IP 0x%04X\n",
+                a0, a1, (long) (a1 - a0), cyc, (unsigned) IP_UNITY);
+    if (cyc > 1000L && a1 > a0)
+        printf("  about %lu samples per second (nominal 44100)\n",
+               (a1 - a0) * 1193UL / (unsigned long) (cyc / 1000L));
+    else
+        printf("  the play position could not be read back\n");
+
+    for (i = 0; i < 3; i++) {
+        ToneDefaults(&t);
+        t.smp   = loops[i];
+        t.atten = 255;
+        t.raw   = 1;
+        ToneStart(V_TEST, &t);
+        DelayMs(50);
+        prev = amin = amax = ReadCcca(V_TEST);
+        wraps = 0;
+        for (k = 0; k < 150; k++) {
+            DelayMs(4);
+            a = ReadCcca(V_TEST);
+            if (a < prev) wraps++;
+            if (a < amin) amin = a;
+            if (a > amax) amax = a;
+            prev = a;
+        }
+        VoiceOff(V_TEST);
+        if (g_log)
+            fprintf(g_log, "# CHIP loop %lu..%lu (start %lu): %d wraps in 150"
+                    " reads 4 ms apart, address seen %lu..%lu\n",
+                    loops[i]->loop_start, loops[i]->loop_end, loops[i]->start,
+                    wraps, amin, amax);
+    }
+    if (g_log) CommitFile(g_log);
+}
+
+/* Jeden ton s danou panoramou, spicky obou kanalu zaznamu. m3d/m3e >= 0
+   prebije smerovani vstupu jen pro tohle mereni. */
+static void ProbeLR(int pan, int m3d, int m3e, int *pl, int *pr)
+{
+    TONE t;
+
+    *pl = *pr = -1;
+    g_mix3d = m3d;
+    g_mix3e = m3e;
+    if (RecHwStart()) { g_mix3d = g_mix3e = -1; return; }
+    rec_peak_l = 0;
+    rec_peak_r = 0;
+    ToneDefaults(&t);
+    t.pan = (unsigned) pan;
+    ToneStart(V_TEST, &t);
+    WaitPolling(PROBE_MS);
+    VoiceOff(V_TEST);
+    RecHwStop();
+    SilenceAll();
+    g_mix3d = g_mix3e = -1;
+    *pl = rec_peak_l;
+    *pr = rec_peak_r;
+}
+
+static void StereoLog(const char *what, int m3d, int m3e,
+                      int ll, int lr, int rl, int rr)
+{
+    if (g_log)
+        fprintf(g_log, "# STEREO %s: 3D=%02X 3E=%02X, left tone L %d R %d,"
+                " right tone L %d R %d\n",
+                what, m3d & 0xFF, m3e & 0xFF, ll, lr, rl, rr);
+    printf("  %-24s left tone L %5d R %5d, right tone L %5d R %5d\n",
+           what, ll, lr, rl, rr);
+}
+
+static void StereoVerdict(const char *v)
+{
+    if (g_log) fprintf(g_log, "# STEREO verdict: %s\n", v);
+    printf("  => %s\n", v);
+}
+
+/* 0 = oba kanaly zaznamu ziji, 'L' / 'R' = zije jen tenhle. */
+static int g_mono_adc;
+
+/* Oba kanaly zaznamu (v25).
+ *
+ * run5: pravy kanal nenesl ani sum ADC a program to nepoznal, protoze meril
+ * jen spicku obou dohromady. Tady se hraje ton zcela vlevo a zcela vpravo a
+ * meri kazdy kanal zvlast. Kdyz jeden mlci, zkusi se prohodit, co do ktereho
+ * ADC tece - z toho je poznat, jestli chybi kanal ADC, nebo signal z cipu.
+ * Pri jednokanalovem zaznamu se pak blok 3 hraje podruhe s druhym kanalem
+ * cipu v zivem ADC, takze panorama jde zmerit i tak.
+ */
+static void StereoCheck(void)
+{
+    int srcL = (rec_src == SRC_LINEIN) ? 0x10 : 0x40;
+    int srcR = (rec_src == SRC_LINEIN) ? 0x08 : 0x20;
+    int lim  = PEAK_USABLE / 2;
+    int ll, lr, rl, rr, a, b, c, d, alive_l, alive_r;
+
+    printf("\nChecking both capture channels...\n");
+    ProbeLR(255, -1, -1, &ll, &lr);
+    ProbeLR(0,   -1, -1, &rl, &rr);
+    StereoLog("normal routing", srcL, srcR, ll, lr, rl, rr);
+    if (g_log)
+        fprintf(g_log, "# STEREO mixer readback 3D=%02X 3E=%02X 3F=%02X 40=%02X"
+                " 41=%02X 42=%02X 34=%02X 35=%02X\n",
+                MixerR(0x3D), MixerR(0x3E), MixerR(0x3F), MixerR(0x40),
+                MixerR(0x41), MixerR(0x42), MixerR(0x34), MixerR(0x35));
+    if (ll < 0 || rr < 0) return;
+
+    alive_l = (ll > lim || rl > lim);
+    alive_r = (lr > lim || rr > lim);
+
+    if (alive_l && alive_r) {
+        if (ll > 4 * lr && rr > 4 * rl)
+            StereoVerdict("stereo OK");
+        else if (lr > 4 * ll && rl > 4 * rr)
+            StereoVerdict("channels SWAPPED - left tone lands in the right channel");
+        else
+            StereoVerdict("both channels live but NOT separated (mono mix?)");
+    } else if (!alive_l && !alive_r) {
+        StereoVerdict("no usable signal in either channel");
+    } else {
+        g_mono_adc = alive_l ? 'L' : 'R';
+        printf("  *** Only the %s capture channel carries signal.\n",
+               alive_l ? "LEFT" : "RIGHT");
+        /* Zivy ADC dostane druhy kanal cipu: dojde tam vubec? */
+        if (alive_l) {
+            ProbeLR(255, srcR, srcR, &a, &b);
+            ProbeLR(0,   srcR, srcR, &c, &d);
+            StereoLog("both ADC <- chip RIGHT", srcR, srcR, a, b, c, d);
+            ProbeLR(255, srcL, srcL, &a, &b);
+            ProbeLR(0,   srcL, srcL, &c, &d);
+            StereoLog("both ADC <- chip LEFT", srcL, srcL, a, b, c, d);
+        } else {
+            ProbeLR(255, srcL, srcL, &a, &b);
+            ProbeLR(0,   srcL, srcL, &c, &d);
+            StereoLog("both ADC <- chip LEFT", srcL, srcL, a, b, c, d);
+            ProbeLR(255, srcR, srcR, &a, &b);
+            ProbeLR(0,   srcR, srcR, &c, &d);
+            StereoLog("both ADC <- chip RIGHT", srcR, srcR, a, b, c, d);
+        }
+        StereoVerdict(alive_l
+            ? "MONO capture, left ADC only - block 3 repeats with chip right in it"
+            : "MONO capture, right ADC only - block 3 repeats with chip left in it");
+        printf("      The run continues; the log says which input was used when.\n");
+    }
+    RecSource(rec_src);
+    rec_peak_l = 0;
+    rec_peak_r = 0;
+    if (g_log) CommitFile(g_log);
+}
+
+/* Spicka jednoho tonu s danym absolutnim utlumem (bez posunu). */
+static int ProbeAttOnce(unsigned att)
+{
+    TONE t;
+
+    if (RecHwStart()) return -1;
+    rec_peak_l = 0;
+    rec_peak_r = 0;
+    ToneDefaults(&t);
+    t.atten = att > 255u ? 255u : att;
+    t.raw   = 1;
+    ToneStart(V_TEST, &t);
+    WaitPolling(700);
+    VoiceOff(V_TEST);
+    RecHwStop();
+    SilenceAll();
+    return rec_peak_l > rec_peak_r ? rec_peak_l : rec_peak_r;
+}
+
+/* Sonda obcas nevrati nic nebo jen kus (ve VM 3 ze 16, drive i ProbeZc),
+   takze az tri pokusy a bere se nejvetsi spicka. */
+static int ProbeAtt(unsigned att)
+{
+    int k, pk, best = -1;
+
+    for (k = 0; k < 3; k++) {
+        pk = ProbeAttOnce(att);
+        if (pk < 0) return best;
+        if (pk > best) best = pk;
+        if (k >= 1 && best >= 64) break;     /* dve mereni, kdyz neco prislo */
+    }
+    return best;
+}
+
+/* Pomer spicek pri posunu +0 a +32 (12,0 dB, 0,375 dB/krok overeno na
+   run5). Linearne 3,98; vraci stonasobek, -1 kdyz nic neprislo. */
+static long LadderRatio(void)
+{
+    int  p0  = ProbeAtt(g_att_offset);
+    int  p32 = ProbeAtt(g_att_offset + 32u);
+    long r;
+
+    /* nula na kterekoli strane neni mereni - drive vysel pomer 0 a program
+       ubral zesileni kvuli sonde, ktera nic nevratila */
+    if (p0 < 64 || p32 <= 0) return -1L;
+    r = (long) p0 * 100L / (long) p32;
+    if (g_log)
+        fprintf(g_log, "# LEVEL wavetable 0x%02X, input gain %d dB, atten offset"
+                " %u: peak %d at +0, %d at +32 (12 dB), ratio %ld.%02ld"
+                " (linear 3.98)\n", wt_level, rec_gain * 6, g_att_offset,
+                p0, p32, r / 100L, r % 100L);
+    printf("  wavetable 0x%02X, gain %2d dB, offset %3u: ratio %ld.%02ld (3.98 = linear)\n",
+           wt_level, rec_gain * 6, g_att_offset, r / 100L, r % 100L);
+    return r;
+}
+
+/* Jeden krok ubrani urovne: 0 = vstupni zesileni, 1 = wavetable v mixeru,
+   2 = posun utlumu cipu. undo vraci krok zpet. Vraci 0, kdyz uz nejde. */
+static int LadderKnob(int knob, int undo)
+{
+    switch (knob) {
+    case 0:
+        if (undo) { RecGain(rec_gain + 1); return 1; }
+        if (rec_gain <= 0) return 0;
+        RecGain(rec_gain - 1);
+        return 1;
+    case 1:
+        if (undo) wt_level += 0x18;
+        else if (wt_level < 0x98) return 0;
+        else wt_level -= 0x18;
+        MixerW(0x34, (unsigned char) wt_level);
+        MixerW(0x35, (unsigned char) wt_level);
+        return 1;
+    default:
+        if (undo) { g_att_offset -= 16u; return 1; }
+        if (g_att_offset >= 64u) return 0;
+        g_att_offset += 16u;
+        return 1;
+    }
+}
+
+/* Linearita zaznamu na plne urovni (v25).
+ *
+ * run5 mel tvrdy strop ~1495 (-27 dBFS): atten 0 az 32 vyslo stejne a vsechny
+ * hlasite noty useknute. WavetableForInternal to nepoznal, protoze strop
+ * hledal podle narustu spicky pri kroku mixeru. Tady se meri primo: ton
+ * +0 a +32 musi mit pomer 3,98. Postupne se zkusi ubrat vstupni zesileni,
+ * pak mixer, pak utlum cipu - a krok, ktery pomer nezlepsi, se vrati, aby se
+ * zbytecne neztracel odstup od sumu. Nakonec zebricek 0..96 do logu, z nej
+ * jde prenosova krivka zaznamu dopocitat.
+ */
+static void LevelLadder(void)
+{
+    static const unsigned steps[7] = { 0, 16, 32, 48, 64, 80, 96 };
+    long r, r2;
+    int  knob, i, pk;
+
+    printf("\nChecking that the capture stays linear at full level...\n");
+    r = LadderRatio();
+    for (knob = 0; knob < 3 && r >= 0L && r < 350L; knob++) {
+        while (r < 350L && LadderKnob(knob, 0)) {
+            r2 = LadderRatio();
+            if (r2 < 0L) {                      /* nemeritelne: krok vratit */
+                LadderKnob(knob, 1);
+                break;
+            }
+            if (r2 < r + 30L) {
+                LadderKnob(knob, 1);
+                if (g_log)
+                    fprintf(g_log, "# LEVEL step on knob %d did not help - undone\n",
+                            knob);
+                break;
+            }
+            r = r2;
+        }
+    }
+    for (i = 0; i < 7; i++) {
+        pk = ProbeAtt(g_att_offset + steps[i]);
+        if (g_log)
+            fprintf(g_log, "# LADDER atten %u peak %d\n",
+                    g_att_offset + steps[i], pk);
+    }
+    if (g_log)
+        fprintf(g_log, "# LEVEL final: wavetable 0x%02X, input gain %d dB,"
+                " atten offset %u, ratio x100 %ld%s\n",
+                wt_level, rec_gain * 6, g_att_offset, r,
+                (r < 0L) ? " - NOT MEASURABLE" : ((r >= 350L) ? "" : " - STILL COMPRESSED"));
+    if (r >= 0L && r < 350L)
+        printf("  *** capture still compresses at full level - loud notes\n"
+               "      will be flattened; the log records how much.\n");
+    rec_peak_l = 0;
+    rec_peak_r = 0;
+    if (g_log) CommitFile(g_log);
+}
+
+/* Opakovani tichych mist s vetsi urovni (blok 38). Zesiluje se vstup
+   zaznamu a mixer, po 6 dB; skutecny zisk se meri kotvou v nahravce. */
+static unsigned g_wt_saved;
+static int      g_gain_saved;
+
+static int LevelBoost(int want_db)
+{
+    int db = 0;
+
+    g_wt_saved   = wt_level;
+    g_gain_saved = rec_gain;
+    while (db + 6 <= want_db && rec_on && rec_gain < 3) {
+        RecGain(rec_gain + 1);
+        db += 6;
+    }
+    while (db + 6 <= want_db && wt_level + 0x18 <= 0xF8) {
+        wt_level += 0x18;
+        db += 6;
+    }
+    MixerW(0x34, (unsigned char) wt_level);
+    MixerW(0x35, (unsigned char) wt_level);
+    LogLine("LEVEL boost %ld dB (wanted %ld), wavetable 0x%02lX",
+            (long) db, (long) want_db, (long) wt_level);
+    LogLine("LEVEL input gain %ld dB, atten offset %ld",
+            (long) (rec_gain * 6), (long) g_att_offset, 0);
+    LogFinish();
+    return db;
+}
+
+static void LevelRestore(void)
+{
+    RecGain(g_gain_saved);
+    wt_level = g_wt_saved;
+    MixerW(0x34, (unsigned char) wt_level);
+    MixerW(0x35, (unsigned char) wt_level);
+    LogLine("LEVEL restored: wavetable 0x%02lX, input gain %ld dB",
+            (long) wt_level, (long) (rec_gain * 6), 0);
+    LogFinish();
+}
+
+/* ------------------------------------------------------------------------ *
  *  Markers
  *
  *  Start of every block: the block number in ticks, at a high pitch.
@@ -1744,6 +2302,7 @@ static void MinuteMarkIfDue(void)
 {
     if (g_ms < g_next_minute) return;
     LogLine("MINUTE %ld", (long) (g_next_minute / 1000L), 0, 0);
+    LogFinish();
     Tick(0);
     Tick(0);
     Wait(400);
@@ -1793,16 +2352,20 @@ static int BlockMark(int n, const char *name)
     int i;
     if (n < g_from || n > g_to) return 0;
     g_block = n;
+    LogFinish();
     if (g_log) fprintf(g_log, "%8lu %2d ---- %s\n", g_ms, n, name);
     CommitFile(g_log);
     Trace("block %ld", (long) n);
     {   /* planovany vs skutecny cas - 1 tik BIOSu = 54,925 ms */
         unsigned long real_ms = (BiosTicks() - g_bios0) * 10985UL / 200UL;
         unsigned long pit_ms  = g_pit_sec * 1000UL + g_pit_lo / (PIT_HZ / 1000UL);
-        if (g_log)
+        if (g_log) {
             fprintf(g_log,
-                    "%8lu %2d ---- planned %lu ms, PIT %lu ms, BIOS %lu ms\n",
+                    "%8lu %2d ---- planned %lu ms, PIT %lu ms, BIOS %lu ms",
                     g_ms, n, g_ms, pit_ms, real_ms);
+            LogStamp();
+            fputc('\n', g_log);
+        }
         CommitFile(g_log);
     }
     if (g_bname[0]) printf("\n");     /* dokonci radek predchoziho bloku */
@@ -1826,7 +2389,7 @@ static void BlockReference(int n)
 {
     TONE t;
     if (!BlockMark(n, "reference tone")) return;
-    SetSteps(3);
+    SetSteps(5);
     ToneDefaults(&t);
     LogLine("reference sine, IP %ld, atten %ld", (long) t.ip, 0, 0);
     PlayTone(&t, 3000, 1000);
@@ -1850,6 +2413,22 @@ static void BlockReference(int n)
     LogLine("clock probe: hold 0x%02lX, expect %ld ms", 0x6FL, 1472L, 0);
     PlayTone(&t, 2600, 400);
     StepDone();
+
+    /* v25: LFO2 ma vlastni citac. Kdyz vyjde pomale jen LFO1, neni to takt. */
+    ToneDefaults(&t);
+    t.fm2frq2 = 0x7F40;
+    LogLine("clock probe: vibrato, LFO2 0x%02lX, expect %ld mHz", 0x40L, 2698L, 0);
+    PlayTone(&t, 3000, 500);
+    StepDone();
+
+    /* v25: prodleva obalky, 1200 jednotek x 725 us = 870 ms [PG]. Znacka tesne
+       pred notou - meri se mezera znacka -> nastup. */
+    ToneDefaults(&t);
+    t.envvol = (unsigned) (0x8000 - 1200);
+    LogLine("clock probe: envelope delay %ld units, expect %ld ms", 1200L, 870L, 0);
+    Tick(0);
+    PlayTone(&t, 2000, 400);
+    StepDone();
 }
 
 static void BlockAtten(int n)
@@ -1861,8 +2440,10 @@ static void BlockAtten(int n)
     for (a = 0; a <= 126; a += 2) {
         ToneDefaults(&t);
         t.atten = (unsigned) a;
+        t.raw   = 1;              /* absolutni utlum, bez posunu z LevelLadder */
         LogLine("atten %ld", (long) a, 0, 0);
-        PlayTone(&t, 350, 250);
+        /* v25: 600 ms ticha - s 250 ms slevalo dno sumu s dozvukem noty */
+        PlayTone(&t, 400, 600);
         StepDone();
     }
 }
@@ -1872,13 +2453,38 @@ static void BlockPan(int n)
     TONE t;
     int p;
     if (!BlockMark(n, "pan PSST 0..255 step 8")) return;
-    SetSteps(32);
+    SetSteps(g_mono_adc ? 64 : 32);
     for (p = 0; p <= 255; p += 8) {
         ToneDefaults(&t);
         t.pan = (unsigned) p;
         LogLine("pan %ld", (long) p, 0, 0);
-        PlayTone(&t, 350, 250);
+        PlayTone(&t, 400, 600);
         StepDone();
+    }
+
+    /* v25: jednokanalovy zaznam (StereoCheck) - totez znovu s druhym kanalem
+       cipu v zivem ADC. Obe pulky panoramy pak jdou zmerit, jen ne naraz. */
+    if (g_mono_adc) {
+        int srcL = (rec_src == SRC_LINEIN) ? 0x10 : 0x40;
+        int srcR = (rec_src == SRC_LINEIN) ? 0x08 : 0x20;
+        g_mix3d = srcR;           /* oba ADC z praveho kanalu cipu */
+        g_mix3e = srcR;
+        if (g_mono_adc == 'R') { g_mix3d = srcL; g_mix3e = srcL; }
+        MixerW(0x3D, (unsigned char) g_mix3d);
+        MixerW(0x3E, (unsigned char) g_mix3e);
+        LogLine("MIXER both ADC inputs from the other chip channel: 3D=%02lX 3E=%02lX",
+                (long) g_mix3d, (long) g_mix3e, 0);
+        for (p = 0; p <= 255; p += 8) {
+            ToneDefaults(&t);
+            t.pan = (unsigned) p;
+            LogLine("pan other channel %ld", (long) p, 0, 0);
+            PlayTone(&t, 400, 600);
+            StepDone();
+        }
+        g_mix3d = g_mix3e = -1;
+        RecSource(rec_src);
+        LogLine("MIXER routing restored", 0, 0, 0);
+        LogFinish();
     }
 }
 
@@ -1894,7 +2500,7 @@ static void BlockPitch(int n, SAMPLE *smp, const char *name)
         t.smp = smp;
         t.ip  = (unsigned) (IP_UNITY + (long) s * IP_OCT / 12);
         LogLine("semitone %ld, IP %ld", (long) s, (long) t.ip, 0);
-        PlayTone(&t, 350, 250);
+        PlayTone(&t, 400, 500);
         StepDone();
     }
 }
@@ -1910,7 +2516,7 @@ static void BlockCutoff(int n)
         t.smp    = &SMP_NOISE;
         t.cutoff = (unsigned) c;
         LogLine("cutoff %ld", (long) c, 0, 0);
-        PlayTone(&t, 450, 250);
+        PlayTone(&t, 500, 600);
         StepDone();
     }
 }
@@ -1934,7 +2540,8 @@ static void BlockFilterSine(int n)
             t.ip     = (unsigned) (IP_UNITY + probe[i]);
             t.cutoff = (unsigned) c;
             LogLine("filter sine IP %ld, cutoff %ld", (long) t.ip, (long) c, 0);
-            PlayTone(&t, 350, 250);
+            /* v25: okno dna v analyze zasahovalo do dalsi noty */
+            PlayTone(&t, 400, 600);
             StepDone();
         }
     }
@@ -1952,7 +2559,7 @@ static void BlockFilterSine(int n)
         t.pefe   = (unsigned) (depth & 0xFF);
         LogLine("env->filter depth %ld, PEFE 0x%04lX",
                 (long) depth, (long) t.pefe, 0);
-        PlayTone(&t, 350, 250);
+        PlayTone(&t, 400, 600);
         StepDone();
     }
 
@@ -1968,7 +2575,7 @@ static void BlockFilterSine(int n)
         t.tremfrq = 0x0040;
         LogLine("LFO1->filter depth %ld, FMMOD 0x%04lX",
                 (long) depth, (long) t.fmmod, 0);
-        PlayTone(&t, 1200, 300);
+        PlayTone(&t, 1200, 500);
         StepDone();
     }
 }
@@ -1990,21 +2597,31 @@ static void BlockResonance(int n)
             t.cutoff = (unsigned) cuts[i];
             t.q      = (unsigned) q;
             LogLine("cutoff %ld, Q %ld", (long) cuts[i], (long) q, 0);
-            PlayTone(&t, 450, 250);
+            /* v25: 700 ms - rezonance pri Q15 dozniva */
+            PlayTone(&t, 500, 700);
             StepDone();
         }
     }
 }
 
-/* Fast envelopes are over in a few milliseconds, slow ones take seconds. The
-   tone length therefore follows what is being measured - otherwise the fast
-   rates would waste time and the slow ones would not show at all. */
-static unsigned EnvHold(int rate)
+/* Delitel rychlosti obalky - tataz tabulka jako RateDivisor v Emu8000.cpp;
+   obalky se ridi indexem rate - 1. */
+static long RateDiv(int index)
 {
-    if (rate >= 0x70) return 600;
-    if (rate >= 0x50) return 1000;
-    if (rate >= 0x30) return 1800;
-    return 2800;
+    int group = (index >> 4) & 7;
+    int m     = index & 15;
+    return (group == 0) ? (long) (m + 1) : ((long) (m + 17) << (group - 1));
+}
+
+/* Delka noty podle ocekavane doby deje (v25). EnvHold mel ctyri schody a
+   attack 0x04 (2,97 s) se do 2,8 s nevesel. Rezerva 40 % pokryje pomalejsi
+   takt (run5 +9 %) a 800 ms plosiny navic da kotvu pro konec deje. */
+static unsigned EnvNoteMs(long expect_ms, unsigned lo, unsigned hi)
+{
+    long ms = expect_ms * 14L / 10L + 800L;
+    if (ms < (long) lo) ms = (long) lo;
+    if (ms > (long) hi) ms = (long) hi;
+    return (unsigned) ms;
 }
 
 static void BlockAttack(int n)
@@ -2017,7 +2634,8 @@ static void BlockAttack(int n)
         ToneDefaults(&t);
         t.atk = (unsigned) r;
         LogLine("attack 0x%02lX", (long) r, 0, 0);
-        PlayTone(&t, EnvHold(r), 400);
+        /* nabeh trva 11,878 s / delitel [PG] */
+        PlayTone(&t, EnvNoteMs(11878L / RateDiv(r - 1), 600, 6000), 500);
         StepDone();
     }
 }
@@ -2063,7 +2681,8 @@ static void BlockDecay(int n)
            nejpomalejsiho. Zmereno na nahravce testera 2026-09-08. */
         t.sustain = 0x60;
         LogLine("decay 0x%02lX, sustain 0x60", (long) r, 0, 0);
-        PlayTone(&t, EnvHold(r) + 400, 400);
+        /* 23,25 dB pri 100 dB za 47,513 s / delitel = 11 047 ms / delitel */
+        PlayTone(&t, EnvNoteMs(11047L / RateDiv(r - 1), 900, 6000), 500);
         StepDone();
     }
 }
@@ -2101,9 +2720,10 @@ static void BlockRelease(int n)
         ToneStart(V_TEST, &t);
         Wait(500);
         ToneRelease(V_TEST, &t);
-        Wait(EnvHold(r));
+        /* v25: az na -60 dB (28 508 ms / delitel), nejvys 6 s */
+        Wait(EnvNoteMs(28508L / RateDiv(r - 1), 800, 6000));
         VoiceOff(V_TEST);
-        Wait(400);
+        Wait(600);
         StepDone();
     }
 }
@@ -2240,7 +2860,7 @@ static void BlockEffect(int n, int is_reverb)
     int p, s;
     if (!BlockMark(n, is_reverb ? "reverb: 8 presets x 5 send levels"
                                 : "chorus: 8 presets x 5 send levels")) return;
-    SetSteps(40);
+    SetSteps(is_reverb ? 48 : 56);
     for (p = 0; p < 8; p++) {
         Trace(is_reverb ? "reverb preset %ld: calling" : "chorus preset %ld: calling",
               (long) p);
@@ -2254,8 +2874,29 @@ static void BlockEffect(int n, int is_reverb)
             if (is_reverb) t.reverb = (unsigned) sends[s];
             else           t.chorus = (unsigned) sends[s];
             LogLine("preset %ld, send %ld", (long) p, (long) sends[s], 0);
-            PlayTone(&t, 700, 1100);
+            /* v25: dozvuk trva sekundy, s 1100 ms ho usekla dalsi nota */
+            PlayTone(&t, 700, is_reverb ? 2500 : 1300);
             StepDone();
+        }
+        if (is_reverb) {
+            /* impulz: tik s plnym sendem - odezva dozvuku bez tvaru noty */
+            ToneDefaults(&t);
+            t.smp    = &SMP_TICK;
+            t.reverb = 255;
+            LogLine("preset %ld, tick impulse, send %ld", (long) p, 255L, 0);
+            PlayTone(&t, 30, 3000);
+            StepDone();
+        } else {
+            /* ustaleny ton bez obalky: uroven navratu chorusu primo jako
+               pomer send 255 / send 0 (nerozhodnuta otazka z run5) */
+            for (s = 0; s < 2; s++) {
+                ToneDefaults(&t);
+                t.chorus = s ? 255u : 0u;
+                LogLine("preset %ld, sustained tone, send %ld",
+                        (long) p, s ? 255L : 0L, 0);
+                PlayTone(&t, 2500, 1200);
+                StepDone();
+            }
         }
     }
     Trace("effect block: resetting", 0);
@@ -2319,20 +2960,38 @@ static void BlockLoop(int n)
 static void BlockVoiceSum(int n)
 {
     static int counts[8] = { 1, 2, 3, 4, 6, 8, 12, 16 };
+    /* IFATN, ktery soucet vrati na uroven jednoho hlasu, v krocich 0,375 dB:
+       20 log10 N pro souhlasne hlasy, 10 log10 N pro rozladene (vykonove). */
+    static int comp20[8] = { 0, 16, 25, 32, 42, 48, 58, 64 };
+    static int comp10[8] = { 0,  8, 13, 16, 21, 24, 29, 32 };
     TONE t;
-    int i, k, pass;
+    int i, k, pass, att;
 
     if (!BlockMark(n, "voice summing 1..16")) return;
-    SetSteps(16);
-    for (pass = 0; pass < 2; pass++) {
+    /* pass 0  stejne IP, bez vyrovnani (jako v24; 16 hlasu = +24 dB a na
+               karte v run5 naraz na strop zaznamu)
+       pass 1  stejne IP, vyrovnano - uroven musi zustat; odchylka je cip
+       pass 2  stejne IP, zakladni utlum 64 (-24 dB): 16 hlasu dojde prave na
+               plnou uroven, meri se linearita souctu bez stropu
+       pass 3  rozladene, vyrovnano vykonove */
+    SetSteps(32);
+    for (pass = 0; pass < 4; pass++) {
         for (i = 0; i < 8; i++) {
+            switch (pass) {
+            case 1:  att = comp20[i]; break;
+            case 2:  att = 64;        break;
+            case 3:  att = comp10[i]; break;
+            default: att = 0;         break;
+            }
             /* LogLine bere tri long, takze zadne %s - retezec se vybira
                uz ve formatu, jinak by se ukazatel predaval jako long. */
-            LogLine(pass ? "voices %ld, detuned" : "voices %ld, same pitch",
-                    (long) counts[i], 0, 0);
+            LogLine(pass == 3 ? "voices %ld, detuned, atten %ld"
+                              : "voices %ld, same pitch, atten %ld",
+                    (long) counts[i], (long) att, 0);
             for (k = 0; k < counts[i]; k++) {
                 ToneDefaults(&t);
-                t.ip = (unsigned) (IP_UNITY + (pass ? k * DETUNE_STEP : 0));
+                t.atten = (unsigned) att;
+                t.ip = (unsigned) (IP_UNITY + (pass == 3 ? k * DETUNE_STEP : 0));
                 ToneStart((unsigned) (V_EXTRA - k), &t);
             }
             Wait(1200);
@@ -2348,6 +3007,7 @@ static void BlockVoiceSum(int n)
  * ------------------------------------------------------------------------ */
 static void MidiNote(WORD ch, WORD note, WORD vel, unsigned on, unsigned off)
 {
+    LogFinish();
     awe32NoteOn(ch, note, vel);
     Wait(on);
     awe32NoteOff(ch, note, 64);
@@ -2465,7 +3125,8 @@ static void BlockFilterGlide(int n)
         LogLine("cutoff 0..255, %ld units per write", (long) gran[i], 0, 0);
         ToneStart(V_TEST, &t);
         for (c = 0; c <= 255; c += gran[i]) {
-            RegW(P_DATA3, R_IFATN, V_TEST, (unsigned) ((c << 8) & 0xFF00));
+            RegW(P_DATA3, R_IFATN, V_TEST,
+                 (unsigned) (((c << 8) & 0xFF00) | (g_att_offset & 0xFF)));
             Wait((unsigned) (1500L * gran[i] / 256L));
         }
         VoiceOff(V_TEST);
@@ -2537,7 +3198,7 @@ static void BlockDrums(int n)
     int  v, i;
 
     if (!BlockMark(n, "GM drum kit from wave ROM (MIDI ch 10)")) return;
-    SetSteps(2 + 3 + 3 + 47 * 2);
+    SetSteps(2 + 3 + 3 + 47 * 3);
 
     /* 1) kontrola melodicke cesty */
     awe32Controller(0, 0, 0);
@@ -2545,7 +3206,7 @@ static void BlockDrums(int n)
     for (i = 0; i < 2; i++) {
         LogLine("control: melodic ch 1, preset 0, note %ld",
                 (long) (60 + i * 7), 0, 0);
-        MidiNote(0, (WORD) (60 + i * 7), 120, 450, 250);
+        MidiNote(0, (WORD) (60 + i * 7), 120, 600, 900);
         StepDone();
     }
 
@@ -2554,7 +3215,7 @@ static void BlockDrums(int n)
     for (i = 0; i < 3; i++) {
         LogLine("drum probe A (no bank select), note %ld",
                 (long) chk[i], 0, 0);
-        MidiNote(9, chk[i], 120, 450, 250);
+        MidiNote(9, chk[i], 120, 600, 900);
         StepDone();
     }
 
@@ -2564,7 +3225,7 @@ static void BlockDrums(int n)
     for (i = 0; i < 3; i++) {
         LogLine("drum probe B (bank select 0), note %ld",
                 (long) chk[i], 0, 0);
-        MidiNote(9, chk[i], 120, 450, 250);
+        MidiNote(9, chk[i], 120, 600, 900);
         StepDone();
     }
 
@@ -2575,10 +3236,23 @@ static void BlockDrums(int n)
         for (v = 0; v < 2; v++) {
             LogLine("drum note %ld, velocity %ld",
                     (long) note, (long) vels[v], 0);
-            MidiNote(9, note, vels[v], 450, 250);
+            MidiNote(9, note, vels[v], 600, 900);
             StepDone();
         }
     }
+
+    /* v25: tentyz set bez efektu (CC91 reverb, CC93 chorus = 0). V run5 se
+       obalka bicich nedala oddelit od dozvuku. Jiny zacatek popisu, aby se
+       tyhle noty nepletly s "drum note". */
+    awe32Controller(9, 91, 0);
+    awe32Controller(9, 93, 0);
+    for (note = 35; note <= 81; note++) {
+        LogLine("dry drum note %ld, velocity %ld, CC91=0 CC93=0",
+                (long) note, 120L, 0);
+        MidiNote(9, note, 120, 600, 900);
+        StepDone();
+    }
+    awe32InitMIDI();
 }
 
 static void BlockMidiBank(int n, int bank, int nprog, const char *name)
@@ -2596,11 +3270,378 @@ static void BlockMidiBank(int n, int bank, int nprog, const char *name)
             for (v = 0; v < 2; v++) {
                 LogLine("preset %ld, note %ld, velocity %ld",
                         (long) p, (long) notes[i], (long) vels[v]);
-                MidiNote(0, notes[i], vels[v], 450, 250);
+                MidiNote(0, notes[i], vels[v], 600, 900);
                 StepDone();
             }
         }
     }
+}
+
+/* ------------------------------------------------------------------------ *
+ *  Bloky v25
+ * ------------------------------------------------------------------------ */
+
+/* Ekvalizer EMU8000 (bass / treble) - registry INIT3 (Data1, index 3) a INIT4
+ * (Data2, index 3), hodnoty z alsa_emu8000_init.c. SDK pri inicializaci
+ * zapise bass 0 dB a treble "+8 dB (HW default)" - overeno ve stope z VM
+ * (b29gm_w.trace). Ani 86Box, ani nase jadro ekvalizer nemaji a naklon
+ * nahravek (+2,6 dB/okt) muze byt prave on. Ovladac hry (stopa dos97) pise
+ * do tychz slotu jine bajty (C280 misto C208) - hraje se i ta varianta.
+ */
+static const unsigned eq_bass[12][3] = {
+    { 0xD26A, 0xD36A, 0x0000 }, { 0xD25B, 0xD35B, 0x0000 },   /* -12, -8 */
+    { 0xD24C, 0xD34C, 0x0000 }, { 0xD23D, 0xD33D, 0x0000 },   /*  -6, -4 */
+    { 0xD21F, 0xD31F, 0x0000 }, { 0xC208, 0xC308, 0x0001 },   /*  -2,  0 */
+    { 0xC219, 0xC319, 0x0001 }, { 0xC22A, 0xC32A, 0x0001 },   /*  +2, +4 */
+    { 0xC24C, 0xC34C, 0x0001 }, { 0xC26E, 0xC36E, 0x0001 },   /*  +6, +8 */
+    { 0xC248, 0xC384, 0x0002 }, { 0xC26A, 0xC36A, 0x0002 }    /* +10, +12 */
+};
+static const unsigned eq_treble[12][9] = {
+    { 0x821E, 0xC26A, 0x031E, 0xC36A, 0x021E, 0xD208, 0x831E, 0xD308, 0x0001 },
+    { 0x821E, 0xC25B, 0x031E, 0xC35B, 0x021E, 0xD208, 0x831E, 0xD308, 0x0001 },
+    { 0x821E, 0xC24C, 0x031E, 0xC34C, 0x021E, 0xD208, 0x831E, 0xD308, 0x0001 },
+    { 0x821E, 0xC23D, 0x031E, 0xC33D, 0x021E, 0xD208, 0x831E, 0xD308, 0x0001 },
+    { 0x821E, 0xC21F, 0x031E, 0xC31F, 0x021E, 0xD208, 0x831E, 0xD308, 0x0001 },
+    { 0x821E, 0xD208, 0x031E, 0xD308, 0x021E, 0xD208, 0x831E, 0xD308, 0x0002 },
+    { 0x821E, 0xD208, 0x031E, 0xD308, 0x021D, 0xD219, 0x831D, 0xD319, 0x0002 },
+    { 0x821E, 0xD208, 0x031E, 0xD308, 0x021C, 0xD22A, 0x831C, 0xD32A, 0x0002 },
+    { 0x821E, 0xD208, 0x031E, 0xD308, 0x021A, 0xD24C, 0x831A, 0xD34C, 0x0002 },
+    { 0x821E, 0xD208, 0x031E, 0xD308, 0x0219, 0xD26E, 0x8319, 0xD36E, 0x0002 },
+    { 0x821D, 0xD219, 0x031D, 0xD319, 0x0219, 0xD26E, 0x8319, 0xD36E, 0x0002 },
+    { 0x821C, 0xD22A, 0x031C, 0xD32A, 0x0219, 0xD26E, 0x8319, 0xD36E, 0x0002 }
+};
+/* poradi slotu jako EqWrite; ze stopy dos97 (ovladac hry) */
+static const unsigned eq_driver[12] = {
+    0xC280, 0xC380, 0x821E, 0xD280, 0x031E, 0xD380,
+    0x0219, 0xD2E6, 0x8319, 0xD3E6, 0x0265, 0x8365
+};
+
+/* Poradi zapisu jako snd_emu8000_update_equalizer. */
+static void EqWrite(const unsigned *v)
+{
+    RegW(P_DATA1HI, 3, 0x01, v[0]);
+    RegW(P_DATA1HI, 3, 0x11, v[1]);
+    RegW(P_DATA1,   3, 0x11, v[2]);
+    RegW(P_DATA1,   3, 0x13, v[3]);
+    RegW(P_DATA1,   3, 0x1B, v[4]);
+    RegW(P_DATA1HI, 3, 0x07, v[5]);
+    RegW(P_DATA1HI, 3, 0x0B, v[6]);
+    RegW(P_DATA1HI, 3, 0x0D, v[7]);
+    RegW(P_DATA1HI, 3, 0x17, v[8]);
+    RegW(P_DATA1HI, 3, 0x19, v[9]);
+    RegW(P_DATA1HI, 3, 0x15, v[10]);
+    RegW(P_DATA1HI, 3, 0x1D, v[11]);
+}
+
+static void EqSet(int bass, int treble)
+{
+    unsigned v[12], w;
+    int      i;
+
+    v[0] = eq_bass[bass][0];
+    v[1] = eq_bass[bass][1];
+    for (i = 0; i < 8; i++) v[2 + i] = eq_treble[treble][i];
+    w = eq_bass[bass][2] + eq_treble[treble][8];
+    v[10] = (w + 0x0262u) & 0xFFFFu;
+    v[11] = (w + 0x8362u) & 0xFFFFu;
+    EqWrite(v);
+}
+
+/* 35: ekvalizer. Sum na 1:1 s filtrem dokoran; rozdil spekter mezi
+   nastavenimi je cista krivka EQ (filtr i naklon zaznamu se vyrusi). Tvar
+   "plocheho" nastaveni je zaroven kalibrace cele cesty. */
+static void BlockEq(int n)
+{
+    TONE t;
+    int  i;
+
+    if (!BlockMark(n, "EMU8000 equalizer: treble and bass, noise")) return;
+    SetSteps(3 + 12 + 12 + 1);
+
+    ToneDefaults(&t);
+    t.smp = &SMP_NOISE;
+    LogLine("EQ as the SDK left it (bass index 5, treble index 9 expected), noise",
+            0, 0, 0);
+    PlayTone(&t, 3000, 500);
+    StepDone();
+
+    EqSet(5, 5);
+    LogLine("EQ flat: bass index %ld, treble index %ld, noise", 5L, 5L, 0);
+    PlayTone(&t, 3000, 500);
+    StepDone();
+
+    EqWrite(eq_driver);
+    LogLine("EQ bytes as the game driver writes them (C280 ...), noise", 0, 0, 0);
+    PlayTone(&t, 3000, 500);
+    StepDone();
+
+    for (i = 0; i < 12; i++) {
+        EqSet(5, i);
+        LogLine("EQ treble index %ld, bass index %ld, noise", (long) i, 5L, 0);
+        PlayTone(&t, 3000, 500);
+        StepDone();
+    }
+    for (i = 0; i < 12; i++) {
+        EqSet(i, 5);
+        LogLine("EQ bass index %ld, treble index %ld, noise", (long) i, 5L, 0);
+        PlayTone(&t, 3000, 500);
+        StepDone();
+    }
+
+    EqSet(5, 9);                   /* zbytek behu jako drive */
+    LogLine("EQ back to the SDK setting: bass index %ld, treble index %ld, noise",
+            5L, 9L, 0);
+    PlayTone(&t, 3000, 500);
+    StepDone();
+}
+
+/* 36: mapa filtru. Kde si nejsem jisty:
+ *  - posun meze s Q: spolecny fit bloku 7 a 28 chce -0,16 okt pri Q15, ale
+ *    oba bloky to ukazuji jen neprimo. Tady sinus 1357 Hz (mez tam lezi
+ *    kolem registru 148) a cutoff pres jeho okoli pri Q 0, 5, 10, 15.
+ *    Utlum roste s Q, aby rezonancni vrchol nenarazil na strop zaznamu.
+ *  - vrchol mapy: 255 vyslo ~11,2 kHz misto 8 kHz; sum pri 240..255 po 1.
+ *  - orez modulovane meze zdola (cutoff 0 a PEFE) a shora (255 a PEFE).
+ */
+static void BlockFilterMap(int n)
+{
+    static const int qs[4]   = { 0, 5, 10, 15 };
+    static const int qatt[4] = { 0, 16, 32, 48 };
+    static const int depth[5] = { -128, -64, 0, 64, 127 };
+    TONE t;
+    int  k, c;
+
+    if (!BlockMark(n, "filter: cutoff map vs Q (sine), top of the map, clamps"))
+        return;
+    SetSteps(4 * 25 + 2 * 16 + 10);
+
+    for (k = 0; k < 4; k++) {
+        for (c = 100; c <= 196; c += 4) {
+            ToneDefaults(&t);
+            t.ip     = (unsigned) (IP_UNITY + 4096);
+            t.cutoff = (unsigned) c;
+            t.q      = (unsigned) qs[k];
+            t.atten  = (unsigned) qatt[k];
+            LogLine("map sine IP %ld, cutoff %ld, Q %ld",
+                    (long) t.ip, (long) c, (long) qs[k]);
+            PlayTone(&t, 400, 600);
+            StepDone();
+        }
+    }
+
+    for (k = 0; k < 2; k++) {
+        for (c = 240; c <= 255; c++) {
+            ToneDefaults(&t);
+            t.smp    = &SMP_NOISE;
+            t.cutoff = (unsigned) c;
+            t.q      = k ? 15u : 0u;
+            t.atten  = k ? 32u : 0u;
+            LogLine("top noise cutoff %ld, Q %ld, atten %ld",
+                    (long) c, k ? 15L : 0L, k ? 32L : 0L);
+            PlayTone(&t, 500, 600);
+            StepDone();
+        }
+    }
+
+    for (k = 0; k < 5; k++) {
+        ToneDefaults(&t);
+        t.ip     = (unsigned) (IP_UNITY - 4096);     /* 339 Hz */
+        t.cutoff = 0;
+        t.pefe   = (unsigned) (depth[k] & 0xFF);
+        LogLine("clamp low: sine IP %ld, cutoff 0, env->filter %ld",
+                (long) t.ip, (long) depth[k], 0);
+        PlayTone(&t, 1000, 600);
+        StepDone();
+    }
+    for (k = 0; k < 5; k++) {
+        ToneDefaults(&t);
+        t.ip     = (unsigned) (IP_UNITY + 8191);     /* 2714 Hz */
+        t.cutoff = 255;
+        t.pefe   = (unsigned) (depth[k] & 0xFF);
+        LogLine("clamp high: sine IP %ld, cutoff 255, env->filter %ld",
+                (long) t.ip, (long) depth[k], 0);
+        PlayTone(&t, 1000, 600);
+        StepDone();
+    }
+}
+
+/* 37: diagnostika zaznamu. V run5 bylo pred notami casto ~150 ms zvuku
+ * o ~8 dB tissiho a nevime, jestli patri predchozi note, nasledujici note,
+ * nebo zaznamu. Tady je ticho, osamocene noty s dlouhym tichem kolem a dva
+ * zpusoby ukonceni noty (VoiceOff jako vsude, a release 0x7F jako ovladac).
+ */
+static void BlockDiag(int n)
+{
+    TONE t;
+    int  i;
+
+    if (!BlockMark(n, "capture diagnostics: silence, isolated notes, note endings"))
+        return;
+    SetSteps(10);
+
+    SilenceAll();
+    LogLine("silence %ld ms, all voices off", 5000L, 0, 0);
+    LogFinish();
+    Wait(5000);
+    StepDone();
+
+    for (i = 0; i < 3; i++) {
+        ToneDefaults(&t);
+        LogLine("isolated sine 400 ms, %ld ms silence around, VoiceOff", 2000L, 0, 0);
+        LogFinish();
+        Wait(2000);
+        LogLine("isolated sine note on", 0, 0, 0);
+        PlayTone(&t, 400, 2000);
+        StepDone();
+    }
+    for (i = 0; i < 2; i++) {
+        ToneDefaults(&t);
+        t.release = 0x7F;
+        LogLine("isolated sine 400 ms, ended by release 0x7F, VoiceOff after %ld ms",
+                300L, 0, 0);
+        LogFinish();
+        Wait(2000);
+        LogLine("isolated sine note on", 0, 0, 0);
+        ToneStart(V_TEST, &t);
+        Wait(400);
+        ToneRelease(V_TEST, &t);
+        Wait(300);
+        VoiceOff(V_TEST);
+        Wait(2000);
+        StepDone();
+    }
+    for (i = 0; i < 2; i++) {
+        ToneDefaults(&t);
+        t.smp = &SMP_NOISE;
+        LogLine("isolated noise 400 ms, %ld ms silence around", 2000L, 0, 0);
+        LogFinish();
+        Wait(2000);
+        LogLine("isolated noise note on", 0, 0, 0);
+        PlayTone(&t, 400, 2000);
+        StepDone();
+    }
+    for (i = 0; i < 2; i++) {
+        ToneDefaults(&t);
+        t.atten = 48;
+        LogLine("isolated sine atten %ld, %ld ms silence around", 48L, 2000L, 0);
+        LogFinish();
+        Wait(2000);
+        LogLine("isolated sine note on", 0, 0, 0);
+        PlayTone(&t, 400, 2000);
+        StepDone();
+    }
+}
+
+/* Jeden pruchod bloku 38 pri danem zesileni. */
+static void QuietPass(int want_db)
+{
+    static const int rel[4] = { 0x30, 0x40, 0x50, 0x60 };
+    TONE t;
+    WORD note;
+    int  db, a, c, i, p;
+
+    db = LevelBoost(want_db);
+
+    /* kotva: skutecny zisk se meri z nahravky, ne z kroku mixeru */
+    ToneDefaults(&t);
+    t.atten = 64;
+    t.raw   = 1;
+    LogLine("anchor sine atten %ld, boost %ld dB", 64L, (long) db, 0);
+    PlayTone(&t, 1000, 600);
+    StepDone();
+
+    for (a = 64; a <= 126; a += 4) {               /* blok 2, tichy konec */
+        ToneDefaults(&t);
+        t.atten = (unsigned) a;
+        t.raw   = 1;
+        LogLine("quiet atten %ld, boost %ld dB", (long) a, (long) db, 0);
+        PlayTone(&t, 400, 600);
+        StepDone();
+    }
+    for (c = 0; c <= 96; c += 8) {                 /* blok 6, zavreny filtr */
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.cutoff = (unsigned) c;
+        LogLine("quiet cutoff %ld, boost %ld dB", (long) c, (long) db, 0);
+        PlayTone(&t, 500, 600);
+        StepDone();
+    }
+    for (c = 0; c <= 64; c += 8) {                 /* blok 28, 339 Hz */
+        ToneDefaults(&t);
+        t.ip     = (unsigned) (IP_UNITY - 4096);
+        t.cutoff = (unsigned) c;
+        LogLine("quiet filter sine IP %ld, cutoff %ld, boost %ld dB",
+                (long) t.ip, (long) c, (long) db);
+        PlayTone(&t, 400, 600);
+        StepDone();
+    }
+    for (i = 0x31; i <= 0x51; i += 4) {            /* blok 11 dal dolu */
+        ToneDefaults(&t);
+        t.decay   = 0x60;
+        t.sustain = (unsigned) i;
+        LogLine("quiet sustain 0x%02lX, boost %ld dB", (long) i, (long) db, 0);
+        PlayTone(&t, 1600, 600);
+        StepDone();
+    }
+    for (i = 0x30; i <= 0x78; i += 8) {            /* blok 10 do sustainu 0x20 */
+        ToneDefaults(&t);
+        t.decay   = (unsigned) i;
+        t.sustain = 0x20;
+        LogLine("quiet decay 0x%02lX, sustain 0x20, boost %ld dB",
+                (long) i, (long) db, 0);
+        /* 71 dB: 33 734 ms / delitel */
+        PlayTone(&t, EnvNoteMs(33734L / RateDiv(i - 1), 900, 6000), 500);
+        StepDone();
+    }
+    for (i = 0; i < 4; i++) {                      /* blok 12, ocasy */
+        ToneDefaults(&t);
+        t.release = (unsigned) rel[i];
+        LogLine("quiet release 0x%02lX, boost %ld dB", (long) rel[i], (long) db, 0);
+        ToneStart(V_TEST, &t);
+        Wait(500);
+        ToneRelease(V_TEST, &t);
+        Wait(EnvNoteMs(28508L / RateDiv(rel[i] - 1), 800, 6000));
+        VoiceOff(V_TEST);
+        Wait(600);
+        StepDone();
+    }
+
+    awe32InitMIDI();                               /* blok 29, velocity 40 */
+    awe32ProgramChange(9, 0);
+    for (note = 35; note <= 81; note += 2) {
+        LogLine("quiet drum note %ld, velocity %ld, boost %ld dB",
+                (long) note, 40L, (long) db);
+        MidiNote(9, note, 40, 600, 900);
+        StepDone();
+    }
+    awe32Controller(0, 0, 0);                      /* blok 26, velocity 40 */
+    for (p = 0; p < 16; p++) {
+        awe32ProgramChange(0, (WORD) p);
+        LogLine("quiet GM preset %ld, note 60, velocity 40, boost %ld dB",
+                (long) p, (long) db, 0);
+        MidiNote(0, 60, 40, 600, 900);
+        StepDone();
+    }
+    awe32InitMIDI();
+
+    ToneDefaults(&t);
+    t.atten = 64;
+    t.raw   = 1;
+    LogLine("anchor sine atten %ld, boost %ld dB", 64L, (long) db, 0);
+    PlayTone(&t, 1000, 600);
+    StepDone();
+
+    LevelRestore();
+}
+
+/* 38: co se v run5 topilo v sumu, znovu pri +12 a +24 dB. */
+static void BlockQuiet(int n)
+{
+    if (!BlockMark(n, "quiet material again at +12 and +24 dB capture level"))
+        return;
+    SetSteps(2 * 100);
+    QuietPass(12);
+    QuietPass(24);
 }
 
 /* ------------------------------------------------------------------------ *
@@ -2808,6 +3849,112 @@ static int LoadBank(const char *file)
 }
 
 /* ------------------------------------------------------------------------ *
+ *  Co je to za kartu (v25)
+ *
+ *  Model karty z run5 nezname a ta karta mela LFO o 9 % pomalejsi nez ver3.
+ *  Vsechno, co o sobe karta prozradi, jde proto do logu (radky "# CARD").
+ *  Odhad modelu z verze DSP je jen vodítko - rozhoduji surova cisla.
+ * ------------------------------------------------------------------------ */
+static unsigned EmuReadW(unsigned port, unsigned idx, unsigned voice)
+{
+    OUTW(P_PTR, (unsigned) ((idx << 5) | (voice & 31)));
+    return (unsigned) INW(port);
+}
+
+static void CardLog(const char *line)
+{
+    if (g_log) fprintf(g_log, "# CARD %s\n", line);
+    printf("  %s\n", line);
+}
+
+static void CardInfo(void)
+{
+    static const char *envs[4] = { "BLASTER", "SOUND", "CTSYN", "MIDI" };
+    char        buf[200], copy[81];
+    const char *env, *guess;
+    int         maj = -1, mnr = -1, i, c, k;
+    unsigned    reg;
+
+    printf("\nCard identification:\n");
+    for (i = 0; i < 4; i++) {
+        env = getenv(envs[i]);
+        if (!env && i > 0) continue;
+        sprintf(buf, "%s=%.160s", envs[i], env ? env : "(not set)");
+        CardLog(buf);
+    }
+    sprintf(buf, "Sound Blaster base 0x%03X, EMU8000 base 0x%03X, IRQ %d,"
+            " 16-bit DMA %d", g_sb_base, g_base, rec_irq, rec_dma);
+    CardLog(buf);
+
+    copy[0] = 0;
+    if (DspReset() == 0) {
+        DspWrite(0xE1);                     /* verze DSP */
+        maj = DspRead();
+        mnr = DspRead();
+        DspWrite(0xE3);                     /* copyright */
+        for (i = 0; i < 80; i++) {
+            c = DspRead();
+            if (c <= 0) break;
+            copy[i] = (char) ((c >= 32 && c < 127) ? c : '?');
+        }
+        copy[i] = 0;
+        DspReset();
+    }
+    sprintf(buf, "DSP version %d.%02d, copyright \"%s\"", maj, mnr, copy);
+    CardLog(buf);
+
+    /* awe32DramSize je ve slovech (VM: 262144 pri 512 kB) */
+    sprintf(buf, "DRAM awe32DramSize %lu words = %lu B, free for samples %lu B",
+            (unsigned long) awe32DramSize, (unsigned long) awe32DramSize * 2UL,
+            (unsigned long) spSound.total_patch_ram);
+    CardLog(buf);
+
+    sprintf(buf, "EMU8000 HWCF1 0x%04X HWCF2 0x%04X HWCF3 0x%04X",
+            EmuReadW(P_DATA1, 1, 29), EmuReadW(P_DATA1, 1, 30),
+            EmuReadW(P_DATA1, 1, 31));
+    CardLog(buf);
+
+    /* Ekvalizer, jak ho nechalo SDK - poradi slotu jako EqWrite. Cteni
+       techto registru neni zdokumentovane; kdyz vrati nesmysl, nevadi. */
+    sprintf(buf, "EQ readback %04X %04X %04X %04X %04X %04X %04X %04X %04X"
+            " %04X %04X %04X",
+            EmuReadW(P_DATA1HI, 3, 0x01), EmuReadW(P_DATA1HI, 3, 0x11),
+            EmuReadW(P_DATA1, 3, 0x11),   EmuReadW(P_DATA1, 3, 0x13),
+            EmuReadW(P_DATA1, 3, 0x1B),   EmuReadW(P_DATA1HI, 3, 0x07),
+            EmuReadW(P_DATA1HI, 3, 0x0B), EmuReadW(P_DATA1HI, 3, 0x0D),
+            EmuReadW(P_DATA1HI, 3, 0x17), EmuReadW(P_DATA1HI, 3, 0x19),
+            EmuReadW(P_DATA1HI, 3, 0x15), EmuReadW(P_DATA1HI, 3, 0x1D));
+    CardLog(buf);
+
+    /* Mixer tak, jak ho nechal predchozi program (pred MixerInit). */
+    k = sprintf(buf, "mixer");
+    for (reg = 0x30; reg <= 0x3F; reg++)
+        k += sprintf(buf + k, " %02X:%02X", reg, MixerR((unsigned char) reg));
+    CardLog(buf);
+    k = sprintf(buf, "mixer");
+    for (reg = 0x40; reg <= 0x47; reg++)
+        k += sprintf(buf + k, " %02X:%02X", reg, MixerR((unsigned char) reg));
+    for (reg = 0x80; reg <= 0x82; reg++)
+        k += sprintf(buf + k, " %02X:%02X", reg, MixerR((unsigned char) reg));
+    CardLog(buf);
+
+    if (maj == 4 && mnr >= 16)      guess = "AWE64 family (DSP 4.16)";
+    else if (maj == 4 && mnr == 13) guess = "AWE32 PnP or SB32 (DSP 4.13)";
+    else if (maj == 4 && mnr == 12) guess = "AWE32 non-PnP (DSP 4.12)";
+    else if (maj == 4 && mnr == 11) guess = "early AWE32 / SB16 (DSP 4.11)";
+    else if (maj == 4)              guess = "Sound Blaster 16 family";
+    else if (maj < 0)               guess = "DSP did not answer";
+    else                            guess = "not an SB16-class DSP (clone or emulator)";
+    sprintf(buf, "guess: %s, %s", guess,
+            awe32DramSize == 0UL ? "no sample RAM (SB32?)"
+            : (awe32DramSize <= 262144UL ? "512 kB sample RAM (stock)"
+                                               : "expanded sample RAM"));
+    CardLog(buf);
+    printf("  Please also note the CT number printed on the card itself.\n");
+    if (g_log) CommitFile(g_log);
+}
+
+/* ------------------------------------------------------------------------ *
  *  main
  * ------------------------------------------------------------------------ */
 /* BLASTER looks like "A220 I5 D1 H5 P330 E620 T6". Each field is a letter
@@ -2865,7 +4012,8 @@ int main(int argc, char **argv)
         else {
             printf("Usage: AWETEST [/FROM:n] [/TO:n] [/MB:n] [/REC:file.wav]"
                    " [/SBK:path] [/WT:hex]\n");
-            printf("  with no switches all 28 blocks play (22.6 minutes)\n");
+            printf("  with no switches all 39 blocks play (about %ld minutes)\n",
+                   AWETEST_SECONDS / 60L);
             printf("  /REC also captures the card's own output to a WAV file\n");
             printf("       (44.1 kHz stereo, about 240 MB for the full run)\n");
             printf("  /SBK points at BULLFROG.SBK. Normally not needed - it is\n");
@@ -2900,6 +4048,7 @@ int main(int argc, char **argv)
     }
     g_sb_base = (unsigned) sb;
     g_base    = (unsigned) (sb + 0x400);
+    RtInit();                       /* skutecny cas pro razitka v logu */
     Trace("hardware ok, base %03lX", (long) sb);
     Trace("  irq %ld", (long) rec_irq);
     Trace("  dma %ld", (long) rec_dma);
@@ -2934,8 +4083,16 @@ int main(int argc, char **argv)
     awe32Chorus(0);
 
     g_log = fopen("AWETEST.LOG", "w");
+    /* Velky buffer: radek se dopisuje razitkem tesne pred notou a zapis na
+       disk uprostred bloku by notu zdrzel. Na disk jde u znacky bloku. */
+    if (g_log) setvbuf(g_log, 0, _IOFBF, 32768);
     if (g_log) fprintf(g_log, "# AWETEST v%s\n", AWETEST_VER);
     if (g_log) fprintf(g_log, "# ms block description\n");
+    if (g_log) fprintf(g_log, "# stamps: \\t@rt <BIOS tick>:<PIT phase 0..65535,"
+                       " 1193182/s> cap <file from ms>:<frame>, taken at note on\n");
+
+    CardInfo();
+    ChipProbe();
 
     /* ---- can this card record itself, and if so, how? ------------------ *
      *  Asked before anything else, because the answer decides whether the
@@ -3049,26 +4206,19 @@ int main(int argc, char **argv)
     /* Uroven se dolaďuje jen kdyz je vystupem vnitrni zaznam - pri
        vnejsim nahravani by to prebudilo vystup karty. */
     if (rec_ok && rec_name) WavetableForInternal(rec_src);
+    if (rec_ok && rec_name) LevelLadder();
 
     if (rec_ok) PitchCheck();
 
-    /* Oba kanaly zaznamu musi zit. V run5 pravy nenesl ani sum ADC a cely
-       beh se nahral jednokanalove - program o tom nevedel, protoze
-       sledoval jen levy kanal. Kontrola vysky hraje ton na stred, takze tu
-       musi byt oba kanaly srovnatelne. */
-    if (rec_ok) {
-        printf("  capture channels: peak L %d, R %d\n", rec_peak_l, rec_peak_r);
-        Trace("capture peak L %ld", (long) rec_peak_l);
-        Trace("capture peak R %ld", (long) rec_peak_r);
-        if (rec_peak_l > 64 && rec_peak_r * 10 < rec_peak_l)
-            printf("  *** RIGHT capture channel is (almost) silent - check the"
-                   " mixer / cable.\n      The run continues, but stereo"
-                   " blocks (pan) will not be usable.\n");
-        else if (rec_peak_r > 64 && rec_peak_l * 10 < rec_peak_r)
-            printf("  *** LEFT capture channel is (almost) silent - check the"
-                   " mixer / cable.\n      The run continues, but stereo"
-                   " blocks (pan) will not be usable.\n");
-    }
+    /* Oba kanaly zaznamu musi zit (v25: kazdy zvlast, s diagnostikou). */
+    if (rec_ok) StereoCheck();
+    if (g_log)
+        fprintf(g_log, "# CAPTURE source %s, wavetable 0x%02X, input gain %d dB,"
+                " atten offset %u, mono %s\n",
+                rec_ok ? (rec_src == SRC_WAVETABLE ? "MIDI/wavetable" : "line in")
+                       : "none (external)",
+                wt_level, rec_gain * 6, g_att_offset,
+                g_mono_adc == 'L' ? "left only" : (g_mono_adc == 'R' ? "right only" : "no"));
 
     if (rec_name) {
         if (RecStart(rec_name))
@@ -3130,12 +4280,18 @@ int main(int argc, char **argv)
     BlockPitchGlide(n++);
     BlockFilterGlide(n++);
     BlockPitchTarget(n++);
-    BlockReference(n++);
+    BlockEq(n++);                   /* 35 v25: ekvalizer cipu            */
+    BlockFilterMap(n++);            /* 36 v25: mapa filtru, Q, orezy      */
+    BlockDiag(n++);                 /* 37 v25: ticho, osamocene noty      */
+    BlockQuiet(n++);                /* 38 v25: tiche veci pri +12/+24 dB  */
+    BlockReference(n++);            /* 39 (do v24 to bylo 35)             */
 
     RecStop();
     if (g_bname[0]) printf("\n");
     printf("\nDone, %lu seconds total.\n", (unsigned long) (g_ms / 1000L));
+    LogFinish();
     if (g_log) { fprintf(g_log, "%8lu -- END\n", g_ms); fclose(g_log); }
+    RtDone();
 
     awe32ReleaseAllBanks(&spSound);
     if (pPresets) free(pPresets);
