@@ -209,6 +209,9 @@ static int            rec_on;
 static int            rec_any;         /* did anything but silence arrive?  */
 static int            rec_ok;          /* a usable capture path was found   */
 static int            rec_peak;        /* loudest sample seen, 0..32767     */
+static int            rec_peak_l;      /* spicka leveho kanalu (od QUALITY) */
+static int            rec_peak_r;      /* spicka praveho kanalu             */
+static unsigned long  rec_scan_bytes;  /* kolik bajtu uz RecScan prosel     */
 static long           rec_zc;          /* pruchody nulou v levem kanalu     */
 static int            rec_zc_on;       /* pocitat je jen pri kontrole vysky */
 static int            rec_zc_sign;     /* znamenko posledniho vzorku        */
@@ -856,8 +859,13 @@ static int CapFlush(void)
     /* Ztraty se dosud psaly jen na obrazovku, takze z odevzdane nahravky
        nebylo poznat, jestli je uplna. */
     if (g_log)
-        fprintf(g_log, "%8lu -- QUALITY ring overruns %lu, dropped %lu B\n",
-                g_ms, rec_drops, cap_lost);
+        fprintf(g_log, "%8lu -- QUALITY ring overruns %lu, dropped %lu B,"
+                " peak L %d R %d\n",
+                g_ms, rec_drops, cap_lost, rec_peak_l, rec_peak_r);
+    /* Spicky po kanalech se pocitaji znovu pro kazdy soubor - v run5 byl
+       pravy kanal cely beh mrtvy a nikde to nebylo videt. */
+    rec_peak_l = 0;
+    rec_peak_r = 0;
 
     printf("\n  saved %s - %lu s of audio, test time %lu..%lu s\n",
            name, cap_used / ((unsigned long) REC_RATE * 4UL),
@@ -952,10 +960,20 @@ static long RecWritePos(void)
 static void RecScan(const unsigned char *p, long n)
 {
     long i;
-    for (i = 0; i + 1 < n; i += 128) {
-        int v = (int) ((short) (p[i] | (p[i + 1] << 8)));
-        if (v < 0) v = -v;
-        if (v > rec_peak) { rec_peak = v; if (v > 64) rec_any = 1; }
+    /* Kus z prstence muze zacinat uprostred ramce. Zarovnani plyne z toho,
+       kolik bajtu uz proslo - zahazuje se jen po celych ramcich (v22),
+       takze modulo 4 sedi. Drive se cetl bajt 0 kusu jako levy vzorek,
+       coz nekdy byl pravy kanal nebo pulka dvou vzorku. */
+    long i0 = (long) ((4UL - (rec_scan_bytes % 4UL)) % 4UL);
+    for (i = i0; i + 3 < n; i += 128) {
+        int l = (int) ((short) (p[i]     | (p[i + 1] << 8)));
+        int r = (int) ((short) (p[i + 2] | (p[i + 3] << 8)));
+        if (l < 0) l = -l;
+        if (r < 0) r = -r;
+        if (l > rec_peak_l) rec_peak_l = l;
+        if (r > rec_peak_r) rec_peak_r = r;
+        if (l > rec_peak) { rec_peak = l; if (l > 64) rec_any = 1; }
+        if (r > rec_peak) { rec_peak = r; if (r > 64) rec_any = 1; }
     }
 
     /* Pri kontrole vysky projdeme kazdy ramec - kazdy 32. vzorek by na
@@ -979,6 +997,7 @@ static void RecScan(const unsigned char *p, long n)
             }
         }
     }
+    rec_scan_bytes += (unsigned long) n;
 }
 
 /* Zapis do nahravky. Vraci 1, kdyz se nepodarilo zapsat vsechno - typicky
@@ -1015,9 +1034,16 @@ static void RecPoll(void)
 
     if (n > (REC_BYTES / 4) * 3) {
         /* Za jedno vyprazdneni se pul prstence nasbirat nemuze, pokud nas
-           neco nezdrzelo. Data uz nedohonime, jen se srovnáme. */
+           neco nezdrzelo. Data uz nedohonime, jen se srovnáme.
+
+           Zahazuji se jen CELE ramce (4 bajty = L16 + R16). Drive se tu
+           delalo `rec_read = pos`, a kdyz zahozeny pocet nebyl nasobkem 4,
+           posunulo se zarovnani: o 2 bajty se prohodily kanaly (run5 -
+           noty strida L/R bez vztahu k panorame), o 1 nebo 3 bajty sum. */
+        n -= n % 4L;
         rec_drops++;
-        rec_read = pos;
+        rec_read += n;
+        if (rec_read >= REC_BYTES) rec_read -= REC_BYTES;
         return;
     }
 
@@ -1163,6 +1189,10 @@ typedef struct { unsigned long start, loop_start, loop_end; } SAMPLE;
 
 static SAMPLE SMP_SINE  = { 430271L, 430339L, 430404L };  /* sinewave       */
 static SAMPLE SMP_NOISE = { 458995L, 459001L, 467282L };  /* whitenoisewave */
+/* Tyz sum, ale se smyckou 1000 vzorku (22,7 ms). Pri 3,5 s note je to 154
+   opakovani, takze perioda musi byt v nahravce videt na prvni pohled -
+   slouzi k rozliseni "smycka nefunguje" od "zaznam ma vypadky". */
+static SAMPLE SMP_NOISE_SHORT = { 458995L, 459001L, 460001L };
 static SAMPLE SMP_TICK  = { 491098L, 491104L, 491164L };  /* sinetick       */
 
 #define IP_UNITY    0xE000u           /* IP for 1:1 playback                */
@@ -1178,11 +1208,13 @@ static SAMPLE SMP_TICK  = { 491098L, 491104L, 491164L };  /* sinetick       */
    soucasne prejmenovat vystup v BUILD32.CMD na AWETESTnn.EXE. Cislo je
    v hlavicce i na prvnim radku logu, takze u kazde nahravky je poznat,
    cim vznikla. */
-#define AWETEST_VER "15"
+#define AWETEST_VER "24"
 
 #define V_TEST      29
 #define V_MARK      28
-#define V_EXTRA     22                /* 22..29 for the voice-summing test  */
+#define V_EXTRA     22                /* 22 DOLU pro test scitani hlasu.    */
+                                      /* Nahoru ne - 16 hlasu by preslo pres */
+                                      /* V_MARK a V_TEST a prepsalo znacky.  */
 
 /* Which blocks to play. Useful for a quick check, and so that a single block
    can be repeated if it went wrong in the recording. */
@@ -1320,9 +1352,13 @@ static void ToneStart(unsigned v, TONE *t)
     RegW(P_DATA1HI, R_LFO1VAL, v, t->lfo1val);
     RegW(P_DATA1HI, R_LFO2VAL, v, t->lfo2val);
 
-    /* The reverb send is the low byte of PTRX; the high half is pitch target */
+    /* PTRX: bity 31..16 pitch target, 15..8 REVERB SEND, 7..0 doplnkova
+       panorama [PG]. Do 2026-09-10 se send psal do spodniho bajtu, karta
+       tak dostala reverb 0 a blok 22 nikdy reverb nezmeril (plny send
+       +2 dB, zadny dozvuk - run5 i ver3). */
     RegDW(P_DATA0, R_PTRX, v,
-          ((unsigned long) (t->ptrx_target & 0xFFFF) << 16) | (t->reverb & 0xFF));
+          ((unsigned long) (t->ptrx_target & 0xFFFF) << 16)
+          | ((unsigned long) (t->reverb & 0xFF) << 8));
 
     /* this one starts the note */
     RegW(P_DATA1, R_DCYSUSV, v,
@@ -1790,10 +1826,30 @@ static void BlockReference(int n)
 {
     TONE t;
     if (!BlockMark(n, "reference tone")) return;
-    SetSteps(1);
+    SetSteps(3);
     ToneDefaults(&t);
     LogLine("reference sine, IP %ld, atten %ld", (long) t.ip, 0, 0);
     PlayTone(&t, 3000, 1000);
+    StepDone();
+
+    /* Sonda ridiciho taktu. V behu run5 bezelo LFO i obalky o ~9 % pomaleji
+       nez [PG] (LFO1 2,448 Hz misto 2,698), zatimco vyska sedela; stara
+       nahravka ver3 mela takt podle [PG]. Casove bloky se proto musi
+       vztahovat k taktu TOHOTO behu - a ten se meri tady, na zacatku
+       i na konci (blok 1 se hraje znovu jako posledni). */
+    ToneDefaults(&t);
+    t.tremfrq = 0x7F40;              /* hloubka 0x7F, LFO1 0x40 = 2,698 Hz [PG] */
+    LogLine("clock probe: tremolo, LFO1 0x%02lX, expect %ld mHz", 0x40L, 2698L, 0);
+    PlayTone(&t, 3000, 500);
+    StepDone();
+
+    ToneDefaults(&t);
+    t.hold    = 0x6F;                /* 16 kroku = 1472 ms [PG] */
+    t.decay   = 0x50;
+    t.sustain = 0x20;
+    LogLine("clock probe: hold 0x%02lX, expect %ld ms", 0x6FL, 1472L, 0);
+    PlayTone(&t, 2600, 400);
+    StepDone();
 }
 
 static void BlockAtten(int n)
@@ -1919,7 +1975,10 @@ static void BlockFilterSine(int n)
 
 static void BlockResonance(int n)
 {
-    static int cuts[6] = { 32, 64, 96, 144, 192, 255 };
+    /* 32 a 64 byly pri zavrenem filtru pod sumem nahravky (run5). Misto
+       nich horni konec: 255 vysel s mezi ~11 kHz misto 8 kHz, ale ovladace
+       pisou pro "dokoran" 254 - je potreba videt, kde ta zmena zacina. */
+    static int cuts[6] = { 96, 144, 192, 248, 254, 255 };
     TONE t;
     int i, q;
     if (!BlockMark(n, "resonance, noise, 6 cutoffs x Q 0..15")) return;
@@ -1979,7 +2038,10 @@ static void BlockHold(int n)
            bylo naprosto stejnych. */
         t.sustain = 0x20;
         LogLine("hold 0x%02lX, sustain 0x20", (long) h, 0, 0);
-        PlayTone(&t, 1600, 400);
+        /* 3400 ms misto 1600: cip drzi hold 102,74 ms na krok (run5, blok 9),
+           nejdelsi hold 0x61 tedy 3,08 s. S 1600 ms useknul VoiceOff plosinu
+           u vsech kroku od 0x6D dal a do fitu slo jen 8 kroku z 16. */
+        PlayTone(&t, 3400, 400);
         StepDone();
     }
 }
@@ -2059,7 +2121,15 @@ static void BlockEnvDelay(int n)
         ToneDefaults(&t);
         t.envvol = (unsigned) (0x8000 - d * 200);
         LogLine("envvol 0x%04lX", (long) t.envvol, 0, 0);
-        PlayTone(&t, 2400, 400);
+        /* Znacka tesne pred notou. Prodleva se pak meri jako mezera
+           ZNACKA -> NABEH, tedy uvnitr jedne dvojice - necitlive na g_ms
+           i na prevod logoveho casu. Merit ji ze zkraceni noty (tak to
+           bylo do 2026-09-09) nejde: u velkych prodlev zbyde z noty par
+           set ms a dve pulky bloku pak vyjdou o 45 % jinak. */
+        Tick(0);
+        /* 4000 ms misto 2400: i pri nejvetsi prodleve zbyde nota, kterou
+           jde detekovat. */
+        PlayTone(&t, 4000, 400);
         StepDone();
     }
 }
@@ -2199,7 +2269,7 @@ static void BlockLoop(int n)
     int i;
     static int semis[3] = { -12, 0, 7 };
     if (!BlockMark(n, "loop: long sustained tones")) return;
-    SetSteps(6);
+    SetSteps(9);
     for (i = 0; i < 3; i++) {
         ToneDefaults(&t);
         t.ip = (unsigned) (IP_UNITY + (long) semis[i] * IP_OCT / 12);
@@ -2211,31 +2281,65 @@ static void BlockLoop(int n)
         ToneDefaults(&t);
         t.smp = &SMP_NOISE;
         t.ip  = (unsigned) (IP_UNITY + (long) semis[i] * IP_OCT / 12);
-        LogLine("noise, semitone %ld", (long) semis[i], 0, 0);
+        LogLine("noise, semitone %ld, loop %ld samples",
+                (long) semis[i],
+                (long) (SMP_NOISE.loop_end - SMP_NOISE.loop_start), 0);
+        PlayTone(&t, 3500, 500);
+        StepDone();
+    }
+    /* Kratka smycka: 154 opakovani za notu misto 19. Kdyz se perioda objevi
+       tady a u dlouhe smycky ne, je vina u delky smycky; kdyz se neobjevi
+       ani tady, ztraci vzorky zaznam (viz radek QUALITY v logu). */
+    for (i = 0; i < 3; i++) {
+        ToneDefaults(&t);
+        t.smp = &SMP_NOISE_SHORT;
+        t.ip  = (unsigned) (IP_UNITY + (long) semis[i] * IP_OCT / 12);
+        LogLine("noise, semitone %ld, loop %ld samples", (long) semis[i],
+                (long) (SMP_NOISE_SHORT.loop_end - SMP_NOISE_SHORT.loop_start), 0);
         PlayTone(&t, 3500, 500);
         StepDone();
     }
 }
 
+/* Scitani hlasu. Dva pruchody, protoze kazdy meri neco jineho:
+ *
+ *   same   - vsechny hlasy na tomtez IP. Soufazny soucet je jediny spravny
+ *            vysledek, takze kazda odchylka je omezovani nebo deleni poctem
+ *            hlasu. Tohle meri CIP.
+ *   detune - hlasy rozladene. Ruzne kmitocty se scitaji vykonove uz z
+ *            aritmetiky (sqrt N), takze tenhle pruchod meri hlavne
+ *            rozladeni; je tu proto, ze tak zni skutecna hudba.
+ *
+ * Do 2026-09-09 byl jen druhy pruchod a vydaval se za mereni scitani. Krok
+ * rozladeni byl navic 1 jednotka IP (~0,3 centu), coz je zaznej s periodou
+ * kolem 9 s - delsi nez nota, takze se merila okamzita faze zazneje.
+ * DETUNE_STEP 8 da periodu kolem 1 s a ta se do noty vejde. */
+#define DETUNE_STEP 8
+
 static void BlockVoiceSum(int n)
 {
     static int counts[8] = { 1, 2, 3, 4, 6, 8, 12, 16 };
     TONE t;
-    int i, k;
+    int i, k, pass;
+
     if (!BlockMark(n, "voice summing 1..16")) return;
-    SetSteps(8);
-    for (i = 0; i < 8; i++) {
-        LogLine("voices %ld", (long) counts[i], 0, 0);
-        for (k = 0; k < counts[i]; k++) {
-            ToneDefaults(&t);
-            /* same tone, detuned by a few IP units so they do not add in phase */
-            t.ip = (unsigned) (IP_UNITY + k);
-            ToneStart((unsigned) (V_EXTRA - k), &t);
+    SetSteps(16);
+    for (pass = 0; pass < 2; pass++) {
+        for (i = 0; i < 8; i++) {
+            /* LogLine bere tri long, takze zadne %s - retezec se vybira
+               uz ve formatu, jinak by se ukazatel predaval jako long. */
+            LogLine(pass ? "voices %ld, detuned" : "voices %ld, same pitch",
+                    (long) counts[i], 0, 0);
+            for (k = 0; k < counts[i]; k++) {
+                ToneDefaults(&t);
+                t.ip = (unsigned) (IP_UNITY + (pass ? k * DETUNE_STEP : 0));
+                ToneStart((unsigned) (V_EXTRA - k), &t);
+            }
+            Wait(1200);
+            for (k = 0; k < counts[i]; k++) VoiceOff((unsigned) (V_EXTRA - k));
+            Wait(800);
+            StepDone();
         }
-        Wait(1200);
-        for (k = 0; k < counts[i]; k++) VoiceOff((unsigned) (V_EXTRA - k));
-        Wait(800);
-        StepDone();
     }
 }
 
@@ -2947,6 +3051,24 @@ int main(int argc, char **argv)
     if (rec_ok && rec_name) WavetableForInternal(rec_src);
 
     if (rec_ok) PitchCheck();
+
+    /* Oba kanaly zaznamu musi zit. V run5 pravy nenesl ani sum ADC a cely
+       beh se nahral jednokanalove - program o tom nevedel, protoze
+       sledoval jen levy kanal. Kontrola vysky hraje ton na stred, takze tu
+       musi byt oba kanaly srovnatelne. */
+    if (rec_ok) {
+        printf("  capture channels: peak L %d, R %d\n", rec_peak_l, rec_peak_r);
+        Trace("capture peak L %ld", (long) rec_peak_l);
+        Trace("capture peak R %ld", (long) rec_peak_r);
+        if (rec_peak_l > 64 && rec_peak_r * 10 < rec_peak_l)
+            printf("  *** RIGHT capture channel is (almost) silent - check the"
+                   " mixer / cable.\n      The run continues, but stereo"
+                   " blocks (pan) will not be usable.\n");
+        else if (rec_peak_r > 64 && rec_peak_l * 10 < rec_peak_r)
+            printf("  *** LEFT capture channel is (almost) silent - check the"
+                   " mixer / cable.\n      The run continues, but stereo"
+                   " blocks (pan) will not be usable.\n");
+    }
 
     if (rec_name) {
         if (RecStart(rec_name))

@@ -63,7 +63,9 @@ namespace
     // ATKHLDV/ATKHLD, bity 14..8: hold po 92 ms, 0x7F = bez prodlevy [PG].
     double HoldSeconds(int hold)
     {
-        return (127 - std::clamp(hold, 0, 127)) * kHoldSecPerStep;
+        // Hold cipu - viz kHoldSecPerStepChip (odchylka z run5 byla
+        // pomalejsi ridici takt toho behu, ne vlastnost cipu).
+        return (127 - std::clamp(hold, 0, 127)) * kHoldSecPerStepChip;
     }
 
     // ENVVOL/ENVVAL/LFO1VAL/LFO2VAL: zpozdeni, 0x8000 = bez zpozdeni,
@@ -106,16 +108,17 @@ namespace
     inline constexpr double kCutoffTopHz =
         Emu8000::kCutoffBaseHz * 30.31287;   // 2^(255*29.3843/1200) = 7717 Hz
 
-    double CutoffOctaves(double cutoffReg, double topHz = kCutoffTopHz)
+    double CutoffOctaves(double cutoffReg, double topHz = kCutoffTopHz,
+                         double baseHz = Emu8000::kCutoffBaseHz)
     {
         // kolik oktav nad zakladem lezi dana registrova hodnota
-        const double octavesTotal = std::log2(topHz / kCutoffBaseHz);
+        const double octavesTotal = std::log2(topHz / baseHz);
         return std::clamp(cutoffReg, 0.0, 255.0) / 255.0 * octavesTotal;
     }
 
-    double CutoffHz(double octavesAboveBase)
+    double CutoffHz(double octavesAboveBase, double baseHz = Emu8000::kCutoffBaseHz)
     {
-        return kCutoffBaseHz * std::pow(2.0, octavesAboveBase);
+        return baseHz * std::pow(2.0, octavesAboveBase);
     }
 
     // TREMFRQ/FM2FRQ2 bity 7..0: frekvence LFO po 0.042 Hz,
@@ -969,10 +972,15 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         // PEFE lo +-6 oktav, FMMOD lo +-3 oktavy.
         const double baseHz = m_cutoffLinear
             ? (kCutoffLinearBaseHz + initialCutoff * kCutoffLinearStepHz)
-            : CutoffHz(CutoffOctaves(initialCutoff, m_filterTopHz));
+            : CutoffHz(CutoffOctaves(initialCutoff, m_filterTopHz, m_cutoffBaseHz),
+                       m_cutoffBaseHz);
         double octaves = 0.0;
         octaves += vs.modLevel * LoSigned(pefe)  / 127.0 * kPefeFilterOctaves;
         octaves += lfo1        * LoSigned(fmmod) / 127.0 * kFmmodFilterOctaves;
+        // Posun meze s rostoucim Q (ladici, vychozi 0). Spolecny fit bloku 7
+        // a 28 z run5 dava 0,16 oktavy dolu pri Q 15 - viz SetQCutoffShift.
+        if (m_qCutoffShiftOct != 0.0)
+            octaves -= m_qCutoffShiftOct * filterQ / 15.0;
 
         double filtered;
         const double filterIn = sample * filterInputGain;
@@ -997,8 +1005,9 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             else
             {
                 const double fc = Cutoff86Hz(cidx) * std::pow(2.0, octaves);
+                // Dolni orez na mez registru 0 - viz TPT vetev nize.
                 const double w0 = std::sin(2.0 * kPi
-                                           * std::clamp(fc, 20.0, kNativeSampleRate * 0.49)
+                                           * std::clamp(fc, Cutoff86Hz(0), kNativeSampleRate * 0.49)
                                            / kNativeSampleRate);
                 const double qFactor86 = 1.0 - w0;
                 const double p = w0 + 0.8 * w0 * qFactor86;
@@ -1034,8 +1043,16 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         }
         else
         {
+            // Dolni orez je mez REGISTRU 0, ne 20 Hz. Zmereno na karte
+            // (run5 blok 28, PEFE -128..-64 na cutoffu 128): hloubsi
+            // zavreni uz uroven nemeni, plosina sedi na mez registru 0
+            // (fit 1,16 dB; s orezem 20 Hz 10,36 dB). 86Box orezava
+            // `filtercut` na rozsah registru taky. Horni orez se nemeni -
+            // na karte ho z mereni videt neni.
+            const double cutoffFloorHz = m_cutoffLinear ? kCutoffLinearBaseHz
+                                                        : m_cutoffBaseHz;
             const double cutoffHz = std::clamp(baseHz * std::pow(2.0, octaves),
-                                               20.0, kNativeSampleRate * 0.49);
+                                               cutoffFloorHz, kNativeSampleRate * 0.49);
 
             // Topology-preserving state variable filter. Chamberlinova
             // varianta se pri vyssich mezich rozkmitava (podminka f + 1/Q < 2
