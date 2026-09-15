@@ -164,6 +164,9 @@ public:
     // cutoff<<8, tedy 0xFF00, takze 86Box filtruje i pri "plne otevreno",
     // kdezto my jsme se drzeli Programmer's Guide a filtr vypinali.
     void SetFilter86Box(bool on)   { m_filter86 = on; }
+    // Chamberlin SVF (default, measured on the card - see kChamQ0). `false`
+    // selects the previous bilinear TPT, driven by --q-base and --resonance-db.
+    void SetFilterCham(bool on)    { m_filterCham = on; }
     // Krivka panoramy. `true` (vychozi) = prosta nasobicka jako v cipu:
     //   vlevo = pan/255, vpravo = (255-pan)/255
     // `false` = constant-power sin/cos, coz jsme meli driv. Uprostred
@@ -184,9 +187,13 @@ public:
     // odvozene z hardwaru (init pole jsou DSP koeficienty), takze se overuji
     // merenim proti referencnim nahravkam.
     void SetReverbRoom(float size, float damp) { m_reverb.SetRoom(size, damp); }
-    void SetReverbPreset(int p) { m_reverb.SetPreset(p); }
-    void SetChorusPreset(int p) { m_chorus.SetPreset(p); }
+    // A preset forced from outside stops following the INIT registers.
+    void SetReverbPreset(int p) { m_revFromRegs = false; m_reverb.SetPreset(p); }
+    void SetChorusPreset(int p) { m_choFromRegs = false; m_chorus.SetPreset(p); }
     void SetEffectReturns(float rev, float cho) { m_reverbReturn = rev; m_chorusReturn = cho; }
+    // Ekvalizer karty (bass/treble podle INIT3/INIT4). Vychozi zapnuty -
+    // karta ho ma zapnuty vzdy (SDK i ovladac hry: treble +7,9 dB).
+    void SetEqualizer(bool on) { m_eqOn = on; }
 
     // ---- varianta cipu ---------------------------------------------------
     // `Ours` je nase vlastni jadro (float, laditelny filtr). `Box86` posila
@@ -223,11 +230,14 @@ private:
         uint32_t address = 0;      // celociselna cast (vzorky)
         uint32_t frac = 0;         // 16bit zlomkova cast
         bool     playing = false;
+        // Envelope generator engine on (DCYSUSV bit 7 clear), tracked like
+        // 86Box env_engine_on: a note starts only on the off -> on transition.
+        bool     engineOn = false;
 
         // volume envelope
         EnvStage volStage = EnvStage::Off;
         double   volDb = 96.0;     // aktualni utlum v dB (0 = plna hlasitost)
-        double   volLin = 0.0;     // linearni zisk behem attack faze
+        double   volLin = 0.0;     // attack phase 0..1 (amplitude follows kAttackShape)
         double   stageTime = 0.0;  // sekundy stravene v aktualni fazi
 
         // modulation envelope
@@ -251,6 +261,15 @@ private:
     };
 
     void RenderNative(float* outL, float* outR, uint32_t numFrames);
+    void UpdateEqualizer();
+    // Follows the reverb/chorus preset written to INIT1..INIT4 (see
+    // Emu8000Fx::ReverbPresetFromInit). Disabled for an effect once its
+    // preset is forced from outside (SetReverbPreset / SetChorusPreset).
+    void UpdateEffectPresets();
+    bool m_revFromRegs = true;
+    bool m_choFromRegs = true;
+    int  m_revDecoded = -1;
+    int  m_choDecoded = -1;
     void RenderVoice(int v, float* outL, float* outR, float* sendRev, float* sendCho,
                      uint32_t numFrames);
     void UpdateRegistersFromState(int v);
@@ -278,11 +297,13 @@ private:
     bool   m_resonanceCurve = false;
     bool   m_cutoffLinear = false;
     bool   m_filter86     = false;
+    bool   m_filterCham   = true;
     bool   m_panLinear    = true;
     bool   m_loopWrap     = true;
     int    m_filterPoles = 2;
     float m_reverbReturn = 1.0f;
     float m_chorusReturn = 0.7f;
+    bool  m_eqOn = true;
     uint16_t m_basePort = 0x220;
     uint16_t m_pointer = 0;      // posledni zapis do pointer registru
     Awe32::Driver m_driver = Awe32::kDefaultDriver;
@@ -319,6 +340,7 @@ private:
     // (viz signalovy diagram v Programmer's Guide), takze jsou monofonni.
     Emu8000Fx::Chorus m_chorus;
     Emu8000Fx::Reverb m_reverb;
+    Emu8000Fx::Equalizer m_eq;
     std::vector<float> m_sendReverb, m_sendChorus;
 
     // resampling na vystupni frekvenci

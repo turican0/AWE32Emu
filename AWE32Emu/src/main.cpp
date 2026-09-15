@@ -70,7 +70,7 @@ namespace
             "  --master-volume N   Hlavni hlasitost sekvenceru AIL 0..127 (vychozi 127)\n"
             "  --sbk <soubor>@<N>  Nacte banku do MIDI banky N (vyber pres CC0);\n"
             "                      uzivatelske banky maji v phdr banku 0\n"
-            "  --only-ch <maska>   Prehraje jen vybrane MIDI kanaly\n"
+            "  --tracks 1,2,3      Jen tyto MIDI kanaly (1..16); --tracks -8,-9 = vsechny krome\n"
             "  --interp linear|cubic|3point|3pointc|sinc   Interpolace (vychozi sinc)\n"
             "  --reverb 0..7  --chorus 0..7   Preset efektu\n"
             "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n"
@@ -85,9 +85,11 @@ namespace
             "  --hold-scale <x>  --decay-scale <x>  --attack-scale <x>\n"
             "                      Meritka casovych konstant obalky (vychozi 1)\n"
             "  --cutoff-map exp|lin  Prevod registru na mez filtru (lin = 100+31,25*reg Hz)\n"
-            "  --filter-mode tpt|86box  Podoba filtru (86box = presne jako snd_emu8k.c)\n"
+            "  --filter-mode cham|tpt|86box  Podoba filtru (vychozi cham = Chamberlin zmereny\n"
+            "                      na karte; tpt = drivejsi bilinearni; 86box = jako snd_emu8k.c)\n"
             "  --pan linear|power  Krivka panoramy (linear = nasobicka jako v cipu)\n"
             "  --loop-wrap on|off  Zalamovat vzorky interpolace do smycky (vychozi on)\n"
+            "  --eq on|off         Ekvalizer karty podle INIT3/INIT4 (vychozi on; jen nase jadro)\n"
             "  --export-sf2 <soubor>  Zapise nactene banky (vcetne ROM) jako jeden .sf2\n"
             "  --filter-poles 1|2|4  Strmost filtru 6/12/24 dB na oktavu (vychozi 2)\n\n"
             "Banky lze zadat vicekrat a vrstvi se - pozdejsi prebiji drivejsi.\n"
@@ -245,6 +247,7 @@ int main(int argc, char** argv)
     std::string filterMode;
     std::string panMode;
     std::string loopWrap;
+    std::string eqMode;
     std::string exportSf2;
     double filterAtten = 1.0;
     double resonanceDb = -1.0;
@@ -293,19 +296,25 @@ int main(int argc, char** argv)
             auto [p2, b2] = splitBank(argv[++i]);
             bankPaths.push_back({p2, true, b2});
         }
-        else if (arg == "--only-ch" && i + 1 < argc)
+        else if (arg == "--tracks" && i + 1 < argc)
         {
-            channelMask = 0;
+            // MIDI channels 1..16. Positive numbers form a white list
+            // ("--tracks 1,2,3" plays only these), negative numbers a black
+            // list ("--tracks -8,-9" plays everything except these). When both
+            // are given, the white list is applied first.
+            uint16_t allow = 0, deny = 0;
             std::string list = argv[++i];
             size_t pos = 0;
             while (pos < list.size())
             {
                 size_t comma = list.find(',', pos);
                 if (comma == std::string::npos) comma = list.size();
-                const int ch = std::atoi(list.substr(pos, comma - pos).c_str());
-                if (ch >= 0 && ch < 16) channelMask |= static_cast<uint16_t>(1u << ch);
+                const int n = std::atoi(list.substr(pos, comma - pos).c_str());
+                if (n >= 1 && n <= 16)   allow |= static_cast<uint16_t>(1u << (n - 1));
+                if (n <= -1 && n >= -16) deny  |= static_cast<uint16_t>(1u << (-n - 1));
                 pos = comma + 1;
             }
+            channelMask = static_cast<uint16_t>((allow ? allow : 0xFFFFu) & ~deny);
         }
         else if (arg == "--reverb" && i + 1 < argc)      { revPreset = std::atoi(argv[++i]); }
         else if (arg == "--chorus" && i + 1 < argc)      { choPreset = std::atoi(argv[++i]); }
@@ -367,6 +376,10 @@ int main(int argc, char** argv)
         else if (arg == "--loop-wrap" && i + 1 < argc)
         {
             loopWrap = argv[++i];
+        }
+        else if (arg == "--eq" && i + 1 < argc)
+        {
+            eqMode = argv[++i];
         }
         else if (arg == "--pan" && i + 1 < argc)
         {
@@ -631,12 +644,15 @@ int main(int argc, char** argv)
         std::cerr << "--sinc-taps musi byt sude cislo 4 az 32.\n";
         return 1;
     }
+    if (eqMode == "off")         synth.Core().SetEqualizer(false);
+    else if (eqMode == "on")     synth.Core().SetEqualizer(true);
     if (loopWrap == "off")       synth.Core().SetLoopWrap(false);
     else if (loopWrap == "on")   synth.Core().SetLoopWrap(true);
     if (panMode == "power")      synth.Core().SetPanLinear(false);
     else if (panMode == "linear") synth.Core().SetPanLinear(true);
     if (filterMode == "86box")   synth.Core().SetFilter86Box(true);
-    else if (filterMode == "tpt") synth.Core().SetFilter86Box(false);
+    else if (filterMode == "tpt") { synth.Core().SetFilter86Box(false); synth.Core().SetFilterCham(false); }
+    else if (filterMode == "cham") { synth.Core().SetFilter86Box(false); synth.Core().SetFilterCham(true); }
     if (cutoffMap == "lin")      synth.Core().SetCutoffLinear(true);
     else if (cutoffMap == "exp") synth.Core().SetCutoffLinear(false);
     if (filterPoles > 0)  synth.Core().SetFilterPoles(filterPoles);
