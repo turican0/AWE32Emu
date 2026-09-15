@@ -54,6 +54,10 @@ public:
 
     void Write(Emu8000::Reg r, int voice, uint32_t value);
     uint32_t Read(Emu8000::Reg r, int voice) const;
+    // Read the way a driver does it: pointer write, then the data port(s)
+    // through PortIn16. With the 86Box chip the value comes from the chip
+    // itself (current volume target, playback address, ...).
+    uint32_t ReadDriver(Emu8000::Reg r, int voice);
 
     // Inicializacni sekvence prevzata z AWEUTIL.COM (sub_12B40 a jeho
     // podrutiny), vcetne poli INIT1..INIT4 (Awe32InitArrays.h). Nase jadro
@@ -201,6 +205,9 @@ public:
     // odtamtud - viz Emu8000Box.h. Nase jadro pri tom bezi dal naprazdno,
     // aby zustala stejna evidence hlasu, a tim i identicky proud registru.
     enum class Chip { Ours, Box86 };
+    // Onboard DRAM of the 86Box chip in KB (86Box `onboard_ram`); set before
+    // UseBox86Chip. The card of the tester has 8 MB, the DOS VM had 512 KB.
+    void SetChipRamKb(int kb) { m_chipRamKb = kb; }
     bool UseBox86Chip(const std::string& romPath, std::string& err);
     Chip ChipVariant() const { return m_chip; }
     // O kolik snimku je vystup cipu pozadu (u Box86 jeden blok).
@@ -261,6 +268,7 @@ private:
     };
 
     void RenderNative(float* outL, float* outR, uint32_t numFrames);
+    uint16_t PortIn16Raw(uint16_t port);
     void UpdateEqualizer();
     // Follows the reverb/chorus preset written to INIT1..INIT4 (see
     // Emu8000Fx::ReverbPresetFromInit). Disabled for an effect once its
@@ -310,6 +318,7 @@ private:
 
     Chip m_chip = Chip::Ours;
     Emu8000Box m_box;
+    int  m_chipRamKb = 8192;
 
     RegFile m_regs{};
     std::array<VoiceState, kMaxVoices> m_voices{};

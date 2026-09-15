@@ -601,6 +601,8 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     //   SBAWE.VXD   obj 1, 0x6D60 (tataz tabulka, stejne hodnoty)
     // Poznat to jde na bance Magic Carpet 2: presety LOOP2 a LOOP3 zadny
     // sampleModes nemaji a ovladac jim opravdu smycku pokladá az za vzorek.
+    vp.sampleEndAddr = (sf1 && inRom) ? s.end : (base + s.end);
+    vp.loopEndAddr   = loopEnd;
     const int sampleModes = g.Get(Gen::SampleModes, 0);
     vp.looping = (sampleModes & 1) != 0;
     if (!vp.looping)
