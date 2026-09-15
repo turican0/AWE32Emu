@@ -183,6 +183,7 @@ Emu8000Core::Emu8000Core(uint32_t outputSampleRate)
     m_chorus.Init(kNativeSampleRate, Emu8000Fx::kChorusDefault);
     m_reverb.Init(kNativeSampleRate);
     m_reverb.SetPreset(Emu8000Fx::kReverbDefault);
+    m_eq.Init(kNativeSampleRate);
     PowerOnInit();
 }
 
@@ -266,7 +267,51 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
 
     const int reg   = (m_pointer >> 5) & 7;
     const int voice = m_pointer & 0x1F;
+    // 86Box ignores an IFATN write with zero attenuation to a silent voice
+    // whose DCYSUSV is 0x0080 and IP is 0 (its patch against clicks from
+    // trackers that zero the registers to stop a note). Kept 1:1.
+    if (p == Port::Data3 && reg == 1 && (value & 0xFF) == 0 && !m_voices[voice].playing
+        && RegVal(Port::Data1, 5, voice) == kDcysusvOff && RegVal(Port::Data3, 0, voice) == 0)
+        return;
+
     RegRef(p, reg, voice) = value;
+
+    // A CCCA write sets the playback address immediately, as in 86Box
+    // (emu8k_outw, Data1/Data2 register 0: addr.int_address = ccca & mask).
+    // Before this the address was only taken at note-on, while
+    // UpdateRegistersFromState wrote the voice's stale position back into
+    // CCCA after every rendered block - so an address written a few frames
+    // before the note-on (normal in a register replay) was lost and the note
+    // started wherever the voice had stopped (AWETST25 block 33: the noise
+    // note played ROM from the previous sine's loop).
+    if (reg == 0 && (p == Port::Data1 || p == Port::Data1Hi))
+        m_voices[voice].address = Read(Reg::CCCA, voice) & kCccaAddressMask;
+
+    // Sample memory upload. SMALW / SMARW (register 1, voices 22 / 23; low
+    // word on Data1, address bits 23..16 on Data1Hi) hold the write address;
+    // every write to SMLD (Data1) or SMRD (Data1Hi) of register 1, voice 26
+    // stores one sample there and advances that address. Without this a
+    // register replay of a program that uploads its own samples played
+    // silence (AWETST25 block 27, BULLFROG.SBK: presets 0, 3, 4 silent in our
+    // render, audible on the card and in the 86Box core). Writes below the
+    // DRAM start (the ROM) are ignored, as on the chip.
+    if (reg == 1 && voice == Hwcf::kSMLD && (p == Port::Data1 || p == Port::Data1Hi))
+    {
+        static constexpr size_t kDramMaxWords = 0x1000000u - kDramOffset;
+        const int ptr = (p == Port::Data1) ? Hwcf::kSMALW : Hwcf::kSMARW;
+        const uint16_t hi = RegVal(Port::Data1Hi, 1, ptr);
+        uint32_t addr = RegVal(Port::Data1, 1, ptr) | (static_cast<uint32_t>(hi & 0xFF) << 16);
+        if (addr >= kDramOffset && addr - kDramOffset < kDramMaxWords)
+        {
+            const size_t idx = addr - kDramOffset;
+            if (idx >= m_dram.size())
+                m_dram.resize(std::min(kDramMaxWords, std::max(idx + 1, m_dram.size() * 2 + 65536)), 0);
+            m_dram[idx] = static_cast<int16_t>(value);
+        }
+        addr = (addr + 1) & 0xFFFFFFu;
+        RegRef(Port::Data1, 1, ptr)   = static_cast<uint16_t>(addr & 0xFFFF);
+        RegRef(Port::Data1Hi, 1, ptr) = static_cast<uint16_t>((hi & 0xFF00) | (addr >> 16));
+    }
 
     // Zapis IP prepocita cilovou vysku v horni pulce PTRX. Dela to **cip**,
     // ne ovladac - `SBAWE32.MDI` si ji odtud jen precte a necha (viz
@@ -287,41 +332,61 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
     // Zapis DCYSUSV je podle ovladacu ten, ktery spousti envelope engine
     // ("decay/sustain parameter must be set at last"), takze na nej
     // reagujeme zmenou stavu hlasu.
+    // Register side effects on the voice follow 86Box emu8k_outw 1:1:
+    //   DCYSUSV (Data1 reg 5): engine on = bit 7 clear. Only the off -> on
+    //     transition starts a note: LFOs reset, the volume envelope restarts
+    //     when ATKHLDV bit 15 is clear, the mod envelope when ATKHLD bit 15
+    //     is clear. A write to a voice that is already on only changes
+    //     sustain/decay. Bit 15 = release (applied after a possible start).
+    //   ATKHLDV (Data1Hi reg 4) / ATKHLD (Data1Hi reg 6) with bit 15 clear on
+    //     a voice whose engine is on: restart that envelope (ATKHLDV also
+    //     resets the LFOs).
+    //   DCYSUS (Data1 reg 7) bit 15: release of the mod envelope.
+    // The sample address comes from the CCCA write (see above); the envelope
+    // and filter DSP itself stays our measured model.
+    auto& vs = m_voices[voice];
+    const auto restartVolEnv = [&]()
+    {
+        vs.volStage  = EnvStage::Delay;
+        vs.volDb     = kFullScaleDb;
+        vs.volLin    = 0.0;
+        vs.stageTime = 0.0;
+    };
+    const auto restartModEnv = [&]()
+    {
+        vs.modStage     = EnvStage::Delay;
+        vs.modLevel     = 0.0;
+        vs.modStageTime = 0.0;
+    };
+    const auto resetLfos = [&]()
+    {
+        vs.lfo1Phase = 0.0;
+        vs.lfo2Phase = 0.0;
+        vs.lfo1Delay = DelaySeconds(RegVal(Port::Data1Hi, 5, voice));
+        vs.lfo2Delay = DelaySeconds(RegVal(Port::Data1Hi, 7, voice));
+    };
+
     if (p == Port::Data1 && reg == 5)
     {
-        auto& vs = m_voices[voice];
-        if (value & kDcysusvOff)
+        const bool wasOn = vs.engineOn;
+        vs.engineOn = (value & kDcysusvOff) == 0;
+        if (!vs.engineOn)
         {
             vs.volStage = EnvStage::Off;
             vs.modStage = EnvStage::Off;
             vs.playing = false;
         }
-        else if (value & kDcysusvRelease)
-        {
-            if (vs.volStage != EnvStage::Off)
-                vs.volStage = EnvStage::Release;
-            if (vs.modStage != EnvStage::Off)
-                vs.modStage = EnvStage::Release;
-            vs.stageTime = 0.0;
-            vs.modStageTime = 0.0;
-        }
-        else
+        else if (!wasOn)
         {
             // start noty
             vs.address   = Read(Reg::CCCA, voice) & kCccaAddressMask;
             vs.frac      = 0;
             vs.playing   = true;
-            vs.volStage  = EnvStage::Delay;
-            vs.volDb     = kFullScaleDb;
-            vs.volLin    = 0.0;
-            vs.stageTime = 0.0;
-            vs.modStage  = EnvStage::Delay;
-            vs.modLevel  = 0.0;
-            vs.modStageTime = 0.0;
-            vs.lfo1Phase = 0.0;
-            vs.lfo2Phase = 0.0;
-            vs.lfo1Delay = DelaySeconds(RegVal(Port::Data1Hi, 5, voice));
-            vs.lfo2Delay = DelaySeconds(RegVal(Port::Data1Hi, 7, voice));
+            resetLfos();
+            if (!(RegVal(Port::Data1Hi, 4, voice) & 0x8000))
+                restartVolEnv();
+            if (!(RegVal(Port::Data1Hi, 6, voice) & 0x8000))
+                restartModEnv();
             // Vsech pet stavovych promennych filtru, ne jen prvni dve.
             // Hlasy se recykluji: kdyby v druhem stupni (--filter-poles 4)
             // nebo v jednopolove vetvi zustala energie z predchozi noty,
@@ -334,6 +399,30 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
             vs.filtLp1   = 0.0;
             vs.filtIc5   = 0.0;
         }
+        if (vs.engineOn && (value & kDcysusvRelease))
+        {
+            if (vs.volStage != EnvStage::Off)
+                vs.volStage = EnvStage::Release;
+            if (vs.modStage != EnvStage::Off)
+                vs.modStage = EnvStage::Release;
+            vs.stageTime = 0.0;
+            vs.modStageTime = 0.0;
+        }
+    }
+    else if (p == Port::Data1Hi && reg == 4 && !(value & 0x8000) && vs.engineOn)
+    {
+        resetLfos();
+        restartVolEnv();
+    }
+    else if (p == Port::Data1Hi && reg == 6 && !(value & 0x8000) && vs.engineOn)
+    {
+        restartModEnv();
+    }
+    else if (p == Port::Data1 && reg == 7 && (value & 0x8000) && vs.engineOn)
+    {
+        if (vs.modStage != EnvStage::Off)
+            vs.modStage = EnvStage::Release;
+        vs.modStageTime = 0.0;
     }
 }
 
@@ -759,7 +848,25 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             // definuje i SoundFont a odpovida to chovani EMU8000.
             if (volAttack > 0.0) vs.volLin += dt / volAttack;
             if (vs.volLin >= 1.0) { vs.volLin = 1.0; vs.stageTime = 0.0; vs.volStage = EnvStage::Hold; }
-            vs.volDb = (vs.volLin > 0.0) ? -20.0 * std::log10(vs.volLin) : kFullScaleDb;
+            {
+                // volLin is the attack PHASE (0..1 of the attack time). The
+                // amplitude follows the shape measured on the tester's card
+                // (AWETST25 block 8, rates 0x04..0x24, internal capture and
+                // line-out agree within 0.05): silent up to ~0.1 T, roughly
+                // linear to ~0.75 at 0.8 T, faster to 1.0 at 1.0 T. Values
+                // are amplitude / level at 1.0 T, one point per 0.05 T. The
+                // small overshoot after the attack (+3..6 % up to ~1.2 T)
+                // is not modelled.
+                static constexpr double kAttackShape[21] = {
+                    0.000, 0.000, 0.005, 0.058, 0.116, 0.203, 0.280, 0.326,
+                    0.372, 0.433, 0.493, 0.537, 0.580, 0.621, 0.662, 0.703,
+                    0.744, 0.807, 0.899, 0.947, 1.000 };
+                const double pos = std::clamp(vs.volLin, 0.0, 1.0) * 20.0;
+                const int idx = std::min(static_cast<int>(pos), 19);
+                const double amp = kAttackShape[idx]
+                                 + (kAttackShape[idx + 1] - kAttackShape[idx]) * (pos - idx);
+                vs.volDb = (amp > 0.0) ? -20.0 * std::log10(amp) : kFullScaleDb;
+            }
             break;
         case EnvStage::Hold:
             vs.volDb = 0.0;
@@ -814,7 +921,20 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             if ((vs.modStageTime += dt) >= modDelay) { vs.modStageTime = 0.0; vs.modStage = EnvStage::Attack; }
             break;
         case EnvStage::Attack:
-            if (modAttack > 0.0) vs.modLevel += dt / modAttack;
+            if (modAttack > 0.0)
+            {
+                // The card's mod envelope attack is strongly convex (AWETST25
+                // block 30: noise through the filter, PEFE 0x7F, cutoff 64,
+                // rates 0x10..0x3C). The level read back from the brightness
+                // is ~0.45 at 0.05 T and ~0.76 at 0.1 T for every rate (above
+                // ~0.7 the measurement saturates); a linear ramp gives 0.05
+                // and 0.1. Modelled as 1 - (1 - t/T)^13.5. modStageTime is
+                // zero on entering the stage and serves as the attack phase.
+                static constexpr double kModAttackExp = 13.5;
+                vs.modStageTime += dt;
+                const double x = std::min(vs.modStageTime / modAttack, 1.0);
+                vs.modLevel = 1.0 - std::pow(1.0 - x, kModAttackExp);
+            }
             if (vs.modLevel >= 1.0) { vs.modLevel = 1.0; vs.modStageTime = 0.0; vs.modStage = EnvStage::Hold; }
             break;
         case EnvStage::Hold:
@@ -1041,6 +1161,25 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
             // cutoff to 0xFF, the filter does not alter the signal." [PG]
             filtered = sample;   // Q=0 a plne otevreno: beze zmeny
         }
+        else if (m_filterCham)
+        {
+            // Chamberlin SVF (Dattorro form): L += F*B; H = in - L - q*B; B += F*H.
+            // Cutoff comes from our map with the same lower clamp (register 0)
+            // as the TPT branch below. F is capped at 1 (fc = fs/6): the fit of
+            // the card sits there too, and with this damping the filter is
+            // nearly flat across the band at F = 1 - which is why the card
+            // barely filters at the highest cutoffs.
+            const double cutoffFloorHz = m_cutoffLinear ? kCutoffLinearBaseHz
+                                                        : m_cutoffBaseHz;
+            const double cutoffHz = std::clamp(baseHz * std::pow(2.0, octaves),
+                                               cutoffFloorHz, kNativeSampleRate / 6.0);
+            const double F = 2.0 * std::sin(kPi * cutoffHz / kNativeSampleRate);
+            const double qd = 1.0 / (kChamQ0 * std::pow(10.0, filterQ * kChamDbPerQ / 20.0));
+            vs.filtIc1 += F * vs.filtIc2;                         // low-pass state
+            const double hp = filterIn - vs.filtIc1 - qd * vs.filtIc2;
+            vs.filtIc2 += F * hp;                                 // band-pass state
+            filtered = vs.filtIc1;
+        }
         else
         {
             // Dolni orez je mez REGISTRU 0, ne 20 Hz. Zmereno na karte
@@ -1113,11 +1252,11 @@ void Emu8000Core::RenderVoice(int v, float* outL, float* outR,
         }
 
         // ---- hlasitost --------------------------------------------------
-        // Tremolo: TREMFRQ bity 15..8. Rozkmit je 12 dB celkem pri
-        // plne hloubce, tj. +-6 - zmereno na skutecne karte, viz
-        // kTremoloMaxDb. Programmer's Guide to pise jako "+-12 dB".
+        // Tremolo: TREMFRQ bity 15..8. Jen utlum, a jen v pulperiode, kde
+        // lfo * hloubka < 0 - viz kTremoloChipMaxDb (drive +-6 dB kolem nuly,
+        // coz v druhe pulperiode zesilovalo).
         double db = vs.volDb + initialAtten;
-        db -= lfo1 * HiSigned(tremfrq) * (kTremoloMaxDb / 127.0);
+        db += std::max(0.0, -lfo1 * HiSigned(tremfrq)) * (kTremoloChipMaxDb / 127.0);
         const double gain = DbToLinear(db);
 
         const float out = static_cast<float>(filtered * gain);
@@ -1182,6 +1321,9 @@ void Emu8000Core::RenderNative(float* outL, float* outR, uint32_t numFrames)
     const float kReverbReturn = m_reverbReturn;
     const float kChorusReturn = m_chorusReturn;
 
+    // The effect presets follow the INIT words the driver wrote.
+    UpdateEffectPresets();
+
     for (uint32_t i = 0; i < numFrames; ++i)
     {
         float cl, cr;
@@ -1198,8 +1340,57 @@ void Emu8000Core::RenderNative(float* outL, float* outR, uint32_t numFrames)
         outR[i] += rr * kReverbReturn;
     }
 
+    // Ekvalizer je az za efekty, na celem vystupu cipu (Programmer's Guide:
+    // bass/treble na vystupu DSP). Poloha se bere z registru INIT3/INIT4,
+    // takze sedi i na jiny ovladac nebo hru, ktera EQ prestavi.
+    if (m_eqOn)
+    {
+        UpdateEqualizer();
+        for (uint32_t i = 0; i < numFrames; ++i)
+            m_eq.Process(outL[i], outR[i]);
+    }
+
     m_waveCounter += numFrames;
     m_traceFrames += numFrames;
+}
+
+void Emu8000Core::UpdateEqualizer()
+{
+    // Poradi slotu jako snd_emu8000_update_equalizer (alsa_emu8000_init.c):
+    // INIT4 0x01, 0x11 (bass), INIT3 0x11, 0x13, 0x1B, INIT4 0x07, 0x0B, 0x0D,
+    // 0x17, 0x19 (treble).
+    const uint16_t v[10] = {
+        RegVal(Port::Data1Hi, 3, 0x01), RegVal(Port::Data1Hi, 3, 0x11),
+        RegVal(Port::Data1,   3, 0x11), RegVal(Port::Data1,   3, 0x13),
+        RegVal(Port::Data1,   3, 0x1B), RegVal(Port::Data1Hi, 3, 0x07),
+        RegVal(Port::Data1Hi, 3, 0x0B), RegVal(Port::Data1Hi, 3, 0x0D),
+        RegVal(Port::Data1Hi, 3, 0x17), RegVal(Port::Data1Hi, 3, 0x19),
+    };
+    int bass = m_eq.Bass(), treble = m_eq.Treble();
+    Emu8000Fx::EqIndexFromInit(v, bass, treble);
+    m_eq.Set(bass, treble);
+}
+
+void Emu8000Core::UpdateEffectPresets()
+{
+    // INIT1/INIT2 are register 2, INIT3/INIT4 register 3; the odd ones are
+    // written through Data1, the even ones through Data2 (Data1Hi here).
+    const auto init = [this](int n, int slot) {
+        return RegVal((n % 2) ? Port::Data1 : Port::Data1Hi, (n <= 2) ? 2 : 3, slot);
+    };
+    if (m_revFromRegs)
+    {
+        uint16_t v[28];
+        for (int i = 0; i < 28; ++i)
+            v[i] = init(Emu8000Fx::kReverbSlots[i].init, Emu8000Fx::kReverbSlots[i].slot);
+        const int p = Emu8000Fx::ReverbPresetFromInit(v);
+        if (p >= 0 && p != m_revDecoded) { m_revDecoded = p; m_reverb.SetPreset(p); }
+    }
+    if (m_choFromRegs)
+    {
+        const int p = Emu8000Fx::ChorusPresetFromInit(init(3, 0x09), init(3, 0x0C), init(4, 0x03));
+        if (p >= 0 && p != m_choDecoded) { m_choDecoded = p; m_chorus.SetPreset(p); }
+    }
 }
 
 bool Emu8000Core::UseBox86Chip(const std::string& romPath, std::string& err)

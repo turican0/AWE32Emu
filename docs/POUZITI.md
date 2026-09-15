@@ -88,7 +88,9 @@ AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK
 AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --wav ven.wav
 
 # jen vybrané MIDI kanály — nejrychlejší způsob, jak najít, který nástroj zlobí
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --only-ch 1 --wav ch1.wav
+# kanály 1..16; kladná čísla = jen tyto, záporná = všechny kromě těchto
+AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --tracks 1 --wav ch1.wav
+AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --tracks -8,-9 --wav bez8a9.wav
 ```
 
 ---

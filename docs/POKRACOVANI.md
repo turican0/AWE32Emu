@@ -40,7 +40,7 @@ Doporucene spusteni (autenticka GM banka + banka skladby):
 
 Prepinace: `--rom`, `--rombank`, `--sbk` (vicekrat, vrstvi se), `--wav`,
 `--interp linear|cubic`, `--reverb 0..7`, `--chorus 0..7`, `--rev-room`,
-`--rev-damp`, `--rev-return`, `--cho-return`, `--only-ch`, `--debug-voices`,
+`--rev-damp`, `--rev-return`, `--cho-return`, `--tracks 1,2 | -8,-9`, `--debug-voices`,
 `--trace <soubor>` (zaznam portovych zapisu pro `ref86box`),
 `--master-volume 0..127` (hlavni hlasitost sekvenceru AIL, viz sekce 16.5),
 `--driver dos|win95` (varianta ovladace Creative, viz `src/Awe32Driver.h`

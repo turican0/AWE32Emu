@@ -101,6 +101,20 @@ bool Synth::LoadWaveRom(const std::string& path, std::string& error)
     std::vector<int16_t> rom(raw.size() / 2);
     std::memcpy(rom.data(), raw.data(), rom.size() * 2);
 
+    // The widespread awe32.raw carries one extra word (0x1234) in front of
+    // the ROM. A dump taken from a real AWE32 card with AWEDUMP (2026-09-14,
+    // AWE32EmuData/rom/awe32rom.bin) starts with 0x0032 and equals awe32.raw
+    // shifted by exactly one word (0 differing words out of 524 287).
+    // Detect the extra word the same way 86Box does (emu8k_init: "1M" "GM"
+    // at words 3 and 4 instead of 2 and 3) and drop it, so address A reads
+    // the same word as on the card.
+    if (rom.size() > 4 && static_cast<uint16_t>(rom[3]) == 0x314D
+                       && static_cast<uint16_t>(rom[4]) == 0x474D)
+    {
+        rom.erase(rom.begin());
+        rom.push_back(0);
+    }
+
     m_core.LoadWaveRom(std::move(rom));
     return true;
 }
@@ -141,6 +155,55 @@ bool Synth::LoadBank(const std::string& path, std::string& error, bool samplesIn
         }
         std::memcpy(m_core.DramData() + offset, bank.sampleData.data(),
                     bank.sampleData.size() * sizeof(int16_t));
+
+        // The words the driver reserves in front of the first bank are zero
+        // on the card (uploads in dos_mdi.trace / bank_synth02s.trace). Our
+        // fallback sine used to sit there, and SF1 addresses may point into
+        // the reserve: in the MC2 intro every ch2 note starts at 0x200004 and
+        // played 46 words of that full-scale sine before its sample. The
+        // fallback waveform is only needed when no bank is loaded at all.
+        const size_t reserveWords =
+            (m_core.DriverVariant() == Awe32::Driver::Dos) ? kDramReserveDos : kDramReserveWin95;
+        if (offset == reserveWords)
+            std::fill(m_core.DramData(), m_core.DramData() + offset, int16_t{0});
+
+        // The Creative drivers do not upload SoundFont 1.0 samples as stored.
+        // Every own sample is filtered on the way to the card:
+        //   y[n] = clip16(floor((6*x[n] - x[n-1] - x[n+1]) / d))
+        // d = 4 for the DOS driver (SBAWE32.MDI), d = 8 for the Win95 driver;
+        // the zero padding between samples stays zero. It is a pre-emphasis
+        // (unity at DC, +6 dB at Nyquist) - the ROM samples already carry it.
+        // Measured on the uploads of the real drivers in 86Box traces:
+        //   dos_mdi.trace (Magic Carpet 2, BULLFROG.SBK): bit exact over
+        //     [start, end) of every own sample
+        //   bank_synth02s.trace (Win95, SYNTH02S.SBK): same kernel with d = 8,
+        //     applied over [start, end - 3) - word end - 3 stays as stored
+        // Without it every DRAM sound was duller than on the card; the MC2
+        // intro sounded wrong everywhere except the belltree from ROM.
+        if (bank.version == SoundFont::Version::Sf1)
+        {
+            const bool dos = (m_core.DriverVariant() == Awe32::Driver::Dos);
+            const int shift = dos ? 2 : 3;
+            const int32_t round = (1 << shift) - 1;
+            const int16_t* src = bank.sampleData.data();
+            const size_t count = bank.sampleData.size();
+            int16_t* dst = m_core.DramData() + offset;
+            for (const SoundFont::Sample& s : bank.samples)
+            {
+                if (s.inRom || s.end <= s.start) continue;
+                const size_t endExcl = dos ? s.end : ((s.end >= s.start + 3) ? s.end - 3 : s.start);
+                const size_t first = std::min<size_t>(s.start, count);
+                const size_t last  = std::min<size_t>(endExcl, count);
+                for (size_t i = first; i < last; ++i)
+                {
+                    const int32_t xm = (i > 0) ? src[i - 1] : 0;
+                    const int32_t xp = (i + 1 < count) ? src[i + 1] : 0;
+                    const int32_t num = 6 * static_cast<int32_t>(src[i]) - xm - xp;
+                    const int32_t y = (num >= 0) ? (num >> shift) : -((-num + round) >> shift);
+                    dst[i] = static_cast<int16_t>(std::clamp(y, -32768, 32767));
+                }
+            }
+        }
         m_nextDramBase += static_cast<uint32_t>(bank.sampleData.size() + 8);
     }
 

@@ -147,6 +147,20 @@ namespace Emu8000
     inline constexpr uint32_t kCccaDmaWrite    = 0x02000000u;
     inline constexpr uint32_t kCccaDmaRight    = 0x01000000u;
     inline constexpr int      kCccaQMax        = 15;
+    // The chip filter is a CHAMBERLIN state-variable filter running at
+    // 44.1 kHz. Measured on the tester's card (AWETST25, blocks 6 and 7,
+    // 157 notes). Each note's response is taken relative to the same noise at
+    // cutoff 255, so the capture path, the EQ and the ROM noise spectrum all
+    // cancel. Global fit over all notes at once (rms residual):
+    //   Chamberlin 44.1 kHz  0.80 dB  <- with our cutoff map (101.81 Hz, 29.38 c)
+    //   Chamberlin 88.2 kHz  1.20 dB
+    //   analog 2-pole        1.48 dB
+    //   bilinear TPT         2.78 dB  (previous core)
+    // Chamberlin has no zero at Nyquist (the card attenuates less in the
+    // stopband), and at high cutoffs with low Q its tuning drifts upwards -
+    // exactly what the card does. Q = kChamQ0 * 10^(Q_register * kChamDbPerQ / 20).
+    inline constexpr double   kChamQ0          = 0.931;
+    inline constexpr double   kChamDbPerQ      = 1.175;   // Q15 = 17.6 dB
     // Utlum filtru podle Q. Rezonancni filtr EMU8000 si zvedanim Q zaroven
     // ubira na vstupu - dokumentace k NRPN uvadi, ze utlum je zhruba polovina
     // Q v dB (pro Q 12 dB tedy -6 dB). Tabulka je v amplitude, meritko 65536.
@@ -220,7 +234,13 @@ namespace Emu8000
     // attack i ENVVOL vraci k [PG]. Stara nahravka ver3 dala LFO1 i ENVVOL
     // shodne s [PG] na 0,1 %. Hold +11,7 % je tedy vlastnost behu run5
     // (karta nebo inicializace AWETESTu v05), ne cipu - zustava 92 ms.
-    inline constexpr double   kHoldSecPerStepChip = 0.092;
+    //
+    // AWETST25 u testera (2026-09-12, takt nominalni: LFO1 0,9955x, ENVVOL
+    // 1,007x): regrese konce holdu pres 28 kroku (0x7D..0x61) dava 93,1 ms
+    // na krok se zbytkem pod 1 ms. To je 4096 vzorku (92,88 ms) - tolik ma
+    // i 86Box - a ne 92 ms z Programmer's Guide. Prevod banky dal pouziva
+    // 92 (idiv -92 v ovladaci), cip meri 4096 vzorku.
+    inline constexpr double   kHoldSecPerStepChip = 4096.0 / 44100.0;
 
     // IFATN [PG]: bity 15-8 = pocatecni mezni kmitocet filtru po ctvrt
     // pultonu od 125 Hz, bity 7-0 = utlum po 0.375 dB (0xFF = 96 dB).
@@ -273,6 +293,13 @@ namespace Emu8000
     // 6 dB pri plne hloubce. "+-12 dB" v Programmer's Guide znamena
     // 12 dB CELKEM, ne +-12 - drzeli jsme dvojnasobek.
     inline constexpr double kTremoloMaxDb      = 6.0;   // TREMFRQ hi: LFO1 tremolo
+    // Tremolo na CIPU (AWETST25 u testera, blok 17 a sonda v bloku 1, Hilbert
+    // i obalka po 4 ms): karta jen TLUMI. V pulperiode LFO, kde je
+    // lfo * hloubka zaporne, klesa k -10,3 dB pri hloubce 112 (tj. ~12 dB pri
+    // 127) a zpet; ve druhe pulperiode drzi 0 dB. Znamenko hloubky jen
+    // prohodi, ktera pulperioda to je. kTremoloMaxDb vyse zustava pro prevod
+    // SF2 -> registr, ten je overeny proti ovladaci.
+    inline constexpr double kTremoloChipMaxDb  = 12.0;
     inline constexpr double kFm2PitchOctaves   = 1.0;   // FM2FRQ2 hi: LFO2 vibrato
     inline constexpr double kLfoHzPerStep      = 0.042; // 0xFF = 10.72 Hz
 

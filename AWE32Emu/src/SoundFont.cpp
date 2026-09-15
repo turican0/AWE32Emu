@@ -288,6 +288,24 @@ Bank Load(const std::string& path)
         const Chunk* snam = need("snam");
         const uint32_t count = shdr->size / 16;
         bank.samples.reserve(count);
+
+        // Ktere vzorky lezi ve wave ROM. SF1 hlavicka vzorku zadny priznak
+        // nema. Hvezdicka ve jmenu (`*BellTree`) je jen zvyk bank ulozenych
+        // pres SFSTORE.DLL (BULLFROG.SBK) - Creative sve banky tak neznaci:
+        // SYNTHGS.SBK a SYNTHMT.SBK maji na zacatku 153 vzorku ROM bez
+        // hvezdicky (presne tabulka ROM ze SYNTHGM.SBK, adresy start i smycek
+        // sedi) a 71 z nich ma adresu mensi nez delka `smpl`, takze se nedaji
+        // poznat ani podle adresy. Drive se proto hraly z DRAM na nesmyslnych
+        // adresach.
+        //
+        // Plati ale stavba: vzorky ROM jsou vzdy na zacatku a vlastni vzorky
+        // banky za nimi zacinaji adresou 0. Overeno na vsech 44 SBK, ktere
+        // mame (2026-09-13). Kdyby zadny vzorek na 0 nezacinal, zustava
+        // pravidlo s hvezdickou.
+        uint32_t firstOwn = count;
+        for (uint32_t i = 0; i < count; ++i)
+            if (RdU32(&buf[shdr->offset + i * 16]) == 0) { firstOwn = i; break; }
+        const bool byPosition = firstOwn < count;
         for (uint32_t i = 0; i < count; ++i)
         {
             const uint8_t* p = &buf[shdr->offset + i * 16];
@@ -298,11 +316,12 @@ Bank Load(const std::string& path)
             s.loopEnd   = RdU32(p + 12);
             if (snam && (i + 1) * 20 <= snam->size)
                 s.name = CStr(&buf[snam->offset + i * 20], 20);
-            // Hvezdicka v nazvu = vzorek ve wave ROM. Banka, ktera nema
-            // chunk `smpl` vubec (napr. SYNTHGM.SBK - popis GM banky od
-            // E-mu), popisuje jen obsah ROM, takze tam jsou v ROM vsechny.
+            // Banka, ktera nema chunk `smpl` vubec (napr. SYNTHGM.SBK - popis
+            // GM banky od E-mu), popisuje jen obsah ROM, takze tam jsou
+            // v ROM vsechny. Jinak rozhoduje poloha pred vlastnimi vzorky.
             s.inRom = bank.sampleData.empty()
-                   || (!s.name.empty() && s.name[0] == '*');
+                   || (byPosition ? (i < firstOwn)
+                                  : (!s.name.empty() && s.name[0] == '*'));
             // SF1 hlavicka vzorku neobsahuje sample rate ani zakladni notu -
             // EMU8000 bezi nativne na 44100 Hz a zakladni nota se bere
             // z generatoru (OverridingRootKey / Sf1RootPitchCents).

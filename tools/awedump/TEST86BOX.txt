@@ -1,0 +1,53 @@
+AWEDUMP - overeni v 86Boxu (2026-09-13)
+=======================================
+
+Stav: FUNGUJE. Zdrojak (awedump.asm) a AWEDUMP.COM odpovidaji: tabulky
+init1..init4 lezi v COM na offsetu 2649, delka souboru presne sedi na konec
+32kB bufferu, vsechny texty jsou uvnitr. Opravovat nebylo potreba.
+
+Beh
+---
+VM ref86box\vmdos (MS-DOS 6.22, sbawe32), AUTOEXEC:
+
+    C:\AWEDUMP.COM 620 < C:\KEY.TXT > C:\DUMPLOG.TXT
+
+(KEY.TXT = "Y" + CRLF misto stisku klavesy; vystup do DUMPLOG.TXT, proto na
+obrazovce VM zustane jen "File not found" z DEL.) Za 60 s:
+
+    AWEDUMP - EMU8000 ROM dumper.  Base port: 0x0620
+    EMU8000-like chip responded at this base.
+    Press a key to dump ROM to AWE32ROM.BIN (ESC to abort)...Y
+    Dumping 1 MB ................................
+    Done: AWE32ROM.BIN written (1,048,576 bytes).
+
+Vysledek
+--------
+AWE32ROM.BIN (md5 4109fb079dcb1a09c258675c2de0466d) je bajt po bajtu shodny
+s ROM, jak ji ma 86Box V PAMETI. Proti souboru awe32.raw (md5
+30b76c45ca0712418239d2b15c65881a) je posunuty o jedno slovo - to NENI chyba
+dumperu:
+
+    86Box emu8k_init(): "AWE-DUMP creates ROM images offset by 2 bytes, so if
+    we detect this then correct it" - kdyz rom[3]==0x314D a rom[4]==0x474D,
+    posune ROM o slovo dolu a posledni slovo vynuluje.
+
+awe32.raw zacina 1234 0032 2E38 314D 474D, takze 86Box ji posune a na adrese
+0 ma 0032. AWEDUMP (zahodi prvni cteni SMLD, jako ALSA size_dram) precte
+presne to.
+
+Co z toho plyne pro dump ze skutecne karty: spravny dump zacina slovem 0032
+(bez uvodniho 1234). Kdyby zacinal 1234 0032, cte dumper o slovo drive a je
+treba to hlasit.
+
+Porovnani:  python romcompare.py AWE32ROM.BIN [reference.raw]
+            (pozna shodu, posun o N slov, prohozene bajty, kazde druhe slovo,
+            opakovane bloky)
+
+Drobnosti ve zdrojaku (na 86Boxu se neprojevily)
+----------------------------------------------
+- Zapis do souboru (int 21h/40h) nekontroluje chybu ani pocet zapsanych
+  bajtu: pri plnem disku vypise "Done" s neuplnym souborem. Po behu proto
+  vzdy zkontrolovat velikost 1 048 576 B.
+- Ceka na klavesu (int 21h/01h); pro davku staci presmerovat vstup.
+- Parametr je jen hex cislo (620), ne "E620".
+- Prestavba potrebuje NASM (tady neni nainstalovany).
