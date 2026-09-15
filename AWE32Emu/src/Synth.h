@@ -65,6 +65,7 @@ public:
 
     void NoteOn(uint8_t channel, uint8_t note, uint8_t velocity);
     void NoteOff(uint8_t channel, uint8_t note);
+    void ChannelPressure(uint8_t channel, uint8_t value);
     void ProgramChange(uint8_t channel, uint8_t program);
     void ControlChange(uint8_t channel, uint8_t controller, uint8_t value);
     void PitchBend(uint8_t channel, int16_t value);
@@ -93,6 +94,18 @@ private:
         uint8_t releaseModRate = 0;
         uint32_t age = 0;
         int      basePitch = 0;   // IP bez pitch bendu
+
+        // SBAWE32.MDI voice block (0x0BC6 + voice * 0x14), family `dos`.
+        // State: 0xFFFF free, 0xFFFE reserved while a note is set up,
+        // (channel << 8) | note playing, low byte 0xFF = held by the pedal.
+        uint16_t mdiState = 0xFFFF;
+        uint32_t mdiNoteEnd = 0;     // +0x0A: sample end + 4 for the note-off loop opening
+        uint32_t mdiEndAddr = 0;     // +0x0E: voice is finished once CCCA passes this
+        uint8_t  mdiVelocity = 0;    // +0x02
+        uint8_t  mdiPatchAtten = 0;  // +0x03 (as 0x7F - field = attenuation units)
+        uint8_t  mdiModRelease = 0;  // +0x04
+        uint8_t  mdiVolRelease = 0;  // +0x05
+        int8_t   mdiFmmodDepth = 0;  // +0x06
     };
 
     struct ChannelState
@@ -113,6 +126,14 @@ private:
         // "zadny" - po nem uz data entry nic nenastavuje.
         uint8_t rpnMsb = 0x7F;
         uint8_t rpnLsb = 0x7F;
+
+        // SBAWE32.MDI channel block (0x0E46 + channel * 0x1C), family `dos`.
+        uint8_t mdiModDiv30 = 0;       // +0x09: CC1 / 30
+        uint8_t mdiPressureDiv30 = 0;  // +0x0A: channel pressure / 30
+        int16_t mdiBendOffset = 0;     // +0x0C: IP offset computed at the last bend
+        bool    mdiRpnMode = false;    // +0x14 == 0x100 after CC100 / CC101
+        uint8_t mdiRpnLsb = 0;         // +0x16
+        uint8_t mdiRpnMsb = 0;         // +0x17
     };
 
     int  EffectiveChannelVolume(int cc7) const
@@ -131,6 +152,19 @@ private:
                     const SoundFont::VoiceParams& vp,
                     const SoundFont::Bank* bank, const SoundFont::Region* region);
     void StartFallbackVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocity);
+    void StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& regions,
+                     uint8_t channel, uint8_t note, uint8_t velocity);
+
+    // Family `dos` (SBAWE32.MDI), see Synth.cpp.
+    int  AllocateVoiceMdi(uint16_t state);
+    void NoteOffMdi(int voice);
+    void UpdateAttenMdi(uint8_t channel);
+    void UpdateFmmodMdi(uint8_t channel, int value);
+    void PitchBendMdi(uint8_t channel, int16_t value);
+    void SustainMdi(uint8_t channel, uint8_t value);
+    void AllNotesOffMdi(uint8_t channel, bool respectSustain);
+    void ResetControllersMdi(uint8_t channel);
+    bool ControlChangeMdi(uint8_t channel, uint8_t controller, uint8_t value);
 
     Emu8000Core m_core;
     std::vector<LoadedBank> m_banks;

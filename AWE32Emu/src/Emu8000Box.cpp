@@ -25,6 +25,7 @@ bool Emu8000Box::Init(const std::string&, uint16_t, int, std::string& err)
 int16_t* Emu8000Box::Ram()             { return nullptr; }
 size_t   Emu8000Box::RamWords() const  { return 0; }
 void     Emu8000Box::PortWrite(uint16_t, uint16_t, bool) {}
+uint16_t Emu8000Box::PortRead(uint16_t)    { return 0xFFFF; }
 void     Emu8000Box::RenderFrame(int32_t& l, int32_t& r) { l = 0; r = 0; }
 void     Emu8000Box::FlushBlock()      {}
 
@@ -210,6 +211,32 @@ void Emu8000Box::PortWrite(uint16_t port, uint16_t value, bool isByte)
     if (!m_ready)
         return;
     m_impl->pending.push_back({ m_impl->frameInBlock, port, value, isByte });
+}
+
+uint16_t Emu8000Box::PortRead(uint16_t port)
+{
+    if (!m_ready)
+        return 0xFFFF;
+
+    Impl& I = *m_impl;
+
+    // Apply the queued writes of this block now, each at its own offset, then
+    // run the chip up to the current frame - what 86Box does because every
+    // outw (the pointer write before a read included) calls emu8k_update.
+    // FlushBlock later only continues from here.
+    for (const Impl::Write& w : I.pending)
+    {
+        wavetable_pos_global = w.offset;
+        if (w.isByte)
+            emu8k_outb(w.port, static_cast<uint8_t>(w.value), &I.emu);
+        else
+            emu8k_outw(w.port, w.value, &I.emu);
+    }
+    I.pending.clear();
+
+    wavetable_pos_global = I.frameInBlock;
+    emu8k_update(&I.emu);
+    return emu8k_inw(port, &I.emu);
 }
 
 void Emu8000Box::FlushBlock()

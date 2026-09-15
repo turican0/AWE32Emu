@@ -242,6 +242,11 @@ int Synth::AllocateVoice()
 
 void Synth::ReleaseVoice(int voice)
 {
+    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    {
+        NoteOffMdi(voice);
+        return;
+    }
     m_core.Write(Reg::DCYSUSV, voice,
                  Emu8000::kDcysusvRelease | (m_alloc[voice].releaseRate & 0x7F));
     // `SBAWE.VXD` uvolnuje **obe** obalky - hned za DCYSUSV posila DCYSUS
@@ -261,6 +266,316 @@ void Synth::KillVoice(int voice)
     m_core.Write(Reg::DCYSUSV, voice, Emu8000::kDcysusvOff);
     m_alloc[voice].inUse = false;
     m_alloc[voice].heldBySustain = false;
+}
+
+// ---------------------------------------------------------------------------
+// SBAWE32.MDI (family `dos`) voice handling, transcribed from the driver:
+// allocation 0x1872, note-off 0x19BE / 0x238A, sustain 0x2576, all notes off
+// 0x277C, controller reset 0x2732, volume/expression update 0x2482 / 0x2554,
+// modulation update 0x25D6, channel pressure 0x2AAC, pitch bend 0x2AD8.
+// The allocation reads the chip (VTFT, DCYSUSV, CCCA), so which voice it
+// takes depends on the chip state, as on the card.
+// ---------------------------------------------------------------------------
+
+namespace
+{
+    // IP + bend offset the way SBAWE32.MDI adds them (0x20E0, 0x2B51): above
+    // 0xFFFF the result is capped, a negative result wraps to 16 bits.
+    uint16_t MdiAddBend(int ip, int offset)
+    {
+        const int32_t sum = static_cast<int32_t>(static_cast<uint16_t>(ip)) + offset;
+        if (sum < 0) return static_cast<uint16_t>(sum);
+        return static_cast<uint16_t>(std::min<int32_t>(sum, 0xFFFF));
+    }
+}
+
+int Synth::AllocateVoiceMdi(uint16_t state)
+{
+    // Even voices first, then odd ones (voices 30/31 belong to the driver).
+    // Score = volume target + 0x200 if assigned + 0x300 if held by the pedal
+    // + 0x1000 if not in release. The lowest score wins and a later voice
+    // wins a tie; score 0 is taken at once, and so is a voice whose playback
+    // address has passed the end set by a note-off loop opening.
+    uint32_t best = 0xFFFFFFFFu;
+    int chosen = kUsableVoices - 1;
+    bool done = false;
+    for (int pass = 0; pass < 2 && !done; ++pass)
+    {
+        for (int v = pass; v < kUsableVoices; v += 2)
+        {
+            const VoiceAlloc& a = m_alloc[v];
+            const uint16_t s = a.mdiState;
+            if (s == 0xFFFF || s < 0x1000)
+            {
+                uint32_t score = m_core.ReadDriver(Reg::VTFT, v) >> 16;
+                if (s != 0xFFFF)
+                {
+                    score += 0x200;
+                    if ((s & 0xFF) == 0xFF) score += 0x300;
+                }
+                if (!(m_core.ReadDriver(Reg::DCYSUSV, v) & Emu8000::kDcysusvRelease))
+                    score += 0x1000;
+                if (score <= best)
+                {
+                    best = score;
+                    chosen = v;
+                    if (score == 0) { done = true; break; }
+                }
+            }
+            if (a.mdiEndAddr != 0
+                && (m_core.ReadDriver(Reg::CCCA, v) & Emu8000::kCccaAddressMask) >= a.mdiEndAddr)
+            {
+                chosen = v;
+                done = true;
+                break;
+            }
+        }
+    }
+
+    VoiceAlloc& a = m_alloc[chosen];
+    a.mdiState = state;
+    a.mdiEndAddr = 0;
+    a.inUse = false;
+    a.heldBySustain = false;
+    m_core.Write(Reg::DCYSUSV, chosen, 0x807Fu);
+    return chosen;
+}
+
+void Synth::NoteOffMdi(int voice)
+{
+    // 0x19BE: release both envelopes, modulation first. For a looped sample
+    // with a tail after the loop the loop is moved behind the sample end, so
+    // the tail plays out; the voice counts as finished once CCCA passes it.
+    VoiceAlloc& a = m_alloc[voice];
+    a.mdiState = 0xFF00;
+    m_core.Write(Reg::DCYSUS,  voice, 0x8000u | a.mdiModRelease);
+    m_core.Write(Reg::DCYSUSV, voice, 0x8000u | a.mdiVolRelease);
+    if (a.mdiNoteEnd != 0)
+    {
+        const uint32_t csl = m_core.ReadDriver(Reg::CSL, voice);
+        m_core.Write(Reg::CSL, voice, (csl & 0xFF000000u) | (a.mdiNoteEnd + 4));
+        const uint32_t psst = m_core.ReadDriver(Reg::PSST, voice);
+        m_core.Write(Reg::PSST, voice, (psst & 0xFF000000u) | a.mdiNoteEnd);
+        a.mdiEndAddr = a.mdiNoteEnd;
+    }
+    else
+    {
+        a.mdiEndAddr = 0;
+    }
+    a.mdiState = 0xFFFF;
+    a.inUse = false;
+    a.heldBySustain = false;
+}
+
+void Synth::UpdateAttenMdi(uint8_t channel)
+{
+    // 0x2482 (CC7) / 0x2554 (CC11). The formula is not the note-on one: the
+    // patch attenuation enters as * 25 / 80 before the * 8 / 3. The voice test
+    // only compares the low nibble of the state's high byte, so free voices
+    // (0xFFFF) are rewritten as well when the channel is 15.
+    const ChannelState& ch = m_channels[channel];
+    const int vol = std::clamp(EffectiveChannelVolume(ch.volume), 0, 127);
+    for (int v = 0; v < kUsableVoices; ++v)
+    {
+        const VoiceAlloc& a = m_alloc[v];
+        if (((a.mdiState >> 8) & 0x0F) != channel) continue;
+        int atten;
+        if (vol <= 10)
+        {
+            atten = 0xFF;
+        }
+        else
+        {
+            const uint16_t db = static_cast<uint16_t>(
+                Awe32Curves::VelocityDb(a.mdiVelocity, Awe32::Driver::Dos)
+                + Awe32Curves::kChannelVolumeDb[vol]);
+            const uint16_t patch = static_cast<uint16_t>(
+                static_cast<uint16_t>(a.mdiPatchAtten * 0x19) / 0x50);
+            const uint16_t sum = static_cast<uint16_t>(patch + db);
+            atten = static_cast<uint16_t>(sum << 3) / 3;
+            if (atten >= 0xFF)
+                atten = 0xFF;
+            else if (ch.expression < 0x7F)
+                atten += Awe32Curves::kExpressionDb[ch.expression] * (0xFF - atten) / 0x7F;
+        }
+        const uint16_t ifatn = static_cast<uint16_t>(m_core.ReadDriver(Reg::IFATN, v));
+        m_core.Write(Reg::IFATN, v, static_cast<uint16_t>((ifatn & 0xFF00) | (atten & 0xFF)));
+    }
+}
+
+void Synth::UpdateFmmodMdi(uint8_t channel, int value)
+{
+    // 0x25D6: LFO1 -> pitch depth of the playing voices = pressure / 30 +
+    // patch depth + value / 30, capped at 0x7F (no lower limit).
+    ChannelState& ch = m_channels[channel];
+    ch.mdiModDiv30 = static_cast<uint8_t>(value / 30);
+    for (int v = 0; v < kUsableVoices; ++v)
+    {
+        const VoiceAlloc& a = m_alloc[v];
+        const int hi = a.mdiState >> 8;
+        if (hi == 0xFF || (hi & 0x0F) != channel) continue;
+        int depth = ch.mdiPressureDiv30 + a.mdiFmmodDepth + value / 30;
+        if (depth > 0x7F) depth = 0x7F;
+        const uint16_t fmmod = static_cast<uint16_t>(m_core.ReadDriver(Reg::FMMOD, v));
+        m_core.Write(Reg::FMMOD, v,
+                     static_cast<uint16_t>((fmmod & 0x00FF) | ((depth << 8) & 0xFF00)));
+    }
+}
+
+void Synth::PitchBendMdi(uint8_t channel, int16_t value)
+{
+    // 0x2AD8: the IP offset is computed once per bend event (16-bit multiply,
+    // truncating division) and kept in the channel block; a note-on uses the
+    // stored offset. A range of 0 counts as 2.
+    ChannelState& ch = m_channels[channel];
+    ch.pitchBend = value;
+    const int range = ch.pitchBendRangeSemitones ? ch.pitchBendRangeSemitones : 2;
+    const int32_t product = static_cast<int32_t>(value)
+        * static_cast<int16_t>(static_cast<uint16_t>(range * 0x155));
+    ch.mdiBendOffset = static_cast<int16_t>(product / 0x2000);
+    for (int v = 0; v < kUsableVoices; ++v)
+    {
+        const VoiceAlloc& a = m_alloc[v];
+        const int hi = a.mdiState >> 8;
+        if (hi == 0xFF || (hi & 0x0F) != channel) continue;
+        m_core.Write(Reg::IP, v, MdiAddBend(a.basePitch, ch.mdiBendOffset));
+    }
+}
+
+void Synth::SustainMdi(uint8_t channel, uint8_t value)
+{
+    // 0x2576: releasing the pedal ends the voices a note-off marked as held.
+    ChannelState& ch = m_channels[channel];
+    if (value >= 0x40)
+    {
+        ch.sustain = true;
+        return;
+    }
+    ch.sustain = false;
+    for (int v = 0; v < kUsableVoices; ++v)
+    {
+        const uint16_t s = m_alloc[v].mdiState;
+        if ((s & 0xFF) == 0xFF && (s >> 8) != 0xFF && ((s >> 8) & 0x0F) == channel)
+            NoteOffMdi(v);
+    }
+}
+
+void Synth::AllNotesOffMdi(uint8_t channel, bool respectSustain)
+{
+    // 0x277C: CC123 keeps pedal-held notes held, CC120 ends everything.
+    const bool hold = respectSustain && m_channels[channel].sustain;
+    for (int v = 0; v < kUsableVoices; ++v)
+    {
+        VoiceAlloc& a = m_alloc[v];
+        const int hi = a.mdiState >> 8;
+        if (hi == 0xFF || (hi & 0x0F) != channel) continue;
+        if (hold) a.mdiState |= 0x00FF;
+        else      NoteOffMdi(v);
+    }
+}
+
+void Synth::ResetControllersMdi(uint8_t channel)
+{
+    // 0x2732 (CC121).
+    ChannelState& ch = m_channels[channel];
+    ch.mdiRpnMode = false;
+    ch.mdiRpnLsb = 0;
+    ch.mdiRpnMsb = 0;
+    ch.mdiModDiv30 = 0;
+    ch.modWheel = 0;
+    SustainMdi(channel, 0);
+    ch.expression = 0x7F;
+    UpdateAttenMdi(channel);
+    PitchBendMdi(channel, 0);
+    ch.mdiPressureDiv30 = 0;
+    UpdateFmmodMdi(channel, ch.mdiModDiv30 * 30);
+}
+
+bool Synth::ControlChangeMdi(uint8_t channel, uint8_t controller, uint8_t value)
+{
+    // Controller dispatcher 0x27DE; bank, pan, reverb and chorus are only
+    // stored there, which the generic path does as well.
+    ChannelState& ch = m_channels[channel];
+    switch (controller)
+    {
+    case 1:
+        ch.modWheel = value;
+        UpdateFmmodMdi(channel, value);
+        return true;
+    case 6:
+        if (ch.mdiRpnMode && ch.mdiRpnLsb == 0 && ch.mdiRpnMsb == 0)
+            ch.pitchBendRangeSemitones = value;
+        return true;
+    case 7:
+        ch.volume = value;
+        UpdateAttenMdi(channel);
+        return true;
+    case 11:
+        ch.expression = value;
+        UpdateAttenMdi(channel);
+        return true;
+    case 64:
+        SustainMdi(channel, value);
+        return true;
+    case 100:
+        ch.mdiRpnMode = true;
+        ch.mdiRpnLsb = value;
+        return true;
+    case 101:
+        ch.mdiRpnMode = true;
+        ch.mdiRpnMsb = value;
+        return true;
+    case 120:
+        AllNotesOffMdi(channel, false);
+        return true;
+    case 121:
+        ResetControllersMdi(channel);
+        return true;
+    case 123:
+        AllNotesOffMdi(channel, true);
+        return true;
+    default:
+        return false;
+    }
+}
+
+void Synth::ChannelPressure(uint8_t channel, uint8_t value)
+{
+    if (channel >= 16) return;
+    // Only the `dos` family is transcribed (0x2AAC); SBAWE.VXD is not yet.
+    if (m_core.DriverVariant() != Awe32::Driver::Dos) return;
+    ChannelState& ch = m_channels[channel];
+    ch.mdiPressureDiv30 = static_cast<uint8_t>(value / 30);
+    UpdateFmmodMdi(channel, ch.mdiModDiv30 * 30);
+}
+
+void Synth::StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& regions,
+                        uint8_t channel, uint8_t note, uint8_t velocity)
+{
+    const SoundFont::Bank& b = *m_banks[bankIndex].bank;
+    std::vector<SoundFont::VoiceParams> vps;
+    vps.reserve(regions.size());
+    for (const SoundFont::Region& r : regions)
+        vps.push_back(SoundFont::MakeVoiceParams(
+            b, r, note, velocity, m_banks[bankIndex].dramBase, kRomPoolBase,
+            m_core.DriverVariant()));
+
+    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    {
+        // SBAWE32.MDI 0x1EB2: every layer gets its voice (reserved, 0xFFFE)
+        // before any register of the note is written.
+        std::vector<int> voices;
+        voices.reserve(regions.size());
+        for (size_t i = 0; i < regions.size(); ++i)
+            voices.push_back(AllocateVoiceMdi(0xFFFE));
+        for (size_t i = 0; i < regions.size(); ++i)
+            StartVoice(voices[i], channel, note, velocity, vps[i], &b, &regions[i]);
+        return;
+    }
+
+    // Preset muze mit vic vrstev na jednu notu - kazda dostane hlas.
+    for (size_t i = 0; i < regions.size(); ++i)
+        StartVoice(AllocateVoice(), channel, note, velocity, vps[i], &b, &regions[i]);
 }
 
 int Synth::BankNumberFor(uint8_t channel) const
@@ -413,7 +728,11 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     const int chReverb = ch.reverbSend * 90 / 100;
     const int reverb = std::clamp(static_cast<int>(vp.reverbSend) + chReverb, 0, 255);
 
-    const int pitch = std::clamp(vp.ip + PitchBendOffset(channel), 0, 65535);
+    // `dos`: SBAWE32.MDI adds the offset stored at the last bend event
+    // (see PitchBendMdi), capped above and wrapping below.
+    const int pitch = (drv == Awe32::Driver::Dos)
+        ? MdiAddBend(vp.ip, ch.mdiBendOffset)
+        : std::clamp(vp.ip + PitchBendOffset(channel), 0, 65535);
 
     // Modulacni kolecko pridava hloubku LFO1 na vysku. `SBAWE.VXD` obsluha
     // CC1 (0x34A4) deli hodnotu **tricetkou** a vysledek pricita k hloubce
@@ -424,9 +743,14 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     //     cmp ebp, 0x7F / shl ebp, 8
     //
     // Zmereno na RELAXu: ovladac mel 01, 02 a 04 tam, kde jsme meli nulu.
-    const int modDepth = std::clamp(
-        static_cast<int>(static_cast<int8_t>((vp.fmmod >> 8) & 0xFF))
-            + ch.modWheel / 30, -128, 0x7F);
+    // `dos` (SBAWE32.MDI 0x2224): CC1 / 30 + channel pressure / 30 + patch
+    // depth, capped at 0x7F from above only.
+    const int modDepth = (drv == Awe32::Driver::Dos)
+        ? std::min(static_cast<int>(static_cast<int8_t>((vp.fmmod >> 8) & 0xFF))
+                       + ch.mdiModDiv30 + ch.mdiPressureDiv30, 0x7F)
+        : std::clamp(
+              static_cast<int>(static_cast<int8_t>((vp.fmmod >> 8) & 0xFF))
+                  + ch.modWheel / 30, -128, 0x7F);
     const uint16_t fmmod = static_cast<uint16_t>(
         ((static_cast<uint8_t>(modDepth)) << 8) | (vp.fmmod & 0xFF));
 
@@ -511,30 +835,32 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     }
     else
     {
-        // `SBAWE32.MDI`: jine poradi i jiny obsah. Overeno na 255 notach
-        // z Magic Carpet 2, takze se tenhle blok nemeni.
+        // `SBAWE32.MDI` note-on 0x1F12..0x2363, write order as in the driver
+        // (confirmed on the game trace dos_mdi.trace, 260 notes of the MC2
+        // intro): unit pitch, voice off, volume target 0, envelopes, pitch and
+        // modulation, PTRX read-modify-write (the chip has already derived the
+        // pitch target from IP, only the reverb byte is replaced), addresses.
+        m_core.Write(Reg::IP,      voice, 0xE000u);
         m_core.Write(Reg::DCYSUSV, voice, Emu8000::kDcysusvOff);
         m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
-        m_core.Write(Reg::PSST, voice, psst);
-        m_core.Write(Reg::CSL,  voice, csl);
-        m_core.Write(Reg::CCCA, voice, ccca);
-        m_core.Write(Reg::IP,   voice, static_cast<uint16_t>(pitch));
-        // MDI cte PTRX **az po zapisu IP**, aby v nem uz byla cilova vyska,
-        // kterou si cip z IP dopocital, a prepise jen bajt s reverb sendem.
-        const uint32_t cur = m_core.Read(Reg::PTRX, voice);
-        m_core.Write(Reg::PTRX, voice, (cur & 0xFFFF00FFu) | reverbByte);
+        m_core.Write(Reg::ENVVOL,  voice, vp.envvol);
+        m_core.Write(Reg::ATKHLDV, voice, vp.atkhldv);
+        m_core.Write(Reg::ENVVAL,  voice, vp.envval);
+        m_core.Write(Reg::ATKHLD,  voice, vp.atkhld);
+        m_core.Write(Reg::DCYSUS,  voice, vp.dcysus);
+        m_core.Write(Reg::IP,      voice, static_cast<uint16_t>(pitch));
         m_core.Write(Reg::IFATN,   voice, ifatn);
+        m_core.Write(Reg::LFO1VAL, voice, vp.lfo1val);
+        m_core.Write(Reg::LFO2VAL, voice, vp.lfo2val);
         m_core.Write(Reg::PEFE,    voice, vp.pefe);
         m_core.Write(Reg::FMMOD,   voice, fmmod);
         m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
         m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
-        m_core.Write(Reg::ENVVAL,  voice, vp.envval);
-        m_core.Write(Reg::ATKHLD,  voice, vp.atkhld);
-        m_core.Write(Reg::DCYSUS,  voice, vp.dcysus);
-        m_core.Write(Reg::LFO1VAL, voice, vp.lfo1val);
-        m_core.Write(Reg::LFO2VAL, voice, vp.lfo2val);
-        m_core.Write(Reg::ENVVOL,  voice, vp.envvol);
-        m_core.Write(Reg::ATKHLDV, voice, vp.atkhldv);
+        const uint32_t cur = m_core.ReadDriver(Reg::PTRX, voice);
+        m_core.Write(Reg::PTRX, voice, (cur & 0xFFFF00FFu) | reverbByte);
+        m_core.Write(Reg::PSST, voice, psst);
+        m_core.Write(Reg::CSL,  voice, csl);
+        m_core.Write(Reg::CCCA, voice, ccca);
     }
 
     m_core.Write(Reg::DCYSUSV, voice, vp.dcysusv);   // spousti notu
@@ -549,6 +875,21 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     a.releaseModRate = vp.releaseModRate;
     a.age = ++m_ageCounter;
     a.basePitch = vp.ip;
+    if (drv == Awe32::Driver::Dos)
+    {
+        // Voice block of SBAWE32.MDI (0x20A4..0x20DD, 0x2366). A looped
+        // sample with at least 0x14 words after the loop end gets a note-off
+        // loop opening at its end (0x2006..0x2060).
+        a.mdiState      = static_cast<uint16_t>((channel << 8) | note);
+        a.mdiVelocity   = velocity;
+        a.mdiPatchAtten = vp.patchAttenUnits;
+        a.mdiModRelease = vp.releaseModRate;
+        a.mdiVolRelease = vp.releaseRate;
+        a.mdiFmmodDepth = static_cast<int8_t>((vp.fmmod >> 8) & 0xFF);
+        a.mdiNoteEnd    = (vp.looping && (vp.sampleEndAddr - vp.loopEndAddr) >= 0x14u)
+                        ? vp.sampleEndAddr + 4 : 0u;
+        a.mdiEndAddr    = 0;
+    }
 
     if (m_noteDump)
     {
@@ -675,14 +1016,7 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
                 b.Select(wantBank, wantProgram, note, velocity);
             if (regions.empty()) continue;
 
-            // Preset muze mit vic vrstev na jednu notu - kazda dostane hlas.
-            for (const SoundFont::Region& r : regions)
-            {
-                const SoundFont::VoiceParams vp = SoundFont::MakeVoiceParams(
-                    b, r, note, velocity, m_banks[i].dramBase, kRomPoolBase,
-                    m_core.DriverVariant());
-                StartVoice(AllocateVoice(), channel, note, velocity, vp, &b, &r);
-            }
+            StartLayers(i, regions, channel, note, velocity);
             return;
         }
     }
@@ -699,24 +1033,34 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
         const std::vector<SoundFont::Region> regions =
             b.Select(0, 0, note, velocity);
         if (regions.empty()) continue;
-        for (const SoundFont::Region& r : regions)
-        {
-            const SoundFont::VoiceParams vp = SoundFont::MakeVoiceParams(
-                b, r, note, velocity, m_banks[i].dramBase, kRomPoolBase,
-                m_core.DriverVariant());
-            StartVoice(AllocateVoice(), channel, note, velocity, vp, &b, &r);
-        }
+        StartLayers(i, regions, channel, note, velocity);
         return;
     }
 
     // Az kdyz nema banka ani preset 0 - to uz je banka bez pouzitelneho
     // obsahu a hraje se nahradni vzorek.
-    StartFallbackVoice(AllocateVoice(), channel, note, velocity);
+    StartFallbackVoice((m_core.DriverVariant() == Awe32::Driver::Dos)
+                           ? AllocateVoiceMdi(0xFFFE) : AllocateVoice(),
+                       channel, note, velocity);
 }
 
 void Synth::NoteOff(uint8_t channel, uint8_t note)
 {
     if (channel >= 16) return;
+    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    {
+        // SBAWE32.MDI 0x238A: every layer of the key on the channel; with the
+        // pedal down the voice is only marked as held (low byte 0xFF).
+        const uint16_t key = static_cast<uint16_t>((channel << 8) | note);
+        for (int v = 0; v < kUsableVoices; ++v)
+        {
+            VoiceAlloc& a = m_alloc[v];
+            if ((a.mdiState >> 8) == 0xFF || (a.mdiState & 0x0FFF) != key) continue;
+            if (m_channels[channel].sustain) a.mdiState |= 0x00FF;
+            else                             NoteOffMdi(v);
+        }
+        return;
+    }
     for (int i = 0; i < kUsableVoices; ++i)
     {
         VoiceAlloc& a = m_alloc[i];
@@ -757,6 +1101,9 @@ void Synth::RefreshChannel(uint8_t channel)
 void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
 {
     if (channel >= 16) return;
+    if (m_core.DriverVariant() == Awe32::Driver::Dos
+        && ControlChangeMdi(channel, controller, value))
+        return;
     ChannelState& ch = m_channels[channel];
 
     switch (controller)
@@ -814,6 +1161,11 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
 void Synth::PitchBend(uint8_t channel, int16_t value)
 {
     if (channel >= 16) return;
+    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    {
+        PitchBendMdi(channel, value);
+        return;
+    }
     m_channels[channel].pitchBend = value;
     RefreshChannel(channel);
 }

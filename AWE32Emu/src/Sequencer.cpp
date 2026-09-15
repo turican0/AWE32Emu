@@ -44,8 +44,10 @@ void Sequencer::DispatchEvent(Synth& synth, const MidiEvent& ev)
     case MidiEventType::TempoChange:
         m_currentTempoUs = ev.tempoUsPerQuarter;
         break;
-    case MidiEventType::PolyPressure:
     case MidiEventType::ChannelPressure:
+        synth.ChannelPressure(ev.channel, ev.data1);
+        break;
+    case MidiEventType::PolyPressure:
     case MidiEventType::EndOfTrack:
     default:
         // TODO: PolyPressure/ChannelPressure zatim synth nevyuziva (viz Synth.h TODO)

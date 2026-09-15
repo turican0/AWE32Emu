@@ -64,6 +64,7 @@ namespace
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
             "  --chip nas|86box    Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
             "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
+            "  --ram <KB>          DRAM cipu 86box v KB (onboard_ram), vychozi 8192\n"
             "  --conf <soubor>     Pocatecni stav MIDI kanalu, jak ho posila hra\n"
             "  --dump-notes <csv>  Mezivysledky pri note-onu, sloupce podle bloku\n"
             "                      parametru v SBAWE.VXD (viz tests/patch_struct.py)\n"
@@ -261,6 +262,7 @@ int main(int argc, char** argv)
     uint16_t channelMask = 0xFFFF;
     std::string interp;
     std::string chip;
+    int chipRamKb = 8192;
     std::string noteDumpPath;
     std::string confPath;
     int revPreset = -1, choPreset = -1;
@@ -430,6 +432,11 @@ int main(int argc, char** argv)
         {
             chip = argv[++i];
         }
+        else if (arg == "--ram" && i + 1 < argc)
+        {
+            // Onboard DRAM of the 86Box chip in KB, as 86Box `onboard_ram`.
+            chipRamKb = std::atoi(argv[++i]);
+        }
         else if (arg == "--driver" && i + 1 < argc)
         {
             if (!Awe32::DriverFromName(argv[++i], driver))
@@ -525,6 +532,7 @@ int main(int argc, char** argv)
     if (chip == "86box")
     {
         std::string err;
+        synth.Core().SetChipRamKb(chipRamKb);
         if (!synth.Core().UseBox86Chip(romPath, err))
         {
             std::cerr << "Cip 86box se nepodarilo zapnout: " << err << "\n";

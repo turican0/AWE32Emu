@@ -184,6 +184,11 @@ namespace SoundFont
         uint8_t  releaseRate = 0; // pro DCYSUSV pri Note Off
         uint8_t  releaseModRate = 0; // pro DCYSUS pri Note Off (jen win95)
         bool     looping = true;
+        // Sample end and loop end addresses as the driver keeps them in its
+        // patch block (SBAWE32.MDI [si+0x7A] / [si+0x82]); the note-off of the
+        // `dos` family opens the loop with them.
+        uint32_t sampleEndAddr = 0;
+        uint32_t loopEndAddr = 0;
     };
 
     VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,

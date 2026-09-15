@@ -428,6 +428,21 @@ void Emu8000Core::PortOut16(uint16_t port, uint16_t value)
 
 uint16_t Emu8000Core::PortIn16(uint16_t port)
 {
+    const uint16_t value = PortIn16Raw(port);
+    // Reads go to the trace as "R <frame> <port> <value>", the format of the
+    // 86Box traces, so the driver's decisions can be followed there.
+    if (m_traceFile && !m_traceOff)
+        std::fprintf(static_cast<FILE*>(m_traceFile), "R %llu %03X %04X\n",
+                     static_cast<unsigned long long>(m_traceFrames), port, value);
+    return value;
+}
+
+uint16_t Emu8000Core::PortIn16Raw(uint16_t port)
+{
+    // With the 86Box chip every read goes to the chip, like on the bus.
+    if (m_chip == Chip::Box86)
+        return m_box.PortRead(port);
+
     const uint16_t off = static_cast<uint16_t>(port - m_basePort);
     if (off == kPortPointer)
     {
@@ -582,6 +597,22 @@ uint32_t Emu8000Core::Read(Reg r, int voice) const
     return ReadReg16(sel);
 }
 
+uint32_t Emu8000Core::ReadDriver(Reg r, int voice)
+{
+    // As the drivers do it (SBAWE32.MDI 0x17B8 / 0x182C): pointer, then the
+    // low word from the data port and, for a 32-bit register, the high word
+    // from port + 2.
+    const uint16_t sel = Sel(r, voice);
+    Port p;
+    if (!PortFromSel(sel, p)) return 0;
+    PortOut16(static_cast<uint16_t>(m_basePort + kPortPointer), SelToPointer(sel));
+    const uint16_t lo = PortIn16(static_cast<uint16_t>(m_basePort + PortOffset(p)));
+    if (!IsReg32(sel)) return lo;
+    const Port hi = (p == Port::Data0) ? Port::Data0Hi : Port::Data1Hi;
+    const uint16_t hw = PortIn16(static_cast<uint16_t>(m_basePort + PortOffset(hi)));
+    return (static_cast<uint32_t>(hw) << 16) | lo;
+}
+
 // ===========================================================================
 // inicializace - prepis sekvence z AWEUTIL.COM (sub_12B40)
 // ===========================================================================
@@ -703,6 +734,20 @@ void Emu8000Core::PowerOnInit()
 
     // krok 9
     WriteReg16(MakeSel(1, Port::Data1, Hwcf::kHWCF3), 0x0004);
+
+    // SBAWE32.MDI initialises the voices again when the game loads it and
+    // ends every voice with DCYSUS = DCYSUSV = 0x807F (0x398C..0x399F in the
+    // per-voice loop at 0x3912). Its voice allocation reads DCYSUSV back and
+    // an idle voice must show the release bit, otherwise every voice scores
+    // 0x1000 and the last odd voice wins instead of voice 0.
+    if (m_driver == Awe32::Driver::Dos)
+    {
+        for (int v = 0; v < kMaxVoices; ++v)
+        {
+            Write(Reg::DCYSUS,  v, 0x807Fu);
+            Write(Reg::DCYSUSV, v, 0x807Fu);
+        }
+    }
 }
 
 // ===========================================================================
@@ -1287,6 +1332,9 @@ void Emu8000Core::UpdateRegistersFromState(int v)
     const double gain = DbToLinear(vs.volDb + AttenuationDb(LoByte(ifatn)));
     const uint16_t curVol = static_cast<uint16_t>(std::clamp(gain, 0.0, 1.0) * 65535.0);
     RegRef(Port::Data0Hi, 2, v) = curVol;   // CVCF hi16 = current volume
+    // VTFT hi16 = volume target. The `dos` driver reads it to pick a voice,
+    // so a silent voice must read 0 (86Box: vtft_vol_target).
+    RegRef(Port::Data0Hi, 3, v) = (vs.volStage == EnvStage::Off) ? uint16_t{0} : curVol;
 
     // CPF: horni pulka je LINEARNI prirustek (0x4000 = 1.0), spodni je
     // zlomkova cast adresy [PG]. IP je oproti tomu logaritmicky.
@@ -1395,8 +1443,8 @@ void Emu8000Core::UpdateEffectPresets()
 
 bool Emu8000Core::UseBox86Chip(const std::string& romPath, std::string& err)
 {
-    // 8 MB DRAM, at se vejde i velka banka; 86Box si RAM alokuje sam.
-    if (!m_box.Init(romPath, m_basePort + 0x400, 8192, err))
+    // 86Box allocates the DRAM itself; the size decides where uploads wrap.
+    if (!m_box.Init(romPath, m_basePort + 0x400, m_chipRamKb, err))
         return false;
     m_chip = Chip::Box86;
     return true;

@@ -47,6 +47,12 @@ public:
 
     void PortWrite(uint16_t port, uint16_t value, bool isByte = false);
 
+    // Port read, as a driver does it. Pending writes of the current block are
+    // applied first and the chip is brought up to the current frame, so the
+    // value is the chip state at this moment (86Box: every outw runs
+    // emu8k_update, and a driver always writes the pointer before a read).
+    uint16_t PortRead(uint16_t port);
+
     // Jeden snimek na 44100 Hz. Prvnich kLatencyFrames volani vrati ticho.
     void RenderFrame(int32_t& l, int32_t& r);
 
