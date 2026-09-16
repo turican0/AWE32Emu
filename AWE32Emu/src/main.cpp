@@ -635,7 +635,11 @@ int main(int argc, char** argv)
         }
     }
 
-    synth.Core().PowerOnInit();
+    // A replayed trace carries the guest's own initialisation; our init
+    // would put different state into the chip (DRAM refresh voices 30/31,
+    // chorus HWCF writes) than the VM had.
+    if (replayPath.empty())
+        synth.Core().PowerOnInit();
     std::cout << "Ovladac: " << Awe32::DriverName(driver) << "\n";
 
     if (debugVoices > 0) synth.SetVoiceDebug(debugVoices);

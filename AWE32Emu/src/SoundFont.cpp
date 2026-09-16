@@ -4,9 +4,11 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <cstring>
 #include <fstream>
 #include <map>
+#include <typeinfo>
 
 namespace SoundFont
 {
@@ -238,6 +240,246 @@ void GenSet::OverrideFrom(const GenSet& other)
 // nacteni banky
 // ===========================================================================
 
+// ===========================================================================
+// GM bank compiled into SBAWE32.MDI
+// ===========================================================================
+//
+// The DOS driver does not read SYNTHGM.SBK: the GM presets for the wave ROM
+// are compiled into SBAWE32.MDI itself (Magic Carpet 2 loads only
+// BULLFROG.SBK). Layout, found by comparison with SYNTHGM.SBK (2026-09-16,
+// MC2 copy 36 880 B: presets @0x4BF0, igen @0x5C08, shdr @0x8686):
+//
+//   preset table  word pairs (id, pbag index), id = program | bank << 8,
+//                 terminated by id 0xFF80 whose index = number of bags
+//   pbag          word generator index per bag, +1 end entry = count
+//   pgen          3 B per generator: op, amount16
+//   (word alignment)
+//   inst          word ibag index per instrument, +1 end entry
+//   ibag          word generator index per bag, +1 end entry
+//   igen          3 B per generator
+//   (word alignment)
+//   shdr          SoundFont 1.0 sample headers, 16 B each
+//
+// Part of the generators is stored already converted to driver/register
+// units. Per op the SBK -> MDI mapping over all 129 presets is a function
+// (mdi_units.py): x2 for 8/10/11/13/22/24, >>3 for 9, register delay for
+// 21/23/25/33, attack rate for 26/34, hold for 27, decay rate for 28/30/38,
+// sustain *4/3 for 29/37; the rest (including 35/36, which the driver key
+// scales in ms at note-on) is stored as in the SBK. A few values are real
+// data differences from SYNTHGM.SBK (e.g. decayVolEnv 2200 -> 1080/1430,
+// some key ranges, one sample end address).
+//
+// The loader rebuilds an SF1 bank: each converted value is replaced by the
+// smallest SF1 value that the conversions in MakeVoiceParams map to exactly
+// that register value, so the registers equal the driver's tables and the
+// rest of the pipeline stays the SF1 path.
+namespace
+{
+    uint16_t Rd16(const std::vector<uint8_t>& d, size_t p)
+    {
+        return (p + 1 < d.size()) ? static_cast<uint16_t>(d[p] | (d[p + 1] << 8)) : 0;
+    }
+
+    void Wr16(std::vector<uint8_t>& o, uint16_t v) { o.push_back(v & 0xFF); o.push_back(v >> 8); }
+    void Wr32(std::vector<uint8_t>& o, uint32_t v) { Wr16(o, v & 0xFFFF); Wr16(o, v >> 16); }
+
+    void WrChunk(std::vector<uint8_t>& o, const char* id, const std::vector<uint8_t>& body)
+    {
+        o.insert(o.end(), id, id + 4);
+        Wr32(o, static_cast<uint32_t>(body.size()));
+        o.insert(o.end(), body.begin(), body.end());
+        if (body.size() & 1) o.push_back(0);
+    }
+
+    void WrList(std::vector<uint8_t>& o, const char* type, const std::vector<uint8_t>& body)
+    {
+        std::vector<uint8_t> b(type, type + 4);
+        b.insert(b.end(), body.begin(), body.end());
+        WrChunk(o, "LIST", b);
+    }
+
+    // Smallest SF1 value v in [lo, hi] with f(v) == target; returns false when
+    // the conversion cannot produce the target. The inverse of each
+    // conversion is tabulated once (keyed by the conversion's address).
+    template <typename F>
+    bool Preimage(int target, int lo, int hi, F f, int& out)
+    {
+        static std::map<std::pair<int, int>, std::map<int, int>> cache;
+        const int tag = static_cast<int>(typeid(F).hash_code() & 0x7FFFFFFF);
+        auto& inv = cache[{tag, lo}];
+        if (inv.empty())
+            for (int v = hi; v >= lo; --v)
+                inv[f(v)] = v;                   // descending: smallest v wins
+        const auto it = inv.find(target);
+        if (it == inv.end()) return false;
+        out = it->second;
+        return true;
+    }
+
+    // Converts one generator from driver units back to an SF1 value.
+    // Returns the number of values that had no exact preimage (0 or 1).
+    int MdiToSf1(int op, uint16_t raw, int16_t& out)
+    {
+        const int s = static_cast<int16_t>(raw);
+        int v = s;
+        bool ok = true;
+        switch (op)
+        {
+        case Gen::InitialFilterFc:                 // cutoff = v * 2
+            ok = Preimage(raw, 0, 127, [](int x) { return std::clamp(x * 2, 0, 255); }, v);
+            break;
+        case Gen::ModLfoToFilterFc: case Gen::ModEnvToFilterFc: case Gen::ModLfoToVolume:
+            ok = Preimage(s, -128, 127, [](int x) { return static_cast<int>(ClampS8(x * 2)); }, v);
+            break;
+        case Gen::FreqModLFO: case Gen::FreqVibLFO: // (v * 2) & 0xFF
+            ok = Preimage(raw & 0xFF, 0, 255, [](int x) { return (x * 2) & 0xFF; }, v);
+            break;
+        case Gen::InitialFilterQ:                  // q = v >> 3
+            ok = Preimage(raw, 0, 127, [](int x) { return x >> 3; }, v);
+            break;
+        case Gen::DelayModLFO: case Gen::DelayVibLFO: case Gen::DelayModEnv: case Gen::DelayVolEnv:
+            ok = Preimage(raw, 0, 65535, [](int x) { return DelayFromMs(x); }, v);
+            break;
+        case Gen::AttackModEnv: case Gen::AttackVolEnv:
+            ok = Preimage(raw, 0, 65535, [](int x) { return AttackRateFromMs(x); }, v);
+            break;
+        case Gen::HoldModEnv:
+            ok = Preimage(raw, 0, 65535, [](int x) { return HoldFromMs(x); }, v);
+            break;
+        case Gen::DecayModEnv: case Gen::ReleaseModEnv: case Gen::ReleaseVolEnv:
+            ok = Preimage(raw, 0, 65535, [](int x) { return DecayRateFromMs(x); }, v);
+            break;
+        case Gen::SustainModEnv: case Gen::SustainVolEnv:
+            ok = Preimage(raw, 0, 255, [](int x) { return std::clamp(x * 4 / 3, 0, 0x7F); }, v);
+            break;
+        default:
+            break;
+        }
+        out = static_cast<int16_t>(v);
+        return ok ? 0 : 1;
+    }
+
+    // Builds an SF1 RIFF image from the tables in SBAWE32.MDI.
+    bool BuildSbkFromMdi(const std::vector<uint8_t>& d, std::vector<uint8_t>& riff,
+                         std::string& error, int& unmapped)
+    {
+        // Preset table: find the 0xFF80 terminator preceded by pairs with
+        // increasing bag indices.
+        size_t ptab = 0, pend = 0;
+        for (size_t t = 4; t + 4 <= d.size() && !pend; t += 1)
+        {
+            if (Rd16(d, t) != 0xFF80) continue;
+            size_t p = t;
+            int n = 0;
+            // id high byte is the MIDI bank (0 or 0x80 for the drum kit),
+            // low byte a program < 128
+            while (p >= 4 && ((Rd16(d, p - 4) >> 8) == 0 || (Rd16(d, p - 4) >> 8) == 0x80)
+                   && (Rd16(d, p - 4) & 0xFF) < 128 && Rd16(d, p - 2) < Rd16(d, p + 2))
+            {
+                p -= 4;
+                ++n;
+            }
+            if (n > 50) { ptab = p; pend = t; }
+        }
+        if (!pend) { error = "SBAWE32.MDI: preset table not found"; return false; }
+
+        const size_t nPresets = (pend - ptab) / 4;
+        const uint16_t nPbag = Rd16(d, pend + 2);
+        size_t pos = pend + 4;
+        std::vector<uint16_t> pbag(nPbag + 1u);
+        for (auto& x : pbag) { x = Rd16(d, pos); pos += 2; }
+        const size_t pgenAt = pos;
+        const size_t nPgen = pbag.back();
+        pos = pgenAt + 3 * nPgen;
+        pos += pos & 1;
+        std::vector<uint16_t> inst;
+        inst.push_back(Rd16(d, pos));
+        pos += 2;
+        while (pos + 2 <= d.size() && Rd16(d, pos) >= inst.back())
+        {
+            inst.push_back(Rd16(d, pos));
+            pos += 2;
+        }
+        std::vector<uint16_t> ibag(inst.back() + 1u);
+        for (auto& x : ibag) { x = Rd16(d, pos); pos += 2; }
+        const size_t igenAt = pos;
+        const size_t nIgen = ibag.back();
+        size_t shdrAt = igenAt + 3 * nIgen;
+        shdrAt += shdrAt & 1;
+        if (shdrAt > d.size()) { error = "SBAWE32.MDI: tables exceed the file"; return false; }
+
+        auto gens = [&](size_t at, size_t count, int& maxSample)
+        {
+            std::vector<uint8_t> o;
+            for (size_t i = 0; i < count; ++i)
+            {
+                const int op = d[at + 3 * i];
+                const uint16_t raw = Rd16(d, at + 3 * i + 1);
+                int16_t v = static_cast<int16_t>(raw);
+                if (op != Gen::KeyRange && op != Gen::VelRange)
+                    unmapped += MdiToSf1(op, raw, v);
+                if (op == Gen::SampleID) maxSample = std::max(maxSample, static_cast<int>(raw));
+                Wr16(o, static_cast<uint16_t>(op));
+                Wr16(o, static_cast<uint16_t>(v));
+            }
+            Wr32(o, 0);                              // terminal record
+            return o;
+        };
+        int maxSample = -1, dummy = -1;
+        const std::vector<uint8_t> pgenB = gens(pgenAt, nPgen, dummy);
+        const std::vector<uint8_t> igenB = gens(igenAt, nIgen, maxSample);
+
+        const size_t nSamples = static_cast<size_t>(maxSample + 1);
+        if (shdrAt + 16 * nSamples > d.size()) { error = "SBAWE32.MDI: sample table truncated"; return false; }
+
+        std::vector<uint8_t> phdrB, pbagB, instB, ibagB, shdrB, snamB, pmodB(10, 0), imodB(10, 0);
+        auto name20 = [](std::vector<uint8_t>& o, const std::string& s)
+        {
+            for (size_t i = 0; i < 20; ++i) o.push_back(i < s.size() ? static_cast<uint8_t>(s[i]) : 0);
+        };
+        for (size_t k = 0; k <= nPresets; ++k)
+        {
+            const uint16_t id = (k < nPresets) ? Rd16(d, ptab + 4 * k) : 0;
+            const uint16_t bag = (k < nPresets) ? Rd16(d, ptab + 4 * k + 2) : nPbag;
+            name20(phdrB, (k < nPresets) ? ("MDI " + std::to_string(id >> 8) + ":" + std::to_string(id & 0xFF)) : "EOP");
+            Wr16(phdrB, id & 0xFF);
+            Wr16(phdrB, id >> 8);
+            Wr16(phdrB, bag);
+            Wr32(phdrB, 0); Wr32(phdrB, 0); Wr32(phdrB, 0);
+        }
+        for (uint16_t x : pbag) { Wr16(pbagB, x); Wr16(pbagB, 0); }
+        for (size_t i = 0; i < inst.size(); ++i)
+        {
+            name20(instB, (i + 1 < inst.size()) ? ("MDI inst " + std::to_string(i)) : "EOI");
+            Wr16(instB, inst[i]);
+        }
+        for (uint16_t x : ibag) { Wr16(ibagB, x); Wr16(ibagB, 0); }
+        shdrB.assign(d.begin() + shdrAt, d.begin() + shdrAt + 16 * nSamples);
+        for (size_t i = 0; i < nSamples; ++i) name20(snamB, "ROM " + std::to_string(i));
+
+        std::vector<uint8_t> info, ifil, pdta, sdta;
+        Wr16(ifil, 1); Wr16(ifil, 0);
+        WrChunk(info, "ifil", ifil);
+        const std::string nm = "SBAWE32.MDI GM";
+        WrChunk(info, "INAM", std::vector<uint8_t>(nm.begin(), nm.end() + 1));
+        std::vector<uint8_t> sdtaBody;
+        WrChunk(sdtaBody, "snam", snamB);
+        WrChunk(pdta, "phdr", phdrB); WrChunk(pdta, "pbag", pbagB); WrChunk(pdta, "pmod", pmodB);
+        WrChunk(pdta, "pgen", pgenB); WrChunk(pdta, "inst", instB); WrChunk(pdta, "ibag", ibagB);
+        WrChunk(pdta, "imod", imodB); WrChunk(pdta, "igen", igenB); WrChunk(pdta, "shdr", shdrB);
+
+        std::vector<uint8_t> body{'s', 'f', 'b', 'k'};
+        WrList(body, "INFO", info);
+        WrList(body, "sdta", sdtaBody);
+        WrList(body, "pdta", pdta);
+        riff.clear();
+        riff.insert(riff.end(), {'R', 'I', 'F', 'F'});
+        Wr32(riff, static_cast<uint32_t>(body.size()));
+        riff.insert(riff.end(), body.begin(), body.end());
+        return true;
+    }
+}
+
 Bank Load(const std::string& path)
 {
     Bank bank;
@@ -247,6 +489,16 @@ Bank Load(const std::string& path)
 
     std::vector<uint8_t> buf((std::istreambuf_iterator<char>(file)),
                               std::istreambuf_iterator<char>());
+    if (buf.size() >= 7 && std::memcmp(buf.data(), "AIL3MDI", 7) == 0)
+    {
+        std::vector<uint8_t> riff;
+        int unmapped = 0;
+        if (!BuildSbkFromMdi(buf, riff, bank.errorMessage, unmapped)) return bank;
+        if (unmapped)
+            std::fprintf(stderr, "Varovani: %s: %d hodnot MDI bez presneho protejsku v SF1\n",
+                         path.c_str(), unmapped);
+        buf.swap(riff);
+    }
     if (buf.size() < 12 || std::memcmp(buf.data(), "RIFF", 4) != 0)
     {
         bank.errorMessage = "Chybi RIFF hlavicka";
