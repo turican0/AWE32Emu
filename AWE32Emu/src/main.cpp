@@ -1,12 +1,10 @@
 // AWE32Emu - CLI pro prehravani .mid/.xmi pres emulaci EMU8000
 //
-// Zvukove jadro (Emu8000.cpp) uz je register-level emulace podle registrove
-// mapy odvozene z ovladace AWEUTIL.COM, viz docs/re-notes. Co zatim chybi je
-// obsah zvukove pameti - dokud neni napojena SoundFont/SBK banka, hraje se
-// generovana sinusova tabulka nahrana do emulovane DRAM.
+// Cip je snd_emu8k.c spolecny s 86Boxem, vrstva ovladace kopiruje ovladace
+// Creative (dos = SBAWE32.MDI, win95 = SBAWE.VXD), viz docs/re-notes.
 //
 // Pouziti:
-//   AWE32Emu.exe <soubor.mid|soubor.xmi> [--sbk <banka.sbk>] [--wav <out.wav>]
+//   AWE32Emu.exe <soubor.mid|soubor.xmi> --rom awe32.raw --sf <banka.sbk|.sf2|.mdi> [--wav <out.wav>]
 //
 #include "MidiFile.h"
 #include "XmiFile.h"
@@ -55,7 +53,8 @@ namespace
             "Volby:\n"
             "  --rom <soubor>      Wave ROM karty (surovy dump, napr. awe32.raw)\n"
             "  --rombank <soubor>  Banka, ktera jen POPISUJE obsah ROM (napr. 1mgm.sf2)\n"
-            "  --sbk <soubor>      Uzivatelska banka - .SBK (SoundFont 1.0) i .SF2\n"
+            "  --sf <soubor>       Banka - .sbk, .sf2 nebo .mdi\n"
+            "                      (GM presety ROM zakompilovane v ovladaci DOS)\n"
             "  --wav <soubor>      Misto prehrani v realnem case zapise vystup do .wav\n"
             "  --debug-voices <n>  Vypise prvnich n spustenych hlasu i s registry\n"
             "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
@@ -64,16 +63,17 @@ namespace
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
             "  --chip nas|86box    Jadro cipu: 86box = snd_emu8k.c spolecny s 86Boxem\n"
             "                      (vychozi, kdyz je --rom), nas = starsi vlastni jadro\n"
-            "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
             "  --ram <KB>          DRAM cipu 86box v KB (onboard_ram), vychozi 8192\n"
             "  --conf <soubor>     Pocatecni stav MIDI kanalu, jak ho posila hra\n"
             "  --dump-notes <csv>  Mezivysledky pri note-onu, sloupce podle bloku\n"
             "                      parametru v SBAWE.VXD (viz tests/patch_struct.py)\n"
             "  --master-volume N   Hlavni hlasitost sekvenceru AIL 0..127 (vychozi 127)\n"
-            "  --sbk <soubor>@<N>  Nacte banku do MIDI banky N (vyber pres CC0);\n"
+            "  --sf <soubor>@<N>   Nacte banku do MIDI banky N (vyber pres CC0);\n"
             "                      uzivatelske banky maji v phdr banku 0\n"
-            "  --tracks 1,2,3      Jen tyto MIDI kanaly (1..16); --tracks -8,-9 = vsechny krome\n"
-            "  --interp linear|cubic|3point|3pointc|sinc   Interpolace (vychozi sinc)\n"
+            "  --tracks 1,2,3      Jen tyto MIDI kanaly (1..16); --tracks -8,-9 = vsechny krome\n\n"
+            "Volby jen pro stare vlastni jadro (--chip nas):\n"
+            "  --interp linear|cubic|3point|3pointc|sinc   Interpolace (vychozi sinc;\n"
+            "                      cip 86box ma pevne 3point)\n"
             "  --reverb 0..7  --chorus 0..7   Preset efektu\n"
             "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n"
             "  --filter-top <Hz>   Mezni kmitocet pri registru 0xFF (vychozi 8000)\n"
@@ -96,7 +96,7 @@ namespace
             "  --filter-poles 1|2|4  Strmost filtru 6/12/24 dB na oktavu (vychozi 2)\n\n"
             "Banky lze zadat vicekrat a vrstvi se - pozdejsi prebiji drivejsi.\n"
             "Typicke pouziti:\n"
-            "  --rom rom/awe32.raw --rombank rom/1mgm.sf2 --sbk sbk/BULLFROG.SBK\n"
+            "  --rom rom/awe32.raw --sf SBAWE32.MDI --sf sbk/BULLFROG.SBK --driver dos\n"
             "\nPodrobny popis vsech voleb i s priklady je v docs/POUZITI.md.\n";
     }
 }
@@ -289,7 +289,8 @@ int main(int argc, char** argv)
     for (int i = 1; i < argc; ++i)
     {
         std::string arg = argv[i];
-        if (arg == "--sbk" && i + 1 < argc)
+        // --sbk is the former name of --sf, kept for old batch files
+        if ((arg == "--sf" || arg == "--sbk") && i + 1 < argc)
         {
             auto [p2, b2] = splitBank(argv[++i]);
             bankPaths.push_back({p2, false, b2});
@@ -545,7 +546,7 @@ int main(int argc, char** argv)
             std::cerr << "Cip 86box se nepodarilo zapnout: " << err << "\n";
             return 1;
         }
-        std::cout << "Jadro cipu: nezmeneny snd_emu8k.c z 86Boxu (latence "
+        std::cout << "Jadro cipu: snd_emu8k.c spolecny s 86Boxem (latence "
                   << synth.Core().ChipLatencyFrames() << " snimku).\n";
     }
     else if (!chip.empty() && chip != "nas")
@@ -571,8 +572,10 @@ int main(int argc, char** argv)
             continue;
         }
         const SoundFont::Bank& b = synth.BankAt(synth.BankCount() - 1);
-        std::cout << "Banka '" << path << "': SoundFont "
-                  << (b.version == SoundFont::Version::Sf1 ? "1.0" : "2.0")
+        const bool fromMdi = (b.name == "SBAWE32.MDI GM");
+        std::cout << "Banka '" << path << "': "
+                  << (fromMdi ? "GM presety z ovladace SBAWE32.MDI"
+                              : (b.version == SoundFont::Version::Sf1 ? "SoundFont 1.0" : "SoundFont 2.0"))
                   << ", " << b.presets.size() << " presetu, "
                   << b.instruments.size() << " instrumentu, "
                   << b.samples.size() << " vzorku";

@@ -102,7 +102,7 @@ python ../AWE32EmuData/tests/regress.py
 Prehrani RELAXu vcetne zpevu (uzivatelska banka patri do MIDI banky 1):
 
 ```bash
-./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/SAMPLES2/RELAX_VX.MID --rom ../AWE32EmuData/rom/awe32.raw --sbk "../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK" --sbk "../AWE32EmuData/SAMPLES2/RELAX.SBK@1" --wav ../AWE32EmuData/tests/out/relax_vx.wav
+./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/SAMPLES2/RELAX_VX.MID --rom ../AWE32EmuData/rom/awe32.raw --sf "../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK" --sf "../AWE32EmuData/SAMPLES2/RELAX.SBK@1" --wav ../AWE32EmuData/tests/out/relax_vx.wav
 ```
 
 Srovnani se skutecnou nahravkou:
@@ -114,7 +114,7 @@ python ../AWE32EmuData/tests/cmp_real.py ../AWE32EmuData/tests/out/relax_vx.wav 
 Reprodukce dosoveho mereni (hra ma hlavni hlasitost AIL kolem 100/127):
 
 ```bash
-./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_w.xmi --rom ../AWE32EmuData/rom/awe32.raw --sbk ../AWE32EmuData/sbk/BULLFROG.SBK --wav ../AWE32EmuData/tests/out/mc_intro.wav --trace ../AWE32EmuData/tests/out/mc_intro.trace --driver dos --master-volume 100
+./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_w.xmi --rom ../AWE32EmuData/rom/awe32.raw --sf ../AWE32EmuData/sbk/BULLFROG.SBK --wav ../AWE32EmuData/tests/out/mc_intro.wav --trace ../AWE32EmuData/tests/out/mc_intro.trace --driver dos --master-volume 100
 ```
 
 Srovnani registru proti ovladacum:

@@ -17,7 +17,7 @@ generic softsynth.
   generators translated into EMU8000 registers using conversions measured
   against the real drivers
 - Wave ROM support (`--rom`), including banks that only *describe* ROM content
-- Multiple banks in different MIDI bank slots (`--sbk bank.sbk@1`), as the
+- Multiple banks in different MIDI bank slots (`--sf bank.sbk@1`), as the
   Creative control panel does
 - Both driver families (`--driver dos|win95`) — they differ in eight init-array
   values, the velocity table and the attenuation formula, and are not
@@ -68,14 +68,14 @@ attaches them to a GitHub release — see `.github/workflows/release.yml`.
 
 ```bash
 # render with the general MIDI bank out of the card's wave ROM
-AWE32Emu song.mid --rom awe32.raw --sbk SYNTHGM.SBK --wav out.wav
+AWE32Emu song.mid --rom awe32.raw --sf SYNTHGM.SBK --wav out.wav
 
-# a game's own bank layered on top of GM, DOS driver family
-AWE32Emu song.xmi --rom awe32.raw --sbk SYNTHGM.SBK --sbk GAME.SBK \
+# a DOS game: GM presets compiled into the driver (SBAWE32.MDI) plus the game bank
+AWE32Emu song.xmi --rom awe32.raw --sf SBAWE32.MDI --sf GAME.SBK \
     --driver dos --wav out.wav
 
 # convert an SBK bank (including its ROM samples) into a standalone SF2
-AWE32Emu --rom awe32.raw --sbk GAME.SBK --export-sf2 game.sf2
+AWE32Emu --rom awe32.raw --sf GAME.SBK --export-sf2 game.sf2
 ```
 
 See [`docs/POUZITI.md`](docs/POUZITI.md) for every option, what it means and

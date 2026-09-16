@@ -44,7 +44,7 @@ Je to v `../AWE32EmuData/conf/mc2.conf` a nacita se prepinacem `--conf`:
 
 ```bash
 ./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_g.xmi \
-  --rom ../AWE32EmuData/rom/awe32.raw --sbk ../AWE32EmuData/sbk/BULLFROG.SBK \
+  --rom ../AWE32EmuData/rom/awe32.raw --sf ../AWE32EmuData/sbk/BULLFROG.SBK \
   --driver dos --conf ../AWE32EmuData/conf/mc2.conf --wav out.wav
 ```
 
@@ -121,8 +121,8 @@ stopa obsahuje hudbu z menu.
 ```bash
 ./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_w.xmi \
   --rom ../AWE32EmuData/rom/awe32.raw \
-  --sbk ../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK \
-  --sbk ../AWE32EmuData/sbk/BULLFROG.SBK \
+  --sf ../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK \
+  --sf ../AWE32EmuData/sbk/BULLFROG.SBK \
   --driver dos --conf ../AWE32EmuData/conf/mc2.conf \
   --wav out.wav --trace ../AWE32EmuData/tests/out/mc2_final.trace
 ```
@@ -137,7 +137,7 @@ stopa obsahuje hudbu z menu.
 presetu hry; vsechno ostatni bere hra z GM banky v ROM. Bez ni jsme u presetu,
 ktere v bance nejsou, dosazovali nesmysl (`CCCA` vychazelo `FFD2`) a hrali
 jednu vrstvu tam, kde hra hraje dve. Nacist se proto musi **obe**:
-`--sbk SYNTHGM.SBK --sbk BULLFROG.SBK`. Casovani not se tim srovnalo
+`--sf SYNTHGM.SBK --sf BULLFROG.SBK`. Casovani not se tim srovnalo
 z rozchodu u noty 22 na shodu **do par milisekund az po notu 260**.
 
 **2. Hlavni hlasitost XMIDI je 100, ne 127.** Ovladac s ni skaluje CC7

@@ -55,7 +55,7 @@ Loader banky **nesmi byt sity na `BULLFROG.SBK`**. Musi zvladnout libovolny
       zvukovy fond zacina na slove 495
 - [x] **SoundFont parser** - `SoundFont.h/.cpp`, obecny pro SF1.0 i SF2
 - [x] **Prevod generatoru na registry** EMU8000
-- [x] **Vrstveni bank** - `--rombank` (banka popisujici obsah ROM) a `--sbk`
+- [x] **Vrstveni bank** - `--rombank` (banka popisujici obsah ROM) a `--sf`
       (uzivatelska banka do DRAM), obojí lze zadat vicekrat
 - [x] **Mereni** - `../AWE32EmuData/tests/compare.py`, `../AWE32EmuData/tests/bands.py`, `../AWE32EmuData/tests/rom_pitch.py`,
       `../AWE32EmuData/tests/query_preset.py`, `../AWE32EmuData/tests/dump_sbk.py`
@@ -69,7 +69,7 @@ Loader banky **nesmi byt sity na `BULLFROG.SBK`**. Musi zvladnout libovolny
 ## Stav mereni (002_C2GAME3)
 
     AWE32Emu.exe ../AWE32EmuData/midi/002_C2GAME3_w.xmi --rom ../AWE32EmuData/rom/awe32.raw
-        --rombank ../AWE32EmuData/rom/1mgm.sf2 --sbk ../AWE32EmuData/sbk/BULLFROG.SBK --wav ../AWE32EmuData/tests/out/x.wav
+        --rombank ../AWE32EmuData/rom/1mgm.sf2 --sf ../AWE32EmuData/sbk/BULLFROG.SBK --wav ../AWE32EmuData/tests/out/x.wav
 
 Co uz sedi:
 
@@ -110,8 +110,8 @@ spravne**. U `GEORG_BK` je rozdil dany dlouhym tichem za posledni notou
 `irom=1MGM`), takze je to nejlepsi kalibracni par:
 
     AWE32Emu.exe ../AWE32EmuData/SAMPLES2/RELAX_BK.MID --rom ../AWE32EmuData/rom/awe32.raw
-        --sbk ../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK
-        --sbk ../AWE32EmuData/SAMPLES2/RELAX.SBK --wav ../AWE32EmuData/tests/out/relax.wav
+        --sf ../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK
+        --sf ../AWE32EmuData/SAMPLES2/RELAX.SBK --wav ../AWE32EmuData/tests/out/relax.wav
 
 ## Autenticka GM banka: `SYNTHGM.SBK`
 
@@ -225,7 +225,7 @@ Co uz je vyloucene:
 Overovana hypoteza: zni to, jako by `5 - Georgia On My Mind.flac` byla
 nahrana s jinymi soundfonty nez zakladni GM v ROM. **Nepotvrdila se.**
 Jedina dobova moznost je **wave ROM karty popsana `SYNTHGM.SBK`**, tedy
-`--rom rom/awe32.raw --sbk cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK`.
+`--rom rom/awe32.raw --sf cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK`.
 
 **Datem vyrazene.** Demo CD je z 10. 5. 1994 (`19940510_ISO.txt`). V tehdejsim
 svete existuje jen SoundFont 1.0; vsechno v SF2 je pozdejsi a jako kandidat
