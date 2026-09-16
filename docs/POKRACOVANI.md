@@ -33,12 +33,12 @@ Doporucene spusteni (autenticka GM banka + banka skladby):
 ```bash
 ./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/SAMPLES2/RELAX_BK.MID \
     --rom ../AWE32EmuData/rom/awe32.raw \
-    --sbk "../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK" \
-    --sbk ../AWE32EmuData/SAMPLES2/RELAX.SBK \
+    --sf "../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK" \
+    --sf ../AWE32EmuData/SAMPLES2/RELAX.SBK \
     --wav ../AWE32EmuData/tests/out/relax.wav
 ```
 
-Prepinace: `--rom`, `--rombank`, `--sbk` (vicekrat, vrstvi se), `--wav`,
+Prepinace: `--rom`, `--rombank`, `--sf` (vicekrat, vrstvi se), `--wav`,
 `--interp linear|cubic`, `--reverb 0..7`, `--chorus 0..7`, `--rev-room`,
 `--rev-damp`, `--rev-return`, `--cho-return`, `--tracks 1,2 | -8,-9`, `--debug-voices`,
 `--trace <soubor>` (zaznam portovych zapisu pro `ref86box`),

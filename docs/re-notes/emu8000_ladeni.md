@@ -566,7 +566,7 @@ demo skladbe rika, kterou banku nahrat do ktereho slotu - a u dvou z nich jsou
 
 > 3. Dancesbk.mid - Load 9ftgrand.sbk on Bank 1, load Gmdrum.sbk on Bank 2.
 
-U nas to uz umime: `--sbk soubor@N` presune presety banky do MIDI banky N
+U nas to uz umime: `--sf soubor@N` presune presety banky do MIDI banky N
 a kazda banka dostane svuj kus DRAM za tou predchozi. Overeno na
 `DANCESBK.MID`: proti renderu jen s GM se lisi 99 % vzorku, takze se obe banky
 opravdu pouziji.

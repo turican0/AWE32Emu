@@ -144,7 +144,7 @@ dohromady + stahování). Kalibrace: správná dvojice 0,4–0,7, šum sahá do 
 Render s trasou a přehrání přes 86Boxí čip:
 
 ```bash
-./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/SAMPLES2/GEORG_BK.MID --rom ../AWE32EmuData/rom/awe32.raw --sbk "../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK" --wav ../AWE32EmuData/tests/out/g.wav --trace ../AWE32EmuData/tests/out/g.trace --driver win95
+./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/SAMPLES2/GEORG_BK.MID --rom ../AWE32EmuData/rom/awe32.raw --sf "../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK" --wav ../AWE32EmuData/tests/out/g.wav --trace ../AWE32EmuData/tests/out/g.trace --driver win95
 ```
 
 ```bash
@@ -172,7 +172,7 @@ python ../AWE32EmuData/tests/regress.py
 ```
 
 Ladicí přepínače přehrávače: `--driver dos|win95`, `--master-volume N`,
-`--filter-top <Hz>`, `--filter-poles 1|2|4`, `--sbk soubor@N` (MIDI banka).
+`--filter-top <Hz>`, `--filter-poles 1|2|4`, `--sf soubor@N` (MIDI banka).
 
 ---
 

@@ -17,7 +17,7 @@
 // Zdroje zvuku, presne jako na realne karte:
 //   - wave ROM karty (`--rom`), mapovana od adresy 0
 //   - popis GM banky v ROM (`--rombank`), ktery jen rika, kde v ROM co lezi
-//   - uzivatelske banky (`--sbk`), jejich vzorky se nahravaji do DRAM
+//   - uzivatelske banky (`--sf`), jejich vzorky se nahravaji do DRAM
 //
 // Banky se vrstvi: hleda se od naposledy nactene, takze uzivatelska banka
 // prebije GM preset se stejnym cislem. Bez jakekoli banky hraje nahradni

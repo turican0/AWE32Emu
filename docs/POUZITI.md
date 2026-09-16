@@ -25,7 +25,7 @@ AWE32Emu skladba.mid --wav ven.wav
 Skutečný zvuk začne až s ROM a bankou:
 
 ```bash
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --wav ven.wav
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK --wav ven.wav
 ```
 
 ---
@@ -38,7 +38,7 @@ Tohle je jediné místo, kde se dá zbytečně zabloudit, tak k němu rovnou př
 |---|---|
 | `--rom` | **data**. Surový dump 1 MB wave ROM karty (`awe32.raw`), 16bit LE. Samotný nic nezní — je to jen zvuková paměť. |
 | `--rombank` | **popis** obsahu ROM: které presety kde v ROM leží (`1mgm.sf2`, `SYNTHGM.SBK`). Vlastní vzorky neobsahuje. |
-| `--sbk` | **uživatelská banka**. `.SBK` (SoundFont 1.0) i `.SF2`. Vzorky si nese s sebou a nahrají se do emulované DRAM karty. |
+| `--sf` | **uživatelská banka**. `.SBK` (SoundFont 1.0) i `.SF2`. Vzorky si nese s sebou a nahrají se do emulované DRAM karty. |
 
 Typická plná sestava zní takto:
 
@@ -46,7 +46,7 @@ Typická plná sestava zní takto:
 AWE32Emu skladba.mid \
     --rom     rom/awe32.raw \
     --rombank rom/1mgm.sf2 \
-    --sbk     sbk/BULLFROG.SBK \
+    --sf     sbk/BULLFROG.SBK \
     --wav ven.wav
 ```
 
@@ -62,9 +62,9 @@ zavináčem:
 ```bash
 AWE32Emu DANCESBK.MID \
     --rom rom/awe32.raw \
-    --sbk SYNTHGM.SBK \
-    --sbk SBK/9FTGRAND.SBK@1 \
-    --sbk SBK/GMDRUM.SBK@2 \
+    --sf SYNTHGM.SBK \
+    --sf SBK/9FTGRAND.SBK@1 \
+    --sf SBK/GMDRUM.SBK@2 \
     --wav ven.wav
 ```
 
@@ -82,15 +82,15 @@ u skutečné karty.
 
 ```bash
 # přehrát v reálném čase (jen Windows)
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK
 
 # zapsat do .wav (44 100 Hz, 16 bit, stereo)
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --wav ven.wav
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK --wav ven.wav
 
 # jen vybrané MIDI kanály — nejrychlejší způsob, jak najít, který nástroj zlobí
 # kanály 1..16; kladná čísla = jen tyto, záporná = všechny kromě těchto
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --tracks 1 --wav ch1.wav
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --tracks -8,-9 --wav bez8a9.wav
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK --tracks 1 --wav ch1.wav
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK --tracks -8,-9 --wav bez8a9.wav
 ```
 
 ---
@@ -105,11 +105,16 @@ v inicializačních polích, tabulkou velocity a vzorcem útlumu:
 | `win95` (výchozí) | `SBAWE.VXD` | Windows 95, Creative MIDI |
 | `dos` | `SBAWE32.MDI` / `SBAWE32.DRV` | DOSové hry (Miles/AIL), dobové nahrávky |
 
+DOSové hry přes AIL (např. Magic Carpet 2) načítají jen vlastní banku; GM presety
+pro ROM má ovladač `SBAWE32.MDI` zakompilované v sobě. Proto se místo
+`SYNTHGM.SBK` zadává přímo ovladač (`--sf SBAWE32.MDI`); registry pak sedí
+se hrou 24/24. `SYNTHGM.SBK` načítá ze souboru jen ovladač Win95.
+
 Nahrávky ze skutečného železa, které používáme na ladění, jsou starší než
 Win95, takže se k nim renderuje s `--driver dos`.
 
 ```bash
-AWE32Emu 004_C2INTRO_w.xmi --rom awe32.raw --sbk SYNTHGM.SBK --sbk BULLFROG.SBK \
+AWE32Emu 004_C2INTRO_w.xmi --rom awe32.raw --sf SBAWE32.MDI --sf BULLFROG.SBK \
     --driver dos --wav ven.wav
 ```
 
@@ -135,14 +140,14 @@ je k dispozici datový adresář — viz [Sestavení](#sestavení) níže.
 
 ```bash
 # prvních 40 spuštěných hlasů i s registry, které do nich šly
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --debug-voices 40 --wav ven.wav
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK --debug-voices 40 --wav ven.wav
 
 # CSV se všemi note-ony: sloupce odpovídají bloku parametrů v SBAWE.VXD,
 # takže se dá položit vedle výpisu ze skutečného ovladače
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --dump-notes noty.csv --wav ven.wav
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK --dump-notes noty.csv --wav ven.wav
 
 # záznam všech portových zápisů (srovnání s 86Boxem)
-AWE32Emu skladba.mid --rom awe32.raw --sbk SYNTHGM.SBK --trace stopa.txt --wav ven.wav
+AWE32Emu skladba.mid --rom awe32.raw --sf SYNTHGM.SBK --trace stopa.txt --wav ven.wav
 ```
 
 `--dump-notes` je hlavní nástroj, když se dvě sestavení liší: srovnáním dvou
@@ -157,7 +162,7 @@ reverb…). Když se renderuje jen holý XMI, tenhle stav chybí a render začne
 někde jinde než nahrávka. `--conf` ho dodá:
 
 ```bash
-AWE32Emu 004_C2INTRO_w.xmi --rom awe32.raw --sbk SYNTHGM.SBK --sbk BULLFROG.SBK \
+AWE32Emu 004_C2INTRO_w.xmi --rom awe32.raw --sf SBAWE32.MDI --sf BULLFROG.SBK \
     --driver dos --conf conf/mc2.conf --wav ven.wav
 ```
 
@@ -173,10 +178,10 @@ přehrávač a vzorky navíc často leží ve wave ROM karty, kterou nikdo nemá
 
 ```bash
 # samotná banka (vzorky z ROM se zapečou do souboru)
-AWE32Emu --rom rom/awe32.raw --sbk sbk/BULLFROG.SBK --export-sf2 bullfrog.sf2
+AWE32Emu --rom rom/awe32.raw --sf sbk/BULLFROG.SBK --export-sf2 bullfrog.sf2
 
 # víc bank do jedné (pozdější přebíjí dřívější, stejně jako při hraní)
-AWE32Emu --rom rom/awe32.raw --sbk SYNTHGM.SBK --sbk sbk/BULLFROG.SBK \
+AWE32Emu --rom rom/awe32.raw --sf SBAWE32.MDI --sf sbk/BULLFROG.SBK \
     --export-sf2 vse.sf2
 ```
 

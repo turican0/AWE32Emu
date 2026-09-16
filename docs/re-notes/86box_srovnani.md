@@ -1254,7 +1254,7 @@ Skladbu se podarilo urcit z dat, ne odhadem: nase renderovana stopa
 
 ```bash
 ./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_w.xmi \
-    --rom ../AWE32EmuData/rom/awe32.raw --sbk ../AWE32EmuData/sbk/BULLFROG.SBK \
+    --rom ../AWE32EmuData/rom/awe32.raw --sf ../AWE32EmuData/sbk/BULLFROG.SBK \
     --wav out.wav --trace ../AWE32EmuData/tests/out/mc_intro.trace --driver dos
 
 python ../AWE32EmuData/tests/notes_diff.py ../AWE32EmuData/tests/out/mc_intro.trace ../AWE32EmuData/tests/out/dos_mdi.trace --pair
@@ -1579,7 +1579,7 @@ Prehravac ma proto novy prepinac `--master-volume N` (0..127, vychozi 127),
 kterym se mereni da reprodukovat:
 
 ```bash
-./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_w.xmi --rom ../AWE32EmuData/rom/awe32.raw --sbk ../AWE32EmuData/sbk/BULLFROG.SBK --wav ../AWE32EmuData/tests/out/mc_intro.wav --trace ../AWE32EmuData/tests/out/mc_intro.trace --driver dos --master-volume 100
+./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_w.xmi --rom ../AWE32EmuData/rom/awe32.raw --sf ../AWE32EmuData/sbk/BULLFROG.SBK --wav ../AWE32EmuData/tests/out/mc_intro.wav --trace ../AWE32EmuData/tests/out/mc_intro.trace --driver dos --master-volume 100
 ```
 
 ## 16.6 Vysledek
