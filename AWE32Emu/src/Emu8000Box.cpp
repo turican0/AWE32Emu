@@ -169,7 +169,7 @@ bool Emu8000Box::Init(const std::string& romPath, uint16_t basePort, int ramKb, 
         std::fseek(f, 0, SEEK_END);
         const long bytes = std::ftell(f);
         std::fclose(f);
-        if (bytes < 1048576)
+        if (bytes < 1048574)   // a card dump without the AWE-DUMP word is 2 bytes shorter
         {
             err = "wave ROM '" + romPath + "' ma jen "
                 + std::to_string(bytes) + " B, cip 86box vyzaduje 1 MB";

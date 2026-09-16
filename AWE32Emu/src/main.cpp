@@ -62,7 +62,8 @@ namespace
             "  --replay <stopa>    Prehraje stopu portovych zapisu jadrem a zapise --wav\n"
             "                      (format jako emu8k_ref; MIDI soubor se pak nezadava)\n"
             "  --driver dos|win95  Varianta ovladace Creative; vychozi je win95\n"
-            "  --chip nas|86box    Jadro cipu: nase, nebo nezmeneny snd_emu8k.c\n"
+            "  --chip nas|86box    Jadro cipu: 86box = snd_emu8k.c spolecny s 86Boxem\n"
+            "                      (vychozi, kdyz je --rom), nas = starsi vlastni jadro\n"
             "                      z 86Boxu (vyzaduje --rom, viz Emu8000Box.h)\n"
             "  --ram <KB>          DRAM cipu 86box v KB (onboard_ram), vychozi 8192\n"
             "  --conf <soubor>     Pocatecni stav MIDI kanalu, jak ho posila hra\n"
@@ -529,6 +530,12 @@ int main(int argc, char** argv)
 
     // Cip z 86Boxu se musi zapnout drive, nez pujde prvni zapis na porty -
     // tedy pred SetDriver/PowerOnInit nize.
+    // The chip is snd_emu8k.c, the same file 86Box is built from (with the
+    // measured corrections). Our older core stays available as --chip nas
+    // and is used when no wave ROM is given.
+    const bool chipDefault = chip.empty();
+    if (chipDefault)
+        chip = romPath.empty() ? "nas" : "86box";
     if (chip == "86box")
     {
         std::string err;
