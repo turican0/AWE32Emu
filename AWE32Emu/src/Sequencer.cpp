@@ -34,6 +34,8 @@ void Sequencer::DispatchEvent(Synth& synth, const MidiEvent& ev)
         break;
     case MidiEventType::ControlChange:
         synth.ControlChange(ev.channel, ev.data1, ev.data2);
+        if (m_triggerMute && ev.data1 == 119 && ev.data2 == 0)
+            synth.ControlChange(ev.channel, 11, 0);
         break;
     case MidiEventType::PitchBend:
     {

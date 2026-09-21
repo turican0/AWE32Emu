@@ -259,6 +259,7 @@ void Synth::ReleaseVoice(int voice)
                      Emu8000::kDcysusvRelease | (m_alloc[voice].releaseModRate & 0x7F));
     m_alloc[voice].inUse = false;
     m_alloc[voice].heldBySustain = false;
+    m_alloc[voice].vxdState = 0xFFE;
 }
 
 void Synth::KillVoice(int voice)
@@ -266,6 +267,7 @@ void Synth::KillVoice(int voice)
     m_core.Write(Reg::DCYSUSV, voice, Emu8000::kDcysusvOff);
     m_alloc[voice].inUse = false;
     m_alloc[voice].heldBySustain = false;
+    m_alloc[voice].vxdState = 0xFFE;
 }
 
 // ---------------------------------------------------------------------------
@@ -339,6 +341,111 @@ int Synth::AllocateVoiceMdi(uint16_t state)
     a.heldBySustain = false;
     m_core.Write(Reg::DCYSUSV, chosen, 0x807Fu);
     return chosen;
+}
+
+// ---------------------------------------------------------------------------
+// SBAWE.VXD (family `win95`) voice allocation, transcribed from 0xC0FF9C68.
+// ---------------------------------------------------------------------------
+
+int Synth::AllocateVoiceVxd(uint16_t state)
+{
+    // Three passes over the voices in steps of three (0, 3, .. 30, then 1, 4,
+    // .. 31, then 2, 5, .. 29) - that is the order the driver takes them in
+    // (georg_win95.trace). Score of a voice: its volume target, plus 0x200
+    // when it is assigned (0x1200 when bit 12 of the state is set), plus
+    // 0x300 when it is held by the pedal, otherwise plus 0x1300 when its
+    // volume envelope is not in release. The lowest score wins, a later voice
+    // wins a tie, a free voice that is already silent is taken at once, and so
+    // is a voice whose playback address has passed the end of its sample.
+    // While at most two ROM voices are playing, ROM voices are not taken.
+    int romPlaying = 0;
+    for (int v = 0; v < kVxdVoices; ++v)
+        if (m_alloc[v].vxdRom && m_alloc[v].vxdState != 0xFFE) ++romPlaying;
+    const bool protectRom = (romPlaying <= 2);
+
+    uint32_t best = 0xFFFFFFFFu;
+    int cand = -1;
+    int chosen = -1;
+    for (int pass = 0; pass < 3 && chosen < 0; ++pass)
+    {
+        for (int v = pass; v < kVxdVoices; v += 3)
+        {
+            const VoiceAlloc& a = m_alloc[v];
+            if (protectRom && a.vxdRom) continue;
+            const uint16_t s = a.vxdState;
+            if (s < 0x2000)
+            {
+                uint32_t score = m_core.ReadDriver(Reg::VTFT, v) >> 16;
+                bool take = false;
+                if (s == 0xFFE)
+                {
+                    take = (score == 0);
+                }
+                else
+                {
+                    score += (s & 0x1000) ? 0x1200u : 0x200u;
+                    if ((s & 0xFF) == 0xFF)
+                        score += 0x300u;
+                    else if (!(m_core.ReadDriver(Reg::DCYSUSV, v) & Emu8000::kDcysusvRelease))
+                        score += 0x1300u;
+                }
+                if (take) { chosen = v; break; }
+                if (score <= best) { best = score; cand = v; }
+            }
+            if (a.vxdEndAddr != 0
+                && (m_core.ReadDriver(Reg::CCCA, v) & Emu8000::kCccaAddressMask) >= a.vxdEndAddr)
+            {
+                chosen = v;
+                break;
+            }
+        }
+    }
+    if (chosen < 0) chosen = (cand >= 0) ? cand : 0;
+
+    VoiceAlloc& a = m_alloc[chosen];
+    a.vxdState = state;
+    a.vxdEndAddr = 0;
+    a.inUse = false;
+    a.heldBySustain = false;
+    m_core.Write(Reg::DCYSUSV, chosen, 0x00FFu);
+    return chosen;
+}
+
+// SBAWE.VXD CC10 (0xC0FFC3F1): every voice of the channel gets a new target
+// pan, the same formula and limits as at note-on, and moves towards it one
+// register step at a time (0xC0FFC347): the first step at once, the next ones
+// from the driver's deferred-call queue. The queue runs every ~5.15 ms -
+// relax_win95.trace: 227 frames between the pan steps of a voice in 9669
+// cases (189 in the next most common). Each step writes the pan byte of PSST
+// and its complement (0xFF for pan 0) to the low byte of PTRX.
+namespace { constexpr int32_t kVxdPanStepFrames = 227; }
+
+void Synth::PanVxd(uint8_t channel, uint8_t value)
+{
+    for (int v = 0; v < kVxdVoices; ++v)
+    {
+        VoiceAlloc& a = m_alloc[v];
+        if ((a.vxdState >> 8) != channel) continue;
+        int pan = 0x17F - 2 * (a.vxdPatchPan + static_cast<int>(value));
+        if (pan >= 0xFE) pan = 0xFF;
+        else if (pan <= 1) pan = 0;
+        a.vxdPanTarget = static_cast<uint8_t>(pan);
+        PanStepVxd(v);
+    }
+}
+
+void Synth::PanStepVxd(int voice)
+{
+    VoiceAlloc& a = m_alloc[voice];
+    a.vxdPanTimer = -1;
+    if (a.vxdState >= 0x2000 || a.vxdPanCur == a.vxdPanTarget) return;
+    a.vxdPanCur = static_cast<uint8_t>(a.vxdPanCur + (a.vxdPanTarget > a.vxdPanCur ? 1 : -1));
+    const uint32_t psst = m_core.ReadDriver(Reg::PSST, voice);
+    m_core.Write(Reg::PSST, voice, (static_cast<uint32_t>(a.vxdPanCur) << 24) | (psst & 0x00FFFFFFu));
+    const uint32_t aux = a.vxdPanCur ? static_cast<uint32_t>((256 - a.vxdPanCur) & 0xFF) : 0xFFu;
+    const uint32_t ptrx = m_core.ReadDriver(Reg::PTRX, voice);
+    m_core.Write(Reg::PTRX, voice, (ptrx & 0xFFFFFF00u) | aux);
+    if (a.vxdPanCur != a.vxdPanTarget) a.vxdPanTimer = kVxdPanStepFrames;
 }
 
 void Synth::NoteOffMdi(int voice)
@@ -574,8 +681,14 @@ void Synth::StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& 
     }
 
     // Preset muze mit vic vrstev na jednu notu - kazda dostane hlas.
+    // Rodina win95 vybira hlas jako SBAWE.VXD (cte pritom cip), ostatni
+    // nasim vlastnim pravidlem.
     for (size_t i = 0; i < regions.size(); ++i)
-        StartVoice(AllocateVoice(), channel, note, velocity, vps[i], &b, &regions[i]);
+    {
+        const int voice = (m_core.DriverVariant() == Awe32::Driver::Win95)
+                            ? AllocateVoiceVxd(0xFFFE) : AllocateVoice();
+        StartVoice(voice, channel, note, velocity, vps[i], &b, &regions[i]);
+    }
 }
 
 int Synth::BankNumberFor(uint8_t channel) const
@@ -890,6 +1003,15 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
                         ? vp.sampleEndAddr + 4 : 0u;
         a.mdiEndAddr    = 0;
     }
+    else
+    {
+        a.vxdState = static_cast<uint16_t>((channel << 8) | note);
+        a.vxdRom = sampleInRom;
+        a.vxdEndAddr = 0;
+        a.vxdPatchPan = static_cast<uint8_t>(vp.patchPan);
+        a.vxdPanTarget = a.vxdPanCur = static_cast<uint8_t>(pan);
+        a.vxdPanTimer = -1;
+    }
 
     if (m_noteDump)
     {
@@ -1061,13 +1183,17 @@ void Synth::NoteOff(uint8_t channel, uint8_t note)
         }
         return;
     }
-    for (int i = 0; i < kUsableVoices; ++i)
+    for (int i = 0; i < NoteVoices(); ++i)
     {
         VoiceAlloc& a = m_alloc[i];
         if (!a.inUse || a.heldBySustain) continue;
         if (a.channel != channel || a.note != note) continue;
 
-        if (m_channels[channel].sustain) a.heldBySustain = true;
+        if (m_channels[channel].sustain)
+        {
+            a.heldBySustain = true;
+            a.vxdState = static_cast<uint16_t>((a.vxdState & 0xFF00u) | 0xFFu);
+        }
         else                             ReleaseVoice(i);
     }
 }
@@ -1081,7 +1207,7 @@ void Synth::ProgramChange(uint8_t channel, uint8_t program)
 void Synth::RefreshChannel(uint8_t channel)
 {
     const int bend = PitchBendOffset(channel);
-    for (int i = 0; i < kUsableVoices; ++i)
+    for (int i = 0; i < NoteVoices(); ++i)
     {
         VoiceAlloc& a = m_alloc[i];
         if ((!a.inUse && !a.heldBySustain) || a.channel != channel) continue;
@@ -1112,7 +1238,14 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
     case 1:  ch.modWheel = value; break;
     case 32: ch.bankLsb = value; break;
     case 7:  ch.volume = value; break;
-    case 10: ch.pan = value; break;
+    case 10:
+        if (m_core.DriverVariant() == Awe32::Driver::Win95 && ch.pan != value)
+        {
+            ch.pan = value;
+            PanVxd(channel, value);
+        }
+        ch.pan = value;
+        break;
     case 11: ch.expression = value; break;
     case 91: ch.reverbSend = value; break;
     case 93: ch.chorusSend = value; break;
@@ -1137,19 +1270,19 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
         const bool wasOn = ch.sustain;
         ch.sustain = value >= 64;
         if (wasOn && !ch.sustain)
-            for (int i = 0; i < kUsableVoices; ++i)
+            for (int i = 0; i < NoteVoices(); ++i)
                 if (m_alloc[i].heldBySustain && m_alloc[i].channel == channel)
                     ReleaseVoice(i);
         break;
     }
 
     case 120:
-        for (int i = 0; i < kUsableVoices; ++i)
+        for (int i = 0; i < NoteVoices(); ++i)
             if (m_alloc[i].channel == channel) KillVoice(i);
         break;
 
     case 123:
-        for (int i = 0; i < kUsableVoices; ++i)
+        for (int i = 0; i < NoteVoices(); ++i)
             if (m_alloc[i].inUse && m_alloc[i].channel == channel) ReleaseVoice(i);
         break;
 
@@ -1172,6 +1305,14 @@ void Synth::PitchBend(uint8_t channel, int16_t value)
 
 void Synth::RenderBlock(int16_t* out, uint32_t numFrames)
 {
+    if (m_core.DriverVariant() == Awe32::Driver::Win95)
+        for (int v = 0; v < kVxdVoices; ++v)
+        {
+            VoiceAlloc& a = m_alloc[v];
+            if (a.vxdPanTimer < 0) continue;
+            a.vxdPanTimer -= static_cast<int32_t>(numFrames);
+            if (a.vxdPanTimer <= 0) PanStepVxd(v);
+        }
     m_core.RenderBlock(out, numFrames);
 }
 

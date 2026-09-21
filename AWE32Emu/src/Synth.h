@@ -106,6 +106,17 @@ private:
         uint8_t  mdiModRelease = 0;  // +0x04
         uint8_t  mdiVolRelease = 0;  // +0x05
         int8_t   mdiFmmodDepth = 0;  // +0x06
+
+        // SBAWE.VXD voice block (object 1, 0x42 + voice * 0x20), family
+        // `win95`. State: 0xFFE free, 0xFFFE reserved while a note is set up,
+        // (channel << 8) | note playing, low byte 0xFF = held by the pedal.
+        uint16_t vxdState = 0xFFE;
+        uint32_t vxdEndAddr = 0;     // +0x0A: finished once CCCA passes it
+        bool     vxdRom = false;     // +0x0D: the sample lies in the wave ROM
+        uint8_t  vxdPatchPan = 64;   // +0x12: pan of the patch (driver units)
+        uint8_t  vxdPanTarget = 0;   // +0x18: pan register value to glide to
+        uint8_t  vxdPanCur = 0;      // +0x19: pan register value written last
+        int32_t  vxdPanTimer = -1;   // frames to the next glide step, -1 = none
     };
 
     struct ChannelState
@@ -157,6 +168,9 @@ private:
 
     // Family `dos` (SBAWE32.MDI), see Synth.cpp.
     int  AllocateVoiceMdi(uint16_t state);
+    int  AllocateVoiceVxd(uint16_t state);
+    void PanVxd(uint8_t channel, uint8_t value);
+    void PanStepVxd(int voice);
     void NoteOffMdi(int voice);
     void UpdateAttenMdi(uint8_t channel);
     void UpdateFmmodMdi(uint8_t channel, int value);
@@ -195,7 +209,15 @@ private:
     uint32_t m_ageCounter = 0;
 
     // Hlasy 30 a 31 zabira ovladac na DRAM refresh, pro noty zbyva 30.
+    // SBAWE.VXD je ale pouziva taky (georg_win95.trace: note-on na v30 i v31),
+    // takze rodina `win95` bere vsech 32.
     static constexpr int kUsableVoices = 30;
+    static constexpr int kVxdVoices = 32;
+    // Voices the driver family hands out: 32 for win95, 30 otherwise.
+    int NoteVoices() const
+    {
+        return (m_core.DriverVariant() == Awe32::Driver::Win95) ? kVxdVoices : kUsableVoices;
+    }
     // Zvukovy fond wave ROM zacina na tomto slove (viz docs/re-notes).
     static constexpr uint32_t kRomPoolBase = 495;
     // Cislo banky bicich podle GM/SoundFont konvence.

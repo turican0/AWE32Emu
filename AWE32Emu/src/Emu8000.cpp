@@ -729,11 +729,20 @@ void Emu8000Core::PowerOnInit()
     Write(Reg::PTRX, 30, 0x48280000u);
     WriteReg16(MakeSel(1, Port::Data1, 28), 0x0000);
 
-    Write(Reg::VTFT, 30, 0xFFFFFFFFu);   // tady uz je `cwd`, tj. i horni pulka
-    Write(Reg::VTFT, 31, 0xFFFFFFFFu);
+    // AWEUTIL sem `cwd` dosadi i horni pulku (0xFFFFFFFF), ale OBA ovladace
+    // Creative pisi 0x0000FFFF - cilovy objem hlasu 30/31 je tedy nula
+    // (g_win95_c.trace, dos_mdi.trace i mc2_full.trace maji VTFT FFFF / VTFT^ 0000).
+    // Zalezi na tom: vyber hlasu v SBAWE.VXD skoruje podle VTFT^, takze
+    // s 0xFFFF by na hlasy 30 a 31 nikdy nesahl.
+    Write(Reg::VTFT, 30, 0x0000FFFFu);
+    Write(Reg::VTFT, 31, 0x0000FFFFu);
 
     // krok 9
-    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kHWCF3), 0x0004);
+    // SBAWE32.MDI (and AWEUTIL) end with HWCF3 = 0x0004, SBAWE.VXD with
+    // 0x0006 (g_win95_c/relax_win95/jump_win95.trace vs dos_mdi/mc2_full.trace).
+    // The extra bit fits the VXD taking voices 30 and 31 for notes.
+    WriteReg16(MakeSel(1, Port::Data1, Hwcf::kHWCF3),
+               (m_driver == Awe32::Driver::Win95) ? 0x0006 : 0x0004);
 
     // SBAWE32.MDI initialises the voices again when the game loads it and
     // ends every voice with DCYSUS = DCYSUSV = 0x807F (0x398C..0x399F in the

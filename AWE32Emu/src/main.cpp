@@ -121,7 +121,7 @@ struct ConfMessage
 
 // `master` zustane -1, kdyz soubor hlavni hlasitost neuvadi.
 bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
-              int& master, std::string& err)
+              int& master, bool& triggerMute, std::string& err)
 {
     std::ifstream f(path);
     if (!f)
@@ -174,6 +174,19 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
                     + ": `bend` chce hodnotu 0..16383";
                 return false;
             }
+        }
+        else if (word == "trigger_mute")
+        {
+            // see Sequencer::SetTriggerMute
+            int v = 0;
+            if (!(is >> v))
+            {
+                err = path + ":" + std::to_string(lineNo)
+                    + ": `trigger_mute` chce 0 nebo 1";
+                return false;
+            }
+            triggerMute = (v != 0);
+            continue;
         }
         else if (word == "master_volume")
         {
@@ -501,10 +514,11 @@ int main(int argc, char** argv)
     // totiz sama urcovat. Prepinac `--master-volume` ma prednost.
     std::vector<ConfMessage> confMessages;
     int confMaster = -1;
+    bool confTriggerMute = false;
     if (!confPath.empty())
     {
         std::string err;
-        if (!LoadConf(confPath, confMessages, confMaster, err))
+        if (!LoadConf(confPath, confMessages, confMaster, confTriggerMute, err))
         {
             std::cerr << "Chyba v konfiguraci: " << err << "\n";
             return 1;
@@ -807,6 +821,7 @@ int main(int argc, char** argv)
 
     Sequencer sequencer;
     sequencer.Load(sequence);
+    sequencer.SetTriggerMute(confTriggerMute);
 
     std::vector<int16_t> block(static_cast<size_t>(kFramesPerBuffer) * 2);
     const uint32_t tailBlocks =
