@@ -146,6 +146,24 @@ namespace Awe32Curves
         return std::clamp(atten, 0, 255);
     }
 
+    // AWE32 DOS SDK, midieng noteOn 0x0C7F..0x0CE9 (family Sdk). Same three
+    // tables as MDI; the patch attenuation goes into the dB sum as
+    // units * 25 / 80 (truncated), and the expression step is
+    // `mul cx / shr ax, 7` from 256.
+    inline int ComputeAttenuationSdk(int cc7, int velocity, int expression,
+                                     int patchAttenUnits)
+    {
+        const int db = kChannelVolumeDb[cc7] + VelocityDb(velocity, Driver::Sdk)
+                     + std::clamp(patchAttenUnits, 0, 255) * 25 / 80;
+        int atten = (db * 8) / 3;
+        if (atten > 255) return 255;
+
+        if (expression < 127)
+            atten += (kExpressionDb[expression] * (256 - atten)) >> 7;
+
+        return std::clamp(atten, 0, 255);
+    }
+
     inline int ComputeAttenuation(int cc7, int velocity, int expression,
                                   int patchAttenUnits, Driver drv)
     {
@@ -156,6 +174,8 @@ namespace Awe32Curves
         // Obe rodiny umlci kanal, kdyz je hlasitost velmi nizka.
         if (cc7 <= 10) return 255;
 
+        if (drv == Driver::Sdk)
+            return ComputeAttenuationSdk(cc7, velocity, expression, patchAttenUnits);
         return (drv == Driver::Win95)
             ? ComputeAttenuationVxd(cc7, velocity, expression, patchAttenUnits)
             : ComputeAttenuationMdi(cc7, velocity, expression, patchAttenUnits);

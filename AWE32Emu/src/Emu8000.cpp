@@ -749,7 +749,7 @@ void Emu8000Core::PowerOnInit()
     // per-voice loop at 0x3912). Its voice allocation reads DCYSUSV back and
     // an idle voice must show the release bit, otherwise every voice scores
     // 0x1000 and the last odd voice wins instead of voice 0.
-    if (m_driver == Awe32::Driver::Dos)
+    if (Awe32::IsDosLike(m_driver))
     {
         for (int v = 0; v < kMaxVoices; ++v)
         {

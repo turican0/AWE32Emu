@@ -244,7 +244,7 @@ static void DelayMs(unsigned ms)
 #define REC_RATE     44100
 /* Zmereno na skutecnem stroji: bloky 1-22 trvaly 999 s, cely beh vyjde
    pres pul tretiho tisice sekund i s MIDI bloky na konci. */
-#define AWETEST_SECONDS 3000L     /* v25: delsi mezery + bloky 35-38; VM +13 % proti odhadu */
+#define AWETEST_SECONDS 3100L     /* v26: bloky 40-41 (+100 s); v25 delsi mezery a bloky 35-38 */
 /* 64 kB = 372 ms zvuku, tedy dvojnasobna rezerva proti tomu, kdyz disk na
    chvili nestiha. Kdyz se 128 kB v DOSu nesezene, spadne se na 32 kB. */
 static long rec_ring = 65536L;         /* ring buffer, ~372 ms of audio     */
@@ -1331,7 +1331,7 @@ static SAMPLE SMP_LONG  = { 100000L, 100000L, 1000000L };
    soucasne prejmenovat vystup v BUILD32.CMD na AWETESTnn.EXE. Cislo je
    v hlavicce i na prvnim radku logu, takze u kazde nahravky je poznat,
    cim vznikla. */
-#define AWETEST_VER "25"
+#define AWETEST_VER "26"
 
 #define V_TEST      29
 #define V_MARK      28
@@ -3634,6 +3634,147 @@ static void QuietPass(int want_db)
     LevelRestore();
 }
 
+/* ------------------------------------------------------------------------ *
+ *  40 (v26): chorus, what block 23 does not answer
+ *
+ *  Block 23 plays short tones and two sustained ones per preset. What is
+ *  still open is the shape of the wet path itself:
+ *
+ *    - the delay taps and the flanger sweep. A tick with full send gives
+ *      them directly, the way the reverb tick does in block 23; eight ticks
+ *      spaced over two seconds catch the LFO at different points of its
+ *      cycle, so the sweep shows up as the echo moving.
+ *    - the slow amplitude modulation of the wet signal reported for presets
+ *      1 to 3. Two and a half seconds is not enough to see a cycle, so the
+ *      sustained tone here runs for seven.
+ *    - the comb notches, which noise shows far better than a sine.
+ *
+ *  Presets 1..4 only (0 is the shortest delay, 5..7 were measured in 23).
+ * ------------------------------------------------------------------------ */
+static void BlockChorusDetail(int n)
+{
+    TONE t;
+    int  p, i;
+
+    if (!BlockMark(n, "chorus detail: ticks, long sustained tone, noise"))
+        return;
+    SetSteps(4 * (8 + 1 + 1));
+
+    for (p = 1; p <= 4; p++) {
+        Trace("chorus detail preset %ld", (long) p);
+        awe32Chorus((WORD) p);
+
+        /* Eight ticks over two seconds - the LFO is somewhere else each
+           time, so the delay of the echo moves between them. */
+        for (i = 0; i < 8; i++) {
+            ToneDefaults(&t);
+            t.smp    = &SMP_TICK;
+            t.chorus = 255u;
+            LogLine("preset %ld, tick %ld, send 255", (long) p, (long) i, 0);
+            PlayTone(&t, 30, 250);
+            StepDone();
+        }
+
+        /* Long tone: one full cycle of the modulation has to fit in. */
+        ToneDefaults(&t);
+        t.chorus = 255u;
+        LogLine("preset %ld, sustained tone 7 s, send 255", (long) p, 0, 0);
+        PlayTone(&t, 7000, 1200);
+        StepDone();
+
+        /* Noise: the comb notches of the delay are visible in one shot. */
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.chorus = 255u;
+        LogLine("preset %ld, noise 3 s, send 255", (long) p, 0, 0);
+        PlayTone(&t, 3000, 1000);
+        StepDone();
+    }
+
+    Trace("chorus detail: resetting", 0);
+    awe32Chorus(0);
+}
+
+/* ------------------------------------------------------------------------ *
+ *  41 (v26): the filter far below cutoff (stopband)
+ *
+ *  Blocks 6, 28 and 36 sweep the cutoff under a tone of a fixed pitch, so
+ *  the deep part of the slope ends up under the noise floor of the capture
+ *  and cannot be read. Here it is the other way round: the cutoff stays at
+ *  the bottom of the range and the TONE climbs away from it, with the
+ *  capture level raised by 24 dB (the same way block 38 does it) and the
+ *  tone at full level, so even 60 dB down is still above the floor.
+ *
+ *  IP is 16 bit and IP_UNITY is 0xE000, so +2 octaves (2714 Hz) is as high
+ *  as the sine goes; noise covers the rest of the band.
+ *
+ *  Q is measured too: it lifts the peak, and whether it changes anything
+ *  three octaves below is exactly what our filter cannot answer.
+ * ------------------------------------------------------------------------ */
+static void BlockStopband(int n)
+{
+    static const int cut[3] = { 0, 16, 32 };
+    static const int ip[4]  = { -4096, 0, 4096, 8191 };  /* 339..2714 Hz */
+    TONE t;
+    int  db, c, i, k;
+
+    if (!BlockMark(n, "filter stopband: tone far above cutoff, +24 dB"))
+        return;
+    SetSteps(3 * 4 + 2 * 4 + 3 + 1);
+
+    db = LevelBoost(24);
+
+    /* Anchor: the same tone with the filter wide open. Everything else in
+       the block is read against it, so the boost cancels out. */
+    ToneDefaults(&t);
+    t.cutoff = 255u;
+    LogLine("anchor sine, cutoff 255, boost %ld dB", (long) db, 0, 0);
+    PlayTone(&t, 1000, 600);
+    StepDone();
+
+    for (c = 0; c < 3; c++) {
+        for (i = 0; i < 4; i++) {
+            ToneDefaults(&t);
+            t.ip     = (unsigned) (IP_UNITY + ip[i]);
+            t.cutoff = (unsigned) cut[c];
+            LogLine("stopband sine IP %ld, cutoff %ld, boost %ld dB",
+                    (long) t.ip, (long) cut[c], (long) db);
+            PlayTone(&t, 600, 700);
+            StepDone();
+        }
+    }
+
+    /* Same thing with resonance: Q 15 at the bottom of the range. The peak
+       is loud, hence the extra attenuation, as in block 36. */
+    for (k = 0; k < 2; k++) {
+        for (i = 0; i < 4; i++) {
+            ToneDefaults(&t);
+            t.ip     = (unsigned) (IP_UNITY + ip[i]);
+            t.cutoff = (unsigned) (k ? 32u : 0u);
+            t.q      = 15u;
+            t.atten  = 48u;
+            LogLine("stopband Q15 sine IP %ld, cutoff %ld, boost %ld dB",
+                    (long) t.ip, (long) (k ? 32 : 0), (long) db);
+            PlayTone(&t, 600, 700);
+            StepDone();
+        }
+    }
+
+    /* Noise at the very bottom: the whole band at once, so the shape of the
+       slope can be read from one spectrum. */
+    for (c = 0; c < 3; c++) {
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.cutoff = (unsigned) cut[c];
+        LogLine("stopband noise cutoff %ld, boost %ld dB",
+                (long) cut[c], (long) db, 0);
+        PlayTone(&t, 1500, 800);
+        StepDone();
+    }
+
+    LevelRestore();
+}
+
 /* 38: co se v run5 topilo v sumu, znovu pri +12 a +24 dB. */
 static void BlockQuiet(int n)
 {
@@ -4012,7 +4153,7 @@ int main(int argc, char **argv)
         else {
             printf("Usage: AWETEST [/FROM:n] [/TO:n] [/MB:n] [/REC:file.wav]"
                    " [/SBK:path] [/WT:hex]\n");
-            printf("  with no switches all 39 blocks play (about %ld minutes)\n",
+            printf("  with no switches all 41 blocks play (about %ld minutes)\n",
                    AWETEST_SECONDS / 60L);
             printf("  /REC also captures the card's own output to a WAV file\n");
             printf("       (44.1 kHz stereo, about 240 MB for the full run)\n");
@@ -4285,6 +4426,8 @@ int main(int argc, char **argv)
     BlockDiag(n++);                 /* 37 v25: ticho, osamocene noty      */
     BlockQuiet(n++);                /* 38 v25: tiche veci pri +12/+24 dB  */
     BlockReference(n++);            /* 39 (do v24 to bylo 35)             */
+    BlockChorusDetail(n++);         /* 40 v26: chorus zblizka            */
+    BlockStopband(n++);             /* 41 v26: filtr hluboko pod mezi    */
 
     RecStop();
     if (g_bname[0]) printf("\n");

@@ -16,6 +16,11 @@
 //   Dos    - `AWEUTIL.COM` (inicializace) + `SBAWE32.MDI` (Miles/AIL, note-on)
 //   Win95  - `SBAWE.VXD` 86054 B, ta binarka, proti ktere je overeno
 //            vsech 24 registru pri note-on na 242 notach (sekce 11)
+//   Sdk    - Creative AWE32 DOS SDK (RAWE32L.LIB, module midieng.c), used by
+//            DOSMid and by our AWETEST. Closest relative of `Dos` (same GM
+//            table format, same layer reservation), with its own voice
+//            allocation; transcribed from the library, checked against the
+//            DOSMid trace.
 //
 // Obe varianty jsou dnes overene na **vsech registrech**: `win95` proti
 // `SBAWE.VXD` (242 not, MINUET) a `dos` proti `SBAWE32.MDI` (255 not,
@@ -47,7 +52,11 @@ namespace Awe32
     {
         Dos,     // AWEUTIL.COM + SBAWE32.MDI
         Win95,   // SBAWE.VXD
+        Sdk,     // AWE32 DOS SDK (RAWE32L.LIB)
     };
+
+    // `Sdk` shares the `Dos` code path wherever the two do not differ.
+    inline constexpr bool IsDosLike(Driver d) { return d == Driver::Dos || d == Driver::Sdk; }
 
     // Vychozi je Win95 - proti nemu je overena cela note-on cesta.
     inline constexpr Driver kDefaultDriver = Driver::Win95;
@@ -58,17 +67,19 @@ namespace Awe32
     //
     //   SBAWE32.MDI 0x1FF4:  ax:dx = [si+0x76];  sub ax, 0x2e   (46)
     //   SBAWE.VXD   0x1ECF:  eax   = [ebx+0x76]; sub eax, 4
+    //   SDK noteOn  0x0DB4:  ax = es:[si+0x76];     sub ax, 5
+    //                        (DOSMid trace: +41 words against `dos`)
     //
     // Neni to preklep ani nase chyba mereni: proti MDI vychazi rozdil
     // presne 42 slov u vsech not, proti VXD sedi CCCA na 242 notach.
     inline constexpr int StartAddressOffset(Driver d)
     {
-        return (d == Driver::Dos) ? 46 : 4;
+        return (d == Driver::Dos) ? 46 : (d == Driver::Sdk) ? 5 : 4;
     }
 
     inline const char* DriverName(Driver d)
     {
-        return (d == Driver::Dos) ? "dos" : "win95";
+        return (d == Driver::Dos) ? "dos" : (d == Driver::Sdk) ? "sdk" : "win95";
     }
 
     // Vrati false, kdyz jmeno nesedi na zadnou variantu.
@@ -77,6 +88,7 @@ namespace Awe32
         if (name == nullptr) return false;
         if (std::strcmp(name, "dos") == 0)   { out = Driver::Dos;   return true; }
         if (name && std::strcmp(name, "win95") == 0) { out = Driver::Win95; return true; }
+        if (name && std::strcmp(name, "sdk") == 0)   { out = Driver::Sdk;   return true; }
         return false;
     }
 }

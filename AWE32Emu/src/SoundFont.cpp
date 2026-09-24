@@ -980,7 +980,7 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         // Vychozi hodnota se mezi rodinami **lisi**: v tabulce vychozich
         // generatoru ma SBAWE32.MDI (0x16AD+0x60) 110, kdezto SBAWE.VXD
         // (obj 1, 0x6D60+0x60) 127.
-        const int dflt = (drv == Awe32::Driver::Dos) ? 110 : 127;
+        const int dflt = (Awe32::IsDosLike(drv)) ? 110 : 127;
         const int units = (region.sf1AttenUnits >= 0) ? region.sf1AttenUnits
                                                       : (127 - dflt);
         vp.patchAttenUnits = static_cast<uint8_t>(std::clamp(units, 0, 255));

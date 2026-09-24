@@ -40,6 +40,29 @@ namespace
         return (v > 0xFFFFu) ? 0xFFFFu : v;
     }
 
+    // AWE32 DOS SDK, midieng noteOn 0x115D..0x11EB. The same steps as
+    // PitchIncrement, but in 16-bit code: `imul word` multiplies only the
+    // low word of the running value (signed) and `idiv word` gives a 16-bit
+    // quotient; the last step is *1.5 (`sar dx,1 / rcr ax,1 / add`) where
+    // the VXD has *1.25.
+    uint32_t PitchIncrementSdk(uint16_t ip)
+    {
+        if (ip == 0xFFFF) return 0xFFFF;
+
+        int32_t v = 1 << (ip >> 12);
+        auto step = [&v](int32_t k)
+        {
+            const int32_t prod = static_cast<int32_t>(static_cast<int16_t>(v & 0xFFFF)) * k;
+            v += static_cast<int16_t>(prod / 10000);
+        };
+        if (ip & 0x800) step(0x102E);
+        if (ip & 0x400) step(0x0764);
+        if (ip & 0x200) step(0x0389);
+        v += v >> 1;
+        return ((static_cast<uint32_t>(v) >> 16) != 0) ? 0xFFFFu
+                                                       : (static_cast<uint32_t>(v) & 0xFFFFu);
+    }
+
     uint16_t MakeDcysusv(int sustain, int rate)
     {
         return static_cast<uint16_t>(((sustain & 0x7F) << 8) | (rate & 0x7F));
@@ -133,7 +156,7 @@ bool Synth::LoadBank(const std::string& path, std::string& error, bool samplesIn
     if (m_nextDramBase == 0)
     {
         const uint32_t reserve =
-            (m_core.DriverVariant() == Awe32::Driver::Dos) ? kDramReserveDos
+            (Awe32::IsDosLike(m_core.DriverVariant())) ? kDramReserveDos
                                                            : kDramReserveWin95;
         m_nextDramBase = Emu8000::kDramOffset + reserve;
     }
@@ -163,7 +186,7 @@ bool Synth::LoadBank(const std::string& path, std::string& error, bool samplesIn
         // played 46 words of that full-scale sine before its sample. The
         // fallback waveform is only needed when no bank is loaded at all.
         const size_t reserveWords =
-            (m_core.DriverVariant() == Awe32::Driver::Dos) ? kDramReserveDos : kDramReserveWin95;
+            (Awe32::IsDosLike(m_core.DriverVariant())) ? kDramReserveDos : kDramReserveWin95;
         if (offset == reserveWords)
             std::fill(m_core.DramData(), m_core.DramData() + offset, int16_t{0});
 
@@ -182,7 +205,7 @@ bool Synth::LoadBank(const std::string& path, std::string& error, bool samplesIn
         // intro sounded wrong everywhere except the belltree from ROM.
         if (bank.version == SoundFont::Version::Sf1)
         {
-            const bool dos = (m_core.DriverVariant() == Awe32::Driver::Dos);
+            const bool dos = (Awe32::IsDosLike(m_core.DriverVariant()));
             const int shift = dos ? 2 : 3;
             const int32_t round = (1 << shift) - 1;
             const int16_t* src = bank.sampleData.data();
@@ -242,7 +265,7 @@ int Synth::AllocateVoice()
 
 void Synth::ReleaseVoice(int voice)
 {
-    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    if (Awe32::IsDosLike(m_core.DriverVariant()))
     {
         NoteOffMdi(voice);
         return;
@@ -255,11 +278,25 @@ void Synth::ReleaseVoice(int voice)
     // odtud i dvojnasobny pocet zapisu do DCYSUS v census u trace_diff.
     // `SBAWE32.MDI` to nedela.
     if (m_core.DriverVariant() == Awe32::Driver::Win95)
+    {
         m_core.Write(Reg::DCYSUS, voice,
                      Emu8000::kDcysusvRelease | (m_alloc[voice].releaseModRate & 0x7F));
+        // SBAWE.VXD 0xC0FFA252: loop behind the sample end, CSL = end + 4,
+        // PSST = end; the voice counts as finished once CCCA passes the end.
+        const uint32_t end = m_alloc[voice].vxdNoteEnd;
+        if (end != 0)
+        {
+            const uint32_t csl = m_core.ReadDriver(Reg::CSL, voice);
+            m_core.Write(Reg::CSL, voice, (csl & 0xFF000000u) | (end + 4));
+            const uint32_t psst = m_core.ReadDriver(Reg::PSST, voice);
+            m_core.Write(Reg::PSST, voice, (psst & 0xFF000000u) | end);
+            m_alloc[voice].vxdEndAddr = end;
+        }
+    }
     m_alloc[voice].inUse = false;
     m_alloc[voice].heldBySustain = false;
     m_alloc[voice].vxdState = 0xFFE;
+    m_alloc[voice].vxdRom = false;
 }
 
 void Synth::KillVoice(int voice)
@@ -268,6 +305,7 @@ void Synth::KillVoice(int voice)
     m_alloc[voice].inUse = false;
     m_alloc[voice].heldBySustain = false;
     m_alloc[voice].vxdState = 0xFFE;
+    m_alloc[voice].vxdRom = false;
 }
 
 // ---------------------------------------------------------------------------
@@ -288,6 +326,17 @@ namespace
         const int32_t sum = static_cast<int32_t>(static_cast<uint16_t>(ip)) + offset;
         if (sum < 0) return static_cast<uint16_t>(sum);
         return static_cast<uint16_t>(std::min<int32_t>(sum, 0xFFFF));
+    }
+
+    // IP + bend offset in the SDK. The bend handler (AWE32PITCHBEND 0x1C4E)
+    // clamps to 0..0xFFFF; the note-on (noteOn 0x0C61) only tests the high
+    // word of the 32-bit sum, so a negative result becomes 0xFFFF as well.
+    uint16_t SdkAddBend(int ip, int offset, bool noteOn)
+    {
+        const int32_t sum = static_cast<int32_t>(static_cast<uint16_t>(ip)) + offset;
+        if (sum > 0xFFFF) return 0xFFFF;
+        if (sum < 0) return noteOn ? 0xFFFF : 0;
+        return static_cast<uint16_t>(sum);
     }
 }
 
@@ -344,6 +393,65 @@ int Synth::AllocateVoiceMdi(uint16_t state)
 }
 
 // ---------------------------------------------------------------------------
+// AWE32 DOS SDK (family `sdk`) voice allocation, __AWE32ALLOCGCHANNEL in
+// midieng.c (RAWE32L.LIB, offset 0x0478). A sibling of the MDI one with
+// different details: the release test and the pedal bonus apply only to an
+// assigned voice, a free voice is taken at once only when silent, the
+// EARLIER voice wins a tie, and when nothing qualifies the note gets no
+// voice (-1). The taken voice gets DCYSUSV 0x0080 and VTFT 0x0000FFFF.
+// DOSMid trace: voices 0, 2, 4 ... first, DCYSUSV 0080 + VTFT FFFF.
+// ---------------------------------------------------------------------------
+
+int Synth::AllocateVoiceSdk(uint16_t state)
+{
+    uint32_t best = 0xFFFFFFFFu;
+    int chosen = -1;
+    bool done = false;
+    for (int pass = 0; pass < 2 && !done; ++pass)
+    {
+        for (int v = pass; v < kUsableVoices; v += 2)
+        {
+            const VoiceAlloc& a = m_alloc[v];
+            const uint16_t s = a.mdiState;
+            if (s == 0xFFFF || s < 0x1000)
+            {
+                uint32_t score = m_core.ReadDriver(Reg::VTFT, v) >> 16;
+                if (s == 0xFFFF)
+                {
+                    if (score == 0) { chosen = v; done = true; break; }
+                }
+                else
+                {
+                    score += 0x200;
+                    if ((s & 0xFF) == 0xFF)
+                        score += 0x300;
+                    else if (!(m_core.ReadDriver(Reg::DCYSUSV, v) & Emu8000::kDcysusvRelease))
+                        score += 0x1300;
+                }
+                if (score < best) { best = score; chosen = v; }
+            }
+            if (a.mdiEndAddr != 0
+                && (m_core.ReadDriver(Reg::CCCA, v) & Emu8000::kCccaAddressMask) >= a.mdiEndAddr)
+            {
+                chosen = v;
+                done = true;
+                break;
+            }
+        }
+    }
+    if (chosen < 0) return -1;
+
+    VoiceAlloc& a = m_alloc[chosen];
+    a.mdiState = state;
+    a.mdiEndAddr = 0;
+    a.inUse = false;
+    a.heldBySustain = false;
+    m_core.Write(Reg::DCYSUSV, chosen, 0x0080u);
+    m_core.Write(Reg::VTFT, chosen, 0x0000FFFFu);
+    return chosen;
+}
+
+// ---------------------------------------------------------------------------
 // SBAWE.VXD (family `win95`) voice allocation, transcribed from 0xC0FF9C68.
 // ---------------------------------------------------------------------------
 
@@ -358,6 +466,9 @@ int Synth::AllocateVoiceVxd(uint16_t state)
     // wins a tie, a free voice that is already silent is taken at once, and so
     // is a voice whose playback address has passed the end of its sample.
     // While at most two ROM voices are playing, ROM voices are not taken.
+    // The flag means "playing a ROM sample now" - it is cleared when the voice
+    // is released; kept after the note it made every voice of a ROM bank
+    // untouchable and all notes of Georgia after 18 s fell on voice 0.
     int romPlaying = 0;
     for (int v = 0; v < kVxdVoices; ++v)
         if (m_alloc[v].vxdRom && m_alloc[v].vxdState != 0xFFE) ++romPlaying;
@@ -405,6 +516,7 @@ int Synth::AllocateVoiceVxd(uint16_t state)
     VoiceAlloc& a = m_alloc[chosen];
     a.vxdState = state;
     a.vxdEndAddr = 0;
+    a.vxdRom = false;
     a.inUse = false;
     a.heldBySustain = false;
     m_core.Write(Reg::DCYSUSV, chosen, 0x00FFu);
@@ -448,6 +560,41 @@ void Synth::PanStepVxd(int voice)
     if (a.vxdPanCur != a.vxdPanTarget) a.vxdPanTimer = kVxdPanStepFrames;
 }
 
+// SBAWE.VXD CC1 (0xC0FFC650): FMMOD pitch depth of every voice of the
+// channel = patch depth + CC1 / 30 + pressure / 30, capped at 0x7F from
+// above; the low byte (filter depth) is read back and kept.
+void Synth::UpdateFmmodVxd(uint8_t channel)
+{
+    const ChannelState& ch = m_channels[channel];
+    for (int v = 0; v < kVxdVoices; ++v)
+    {
+        const VoiceAlloc& a = m_alloc[v];
+        if ((a.vxdState >> 8) != channel) continue;
+        const int depth = std::min(a.vxdFmmodDepth + ch.modWheel / 30 + ch.vxdPressureDiv30, 0x7F);
+        const uint16_t fmmod = static_cast<uint16_t>(m_core.ReadDriver(Reg::FMMOD, v));
+        m_core.Write(Reg::FMMOD, v, static_cast<uint16_t>(((depth & 0xFF) << 8) | (fmmod & 0xFF)));
+    }
+}
+
+// SBAWE.VXD CC7 / CC11 (0xC0FFC47F): the attenuation of every voice of the
+// channel is recomputed with the note-on formula (ComputeAttenuationVxd, +16
+// for a "1MGM" ROM sample) and written to the low byte of IFATN.
+void Synth::UpdateAttenVxd(uint8_t channel)
+{
+    const ChannelState& ch = m_channels[channel];
+    for (int v = 0; v < kVxdVoices; ++v)
+    {
+        const VoiceAlloc& a = m_alloc[v];
+        if ((a.vxdState >> 8) != channel) continue;
+        int atten = Awe32Curves::ComputeAttenuation(
+            EffectiveChannelVolume(ch.volume), a.velocity, ch.expression,
+            a.vxdPatchAtten, Awe32::Driver::Win95);
+        if (atten < 255 && a.vxdRom1mgm) atten = std::min(atten + 16, 255);
+        const uint16_t ifatn = static_cast<uint16_t>(m_core.ReadDriver(Reg::IFATN, v));
+        m_core.Write(Reg::IFATN, v, static_cast<uint16_t>((ifatn & 0xFF00) | (atten & 0xFF)));
+    }
+}
+
 void Synth::NoteOffMdi(int voice)
 {
     // 0x19BE: release both envelopes, modulation first. For a looped sample
@@ -482,6 +629,7 @@ void Synth::UpdateAttenMdi(uint8_t channel)
     // (0xFFFF) are rewritten as well when the channel is 15.
     const ChannelState& ch = m_channels[channel];
     const int vol = std::clamp(EffectiveChannelVolume(ch.volume), 0, 127);
+    const bool sdk = m_core.DriverVariant() == Awe32::Driver::Sdk;
     for (int v = 0; v < kUsableVoices; ++v)
     {
         const VoiceAlloc& a = m_alloc[v];
@@ -500,7 +648,18 @@ void Synth::UpdateAttenMdi(uint8_t channel)
                 static_cast<uint16_t>(a.mdiPatchAtten * 0x19) / 0x50);
             const uint16_t sum = static_cast<uint16_t>(patch + db);
             atten = static_cast<uint16_t>(sum << 3) / 3;
-            if (atten >= 0xFF)
+            if (sdk)
+            {
+                // SDK Volume 0x15B2..0x1608: expression from 256 with >> 7,
+                // then +16 for a ROM sample (card ROM id "1MGM").
+                if (atten > 0xFF)
+                    atten = 0xFF;
+                else if (ch.expression < 0x7F)
+                    atten += static_cast<uint16_t>(Awe32Curves::kExpressionDb[ch.expression] * (0x100 - atten)) >> 7;
+                if (a.sdkRom)
+                    atten = std::min(atten + 0x10, 0xFF);
+            }
+            else if (atten >= 0xFF)
                 atten = 0xFF;
             else if (ch.expression < 0x7F)
                 atten += Awe32Curves::kExpressionDb[ch.expression] * (0xFF - atten) / 0x7F;
@@ -537,15 +696,27 @@ void Synth::PitchBendMdi(uint8_t channel, int16_t value)
     ChannelState& ch = m_channels[channel];
     ch.pitchBend = value;
     const int range = ch.pitchBendRangeSemitones ? ch.pitchBendRangeSemitones : 2;
-    const int32_t product = static_cast<int32_t>(value)
-        * static_cast<int16_t>(static_cast<uint16_t>(range * 0x155));
-    ch.mdiBendOffset = static_cast<int16_t>(product / 0x2000);
+    // The SDK (AWE32PITCHBEND 0x1BF8) divides bend * range by 24 - the
+    // exact 4096/12 of the VXD - where the MDI multiplies by 0x155 / 0x2000,
+    // one step lower at full bend (681 vs 682).
+    const bool sdk = m_core.DriverVariant() == Awe32::Driver::Sdk;
+    if (sdk)
+    {
+        ch.mdiBendOffset = static_cast<int16_t>((static_cast<int32_t>(value) * range) / 24);
+    }
+    else
+    {
+        const int32_t product = static_cast<int32_t>(value)
+            * static_cast<int16_t>(static_cast<uint16_t>(range * 0x155));
+        ch.mdiBendOffset = static_cast<int16_t>(product / 0x2000);
+    }
     for (int v = 0; v < kUsableVoices; ++v)
     {
         const VoiceAlloc& a = m_alloc[v];
         const int hi = a.mdiState >> 8;
         if (hi == 0xFF || (hi & 0x0F) != channel) continue;
-        m_core.Write(Reg::IP, v, MdiAddBend(a.basePitch, ch.mdiBendOffset));
+        m_core.Write(Reg::IP, v, sdk ? SdkAddBend(a.basePitch, ch.mdiBendOffset, false)
+                                     : MdiAddBend(a.basePitch, ch.mdiBendOffset));
     }
 }
 
@@ -649,15 +820,43 @@ bool Synth::ControlChangeMdi(uint8_t channel, uint8_t controller, uint8_t value)
 void Synth::ChannelPressure(uint8_t channel, uint8_t value)
 {
     if (channel >= 16) return;
-    // Only the `dos` family is transcribed (0x2AAC); SBAWE.VXD is not yet.
-    if (m_core.DriverVariant() != Awe32::Driver::Dos) return;
+    if (m_core.DriverVariant() == Awe32::Driver::Win95)
+    {
+        // SBAWE.VXD 0xC0FFCEAE: pressure / 30 is stored and the FMMOD depth
+        // of the channel recomputed (0xC0FFC650).
+        m_channels[channel].vxdPressureDiv30 = static_cast<uint8_t>(value / 30);
+        UpdateFmmodVxd(channel);
+        return;
+    }
+    // SBAWE32.MDI 0x2AAC.
+    if (!Awe32::IsDosLike(m_core.DriverVariant())) return;
     ChannelState& ch = m_channels[channel];
     ch.mdiPressureDiv30 = static_cast<uint8_t>(value / 30);
     UpdateFmmodMdi(channel, ch.mdiModDiv30 * 30);
 }
 
+// SBAWE.VXD 0xC0FFAC08: every voice with the same channel + preset key and
+// the same exclusive class is cut (IFATN 0x00FF, DCYSUSV 0x807F), whatever
+// its state - playing, released or held by the pedal.
+void Synth::KillExclusiveVxd(uint32_t key, uint8_t cls)
+{
+    for (int v = 0; v < kVxdVoices; ++v)
+    {
+        VoiceAlloc& a = m_alloc[v];
+        if (a.vxdExclKey != key || a.vxdExclClass != cls) continue;
+        m_core.Write(Reg::IFATN, v, 0x00FF);
+        m_core.Write(Reg::DCYSUSV, v, 0x807F);
+        a.inUse = false;
+        a.heldBySustain = false;
+        a.vxdState = 0xFFE;
+        a.vxdRom = false;
+        a.vxdExclKey = 0;
+        a.vxdExclClass = 0;
+    }
+}
+
 void Synth::StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& regions,
-                        uint8_t channel, uint8_t note, uint8_t velocity)
+                        uint8_t channel, uint8_t note, uint8_t velocity, uint32_t presetId)
 {
     const SoundFont::Bank& b = *m_banks[bankIndex].bank;
     std::vector<SoundFont::VoiceParams> vps;
@@ -667,27 +866,48 @@ void Synth::StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& 
             b, r, note, velocity, m_banks[bankIndex].dramBase, kRomPoolBase,
             m_core.DriverVariant()));
 
-    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    if (Awe32::IsDosLike(m_core.DriverVariant()))
     {
         // SBAWE32.MDI 0x1EB2: every layer gets its voice (reserved, 0xFFFE)
         // before any register of the note is written.
+        // The SDK does the same (noteOn 0x0BA3) with its own allocation,
+        // which may find no voice - that layer is then not played.
+        const bool sdk = m_core.DriverVariant() == Awe32::Driver::Sdk;
         std::vector<int> voices;
         voices.reserve(regions.size());
         for (size_t i = 0; i < regions.size(); ++i)
-            voices.push_back(AllocateVoiceMdi(0xFFFE));
+            voices.push_back(sdk ? AllocateVoiceSdk(0xFFFE) : AllocateVoiceMdi(0xFFFE));
         for (size_t i = 0; i < regions.size(); ++i)
-            StartVoice(voices[i], channel, note, velocity, vps[i], &b, &regions[i]);
+            if (voices[i] >= 0)
+                StartVoice(voices[i], channel, note, velocity, vps[i], &b, &regions[i]);
         return;
     }
+
+    const bool vxd = m_core.DriverVariant() == Awe32::Driver::Win95;
+    // SBAWE.VXD: the exclusive classes of all layers are resolved before
+    // the first voice is taken. Key = channel << 24 | bank file, bank,
+    // program (the driver keeps channel << 16 | preset).
+    const uint32_t exclKey = (static_cast<uint32_t>(channel) << 24) | (presetId & 0xFFFFFF);
+    if (vxd)
+        for (const SoundFont::Region& r : regions)
+        {
+            const uint8_t cls = static_cast<uint8_t>(r.gen.Get(SoundFont::Gen::ExclusiveClass, 0));
+            if (cls != 0) KillExclusiveVxd(exclKey, cls);
+        }
 
     // Preset muze mit vic vrstev na jednu notu - kazda dostane hlas.
     // Rodina win95 vybira hlas jako SBAWE.VXD (cte pritom cip), ostatni
     // nasim vlastnim pravidlem.
     for (size_t i = 0; i < regions.size(); ++i)
     {
-        const int voice = (m_core.DriverVariant() == Awe32::Driver::Win95)
-                            ? AllocateVoiceVxd(0xFFFE) : AllocateVoice();
+        const int voice = vxd ? AllocateVoiceVxd(0xFFFE) : AllocateVoice();
         StartVoice(voice, channel, note, velocity, vps[i], &b, &regions[i]);
+        if (vxd)
+        {
+            m_alloc[voice].vxdExclKey = exclKey;
+            m_alloc[voice].vxdExclClass = static_cast<uint8_t>(
+                regions[i].gen.Get(SoundFont::Gen::ExclusiveClass, 0));
+        }
     }
 }
 
@@ -723,7 +943,7 @@ int Synth::PitchBendOffset(uint8_t channel) const
     // Pro dos je doklad plny ohyb dolu s rozsahem 12 v intru Magic Carpet 2:
     // ovladac zapsal posun -4092, kdezto 4096/12 by dalo presne -4096.
     // S 341 sedi cele intro na vsech 24 registrech.
-    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    if (Awe32::IsDosLike(m_core.DriverVariant()))
         return static_cast<int>(span * 341 / 8192);
     return static_cast<int>(span * 4096 / (8192LL * 12));
 }
@@ -764,8 +984,11 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     // nez to, co ovladac sam nahraje do DRAM.
     const bool sampleInRom = region && region->sample
                           && (region->sample->inRom || bank->samplesInRom);
-    if (drv == Awe32::Driver::Win95 && bank && bank->romName == "1MGM"
-        && sampleInRom)
+    // The SDK has the same rule (noteOn 0x0E82: sample address below
+    // 0x200000 and the card's ROM id "1MGM"); the ROM id comes from the card,
+    // not from the bank, and every AWE32 has that ROM.
+    if (sampleInRom && ((drv == Awe32::Driver::Win95 && bank && bank->romName == "1MGM")
+                        || drv == Awe32::Driver::Sdk))
         atten = std::min(atten + 16, 255);
 
     // Velocity ovlivnuje i mezni kmitocet filtru - tisi noty jsou tmavsi.
@@ -790,8 +1013,9 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     if (channel != 9 && attackRate < 0x7D)
     {
         const int v = std::max<int>(velocity, 0x46);
+        // The SDK (noteOn 0x0D10) has the VXD form.
         cutoff = (drv == Awe32::Driver::Dos) ? (cutoff * v + 0x40) / 0x7F
-                                            : ((cutoff * v + 0xA0) >> 7);
+                                             : ((cutoff * v + 0xA0) >> 7);
         cutoff = std::clamp(cutoff, 0, 255);
     }
 
@@ -816,7 +1040,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     // generator `pan` chybi a vychozich 64 dava tentyz vysledek.
     int pan = 0x17F - 2 * (vp.patchPan + static_cast<int>(ch.pan));
     if (pan >= 0xFE) pan = 0xFF;
-    else if (pan < (drv == Awe32::Driver::Win95 ? 2 : 0)) pan = 0;
+    else if (pan < (drv == Awe32::Driver::Dos ? 0 : 2)) pan = 0;   // SDK 0x0F49 = VXD
     const uint32_t psst = (static_cast<uint32_t>(pan) << Emu8000::kPanShift)
                         | (vp.psst & Emu8000::kLoopAddressMask);
 
@@ -843,8 +1067,8 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
 
     // `dos`: SBAWE32.MDI adds the offset stored at the last bend event
     // (see PitchBendMdi), capped above and wrapping below.
-    const int pitch = (drv == Awe32::Driver::Dos)
-        ? MdiAddBend(vp.ip, ch.mdiBendOffset)
+    const int pitch = (drv == Awe32::Driver::Sdk) ? SdkAddBend(vp.ip, ch.mdiBendOffset, true)
+        : (drv == Awe32::Driver::Dos) ? MdiAddBend(vp.ip, ch.mdiBendOffset)
         : std::clamp(vp.ip + PitchBendOffset(channel), 0, 65535);
 
     // Modulacni kolecko pridava hloubku LFO1 na vysku. `SBAWE.VXD` obsluha
@@ -858,14 +1082,19 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     // Zmereno na RELAXu: ovladac mel 01, 02 a 04 tam, kde jsme meli nulu.
     // `dos` (SBAWE32.MDI 0x2224): CC1 / 30 + channel pressure / 30 + patch
     // depth, capped at 0x7F from above only.
-    const int modDepth = (drv == Awe32::Driver::Dos)
+    // `win95` (SBAWE.VXD 0xC0FFB1D5 / 0xC0FFBE0B): CC1 / 30 + pressure / 30
+    // + patch depth, capped above; the low byte is ORed in sign-extended, so
+    // a negative filter depth turns the high byte into 0xFF.
+    const int modDepth = (Awe32::IsDosLike(drv))
         ? std::min(static_cast<int>(static_cast<int8_t>((vp.fmmod >> 8) & 0xFF))
                        + ch.mdiModDiv30 + ch.mdiPressureDiv30, 0x7F)
         : std::clamp(
               static_cast<int>(static_cast<int8_t>((vp.fmmod >> 8) & 0xFF))
-                  + ch.modWheel / 30, -128, 0x7F);
-    const uint16_t fmmod = static_cast<uint16_t>(
+                  + ch.modWheel / 30 + ch.vxdPressureDiv30, -128, 0x7F);
+    uint16_t fmmod = static_cast<uint16_t>(
         ((static_cast<uint8_t>(modDepth)) << 8) | (vp.fmmod & 0xFF));
+    if (drv == Awe32::Driver::Win95 && (vp.fmmod & 0x80))
+        fmmod |= 0xFF00;
 
     const uint32_t reverbByte =
         static_cast<uint32_t>(std::clamp(reverb, 0, 255)) << Emu8000::kReverbShift;
@@ -873,7 +1102,8 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     // (pri pan 0x7F zapisuje 0x81), zmereno v poli hlasu na +0x24.
     // `SBAWE32.MDI` tam nechava **nulu** - zmereno na 341 notach z Magic
     // Carpet 2, kde PSST nese pan 0x0F a PTRX ma spodni bajt 0x00.
-    const uint32_t panAux = (drv == Awe32::Driver::Win95)
+    // The SDK (noteOn 0x0F5B: pan ? -pan : 0xFF) has the same byte.
+    const uint32_t panAux = (drv != Awe32::Driver::Dos)
         ? static_cast<uint32_t>(std::clamp(256 - pan, 0, 255))
         : 0u;
     // Pocatecni adresa se posouva o konstantu zavislou na rodine ovladace.
@@ -946,6 +1176,64 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         m_core.Write(Reg::PTRX, voice, (increment << 16) | reverbByte | panAux);
         m_core.Write(Reg::CPF,  voice, increment << 16);
     }
+    else if (drv == Awe32::Driver::Sdk)
+    {
+        // AWE32 DOS SDK, midieng noteOn 0x0FB3..0x1349 - the VXD sequence
+        // without the leading DCYSUSV/VTFT/CVCF (the allocation wrote
+        // DCYSUSV 0x0080 and VTFT already) and with CVCF after ENVVOL.
+        // Instant attack (0x10CF / 0x11EE): envelope delay 0xBFFF, and for
+        // the modulation envelope the targets already include it - pitch
+        // += PEFE pitch << 4 (16-bit, overflow -> 0xFFFF), filter = cutoff
+        // + PEFE filter clamped to 0..255.
+        const bool volInstant = (vp.atkhldv & 0x7F) == 0x7F && vp.envvol >= 0x8000;
+        const bool modInstant = (vp.atkhld  & 0x7F) == 0x7F && vp.envval >= 0x8000;
+        const uint32_t envvolReg = volInstant ? 0xBFFFu : vp.envvol;
+        const uint32_t envvalReg = modInstant ? 0xBFFFu : vp.envval;
+
+        uint32_t targetPitch = static_cast<uint32_t>(pitch) & 0xFFFFu;
+        int filter = cutoff;
+        if (modInstant)
+        {
+            const int16_t depth = static_cast<int16_t>(
+                static_cast<int16_t>(static_cast<int8_t>((vp.pefe >> 8) & 0xFF)) << 4);
+            uint32_t lo = static_cast<uint32_t>(static_cast<uint16_t>(depth)) + targetPitch;
+            const uint32_t hi = ((depth < 0) ? 0xFFFFu : 0u) + (lo >> 16);
+            lo &= 0xFFFFu;
+            targetPitch = ((hi & 0xFFFFu) != 0) ? 0xFFFFu : lo;
+            filter = std::clamp(cutoff + static_cast<int8_t>(vp.pefe & 0xFF), 0, 255);
+        }
+        const uint32_t increment = PitchIncrementSdk(static_cast<uint16_t>(targetPitch));
+        const uint32_t volTarget = volInstant ? Awe32Curves::VolumeTarget(atten) : 0u;
+        const uint32_t vtft = (volTarget << 16) | (static_cast<uint32_t>(filter) << 8);
+
+        m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
+        m_core.Write(Reg::ATKHLDV, voice, vp.atkhldv);
+        m_core.Write(Reg::LFO1VAL, voice, vp.lfo1val);
+        m_core.Write(Reg::ATKHLD,  voice, vp.atkhld);
+        m_core.Write(Reg::DCYSUS,  voice, vp.dcysus);
+        m_core.Write(Reg::LFO2VAL, voice, vp.lfo2val);
+        m_core.Write(Reg::IP,      voice, static_cast<uint16_t>(pitch));
+        m_core.Write(Reg::IFATN,   voice, ifatn);
+        m_core.Write(Reg::PEFE,    voice, vp.pefe);
+        m_core.Write(Reg::FMMOD,   voice, fmmod);
+        m_core.Write(Reg::TREMFRQ, voice, vp.tremfrq);
+        m_core.Write(Reg::FM2FRQ2, voice, vp.fm2frq2);
+        m_core.Write(Reg::ENVVAL,  voice, envvalReg);
+        m_core.Write(Reg::ENVVOL,  voice, envvolReg);
+        m_core.Write(Reg::CVCF,    voice, 0x0000FFFFu);
+        m_core.Write(Reg::PTRX,    voice, 0u);
+        m_core.Write(Reg::CPF,     voice, 0u);
+        m_core.Write(Reg::PSST,    voice, psst);
+        m_core.Write(Reg::CSL,     voice, csl);
+        m_core.Write(Reg::CCCA,    voice, ccca & 0x00FFFFFFu);
+        m_core.Write(Reg::Unk0088, voice, 0u);   // Z1
+        m_core.Write(Reg::Unk0080, voice, 0u);   // Z2
+        m_core.Write(Reg::CCCA,    voice, ccca);
+        m_core.Write(Reg::VTFT,    voice, vtft);
+        m_core.Write(Reg::CVCF,    voice, vtft);
+        m_core.Write(Reg::PTRX,    voice, (increment << 16) | reverbByte | panAux);
+        m_core.Write(Reg::CPF,     voice, increment << 16);
+    }
     else
     {
         // `SBAWE32.MDI` note-on 0x1F12..0x2363, write order as in the driver
@@ -988,7 +1276,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     a.releaseModRate = vp.releaseModRate;
     a.age = ++m_ageCounter;
     a.basePitch = vp.ip;
-    if (drv == Awe32::Driver::Dos)
+    if (Awe32::IsDosLike(drv))
     {
         // Voice block of SBAWE32.MDI (0x20A4..0x20DD, 0x2366). A looped
         // sample with at least 0x14 words after the loop end gets a note-off
@@ -996,6 +1284,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         a.mdiState      = static_cast<uint16_t>((channel << 8) | note);
         a.mdiVelocity   = velocity;
         a.mdiPatchAtten = vp.patchAttenUnits;
+        a.sdkRom        = sampleInRom;
         a.mdiModRelease = vp.releaseModRate;
         a.mdiVolRelease = vp.releaseRate;
         a.mdiFmmodDepth = static_cast<int8_t>((vp.fmmod >> 8) & 0xFF);
@@ -1007,8 +1296,20 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     {
         a.vxdState = static_cast<uint16_t>((channel << 8) | note);
         a.vxdRom = sampleInRom;
-        a.vxdEndAddr = 0;
+        // SBAWE.VXD 0xC0FFB0C8: a sample without a loop gets the end for the
+        // CCCA test (+0x0A) already at note-on, sample end + 4 - such a voice
+        // is free for the next note as soon as it has played out. A looped
+        // sample gets it only when the loop is opened at note-off (0xC0FFA29B).
+        a.vxdEndAddr = vp.looping ? 0u : vp.sampleEndAddr + 4;
         a.vxdPatchPan = static_cast<uint8_t>(vp.patchPan);
+        a.vxdFmmodDepth = static_cast<int8_t>((vp.fmmod >> 8) & 0xFF);
+        a.vxdPatchAtten = vp.patchAttenUnits;
+        a.vxdRom1mgm = bank && bank->romName == "1MGM" && sampleInRom;
+        // Same rule as SBAWE32.MDI: a looped sample with at least 0x14 words
+        // after the loop end gets its loop moved behind the end at note-off
+        // (block +0x06 = sample end + 4, relax/georgia traces: PSST 983F, CSL 9843).
+        a.vxdNoteEnd = (vp.looping && (vp.sampleEndAddr - vp.loopEndAddr) >= 0x14u)
+                     ? vp.sampleEndAddr + 4 : 0u;
         a.vxdPanTarget = a.vxdPanCur = static_cast<uint8_t>(pan);
         a.vxdPanTimer = -1;
     }
@@ -1138,7 +1439,8 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
                 b.Select(wantBank, wantProgram, note, velocity);
             if (regions.empty()) continue;
 
-            StartLayers(i, regions, channel, note, velocity);
+            StartLayers(i, regions, channel, note, velocity,
+                        (static_cast<uint32_t>(i) << 16) | (wantBank << 8) | wantProgram);
             return;
         }
     }
@@ -1155,21 +1457,24 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
         const std::vector<SoundFont::Region> regions =
             b.Select(0, 0, note, velocity);
         if (regions.empty()) continue;
-        StartLayers(i, regions, channel, note, velocity);
+        StartLayers(i, regions, channel, note, velocity, static_cast<uint32_t>(i) << 16);
         return;
     }
 
     // Az kdyz nema banka ani preset 0 - to uz je banka bez pouzitelneho
     // obsahu a hraje se nahradni vzorek.
-    StartFallbackVoice((m_core.DriverVariant() == Awe32::Driver::Dos)
-                           ? AllocateVoiceMdi(0xFFFE) : AllocateVoice(),
-                       channel, note, velocity);
+    const Awe32::Driver drv = m_core.DriverVariant();
+    const int fallback = (drv == Awe32::Driver::Sdk) ? AllocateVoiceSdk(0xFFFE)
+                       : (drv == Awe32::Driver::Dos) ? AllocateVoiceMdi(0xFFFE)
+                       : AllocateVoice();
+    if (fallback >= 0)
+        StartFallbackVoice(fallback, channel, note, velocity);
 }
 
 void Synth::NoteOff(uint8_t channel, uint8_t note)
 {
     if (channel >= 16) return;
-    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    if (Awe32::IsDosLike(m_core.DriverVariant()))
     {
         // SBAWE32.MDI 0x238A: every layer of the key on the channel; with the
         // pedal down the voice is only marked as held (low byte 0xFF).
@@ -1207,10 +1512,18 @@ void Synth::ProgramChange(uint8_t channel, uint8_t program)
 void Synth::RefreshChannel(uint8_t channel)
 {
     const int bend = PitchBendOffset(channel);
+    const bool vxd = m_core.DriverVariant() == Awe32::Driver::Win95;
     for (int i = 0; i < NoteVoices(); ++i)
     {
         VoiceAlloc& a = m_alloc[i];
-        if ((!a.inUse && !a.heldBySustain) || a.channel != channel) continue;
+        if (vxd)
+        {
+            // SBAWE.VXD matches the high byte of the voice state only: a free
+            // voice (0x0FFE) belongs to channel 15, so bends there move the
+            // stored IP of every free voice (relax_win95.trace, 43.26 s).
+            if ((a.vxdState >> 8) != channel) continue;
+        }
+        else if ((!a.inUse && !a.heldBySustain) || a.channel != channel) continue;
 
         const uint16_t pitch = static_cast<uint16_t>(std::clamp(a.basePitch + bend, 0, 65535));
         // Jen IP. PTRX se **nepise** - cilovou vysku v jeho horni pulce si
@@ -1227,7 +1540,7 @@ void Synth::RefreshChannel(uint8_t channel)
 void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
 {
     if (channel >= 16) return;
-    if (m_core.DriverVariant() == Awe32::Driver::Dos
+    if (Awe32::IsDosLike(m_core.DriverVariant())
         && ControlChangeMdi(channel, controller, value))
         return;
     ChannelState& ch = m_channels[channel];
@@ -1235,9 +1548,15 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
     switch (controller)
     {
     case 0:  ch.bankMsb = value; break;
-    case 1:  ch.modWheel = value; break;
+    case 1:
+        ch.modWheel = value;
+        if (m_core.DriverVariant() == Awe32::Driver::Win95) UpdateFmmodVxd(channel);
+        break;
     case 32: ch.bankLsb = value; break;
-    case 7:  ch.volume = value; break;
+    case 7:
+        ch.volume = value;
+        if (m_core.DriverVariant() == Awe32::Driver::Win95) UpdateAttenVxd(channel);
+        break;
     case 10:
         if (m_core.DriverVariant() == Awe32::Driver::Win95 && ch.pan != value)
         {
@@ -1246,7 +1565,10 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
         }
         ch.pan = value;
         break;
-    case 11: ch.expression = value; break;
+    case 11:
+        ch.expression = value;
+        if (m_core.DriverVariant() == Awe32::Driver::Win95) UpdateAttenVxd(channel);
+        break;
     case 91: ch.reverbSend = value; break;
     case 93: ch.chorusSend = value; break;
 
@@ -1276,6 +1598,17 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
         break;
     }
 
+    case 121:
+        // SBAWE.VXD 0xC0FFC8ED: CC1 = 0 without a voice update, pedal off,
+        // expression 127 (IFATN), bend to the centre (IP), pressure 0 (FMMOD).
+        if (m_core.DriverVariant() != Awe32::Driver::Win95) break;
+        ch.modWheel = 0;
+        ControlChange(channel, 64, 0);
+        ControlChange(channel, 11, 127);
+        PitchBend(channel, 0);
+        ChannelPressure(channel, 0);
+        break;
+
     case 120:
         for (int i = 0; i < NoteVoices(); ++i)
             if (m_alloc[i].channel == channel) KillVoice(i);
@@ -1294,7 +1627,7 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
 void Synth::PitchBend(uint8_t channel, int16_t value)
 {
     if (channel >= 16) return;
-    if (m_core.DriverVariant() == Awe32::Driver::Dos)
+    if (Awe32::IsDosLike(m_core.DriverVariant()))
     {
         PitchBendMdi(channel, value);
         return;

@@ -103,6 +103,7 @@ private:
         uint32_t mdiEndAddr = 0;     // +0x0E: voice is finished once CCCA passes this
         uint8_t  mdiVelocity = 0;    // +0x02
         uint8_t  mdiPatchAtten = 0;  // +0x03 (as 0x7F - field = attenuation units)
+        bool     sdkRom = false;     // SDK: the voice plays a ROM sample (+16 attenuation)
         uint8_t  mdiModRelease = 0;  // +0x04
         uint8_t  mdiVolRelease = 0;  // +0x05
         int8_t   mdiFmmodDepth = 0;  // +0x06
@@ -117,6 +118,12 @@ private:
         uint8_t  vxdPanTarget = 0;   // +0x18: pan register value to glide to
         uint8_t  vxdPanCur = 0;      // +0x19: pan register value written last
         int32_t  vxdPanTimer = -1;   // frames to the next glide step, -1 = none
+        int8_t   vxdFmmodDepth = 0;  // +0x14: FMMOD pitch depth of the patch
+        uint8_t  vxdPatchAtten = 0;  // patch attenuation (register units)
+        bool     vxdRom1mgm = false; // +16 attenuation for a "1MGM" ROM sample
+        uint32_t vxdNoteEnd = 0;     // +0x06: sample end for the note-off loop opening
+        uint32_t vxdExclKey = 0;     // +0x1C: channel and preset of the note
+        uint8_t  vxdExclClass = 0;   // +0x13: exclusive class of the layer
     };
 
     struct ChannelState
@@ -141,6 +148,8 @@ private:
         // SBAWE32.MDI channel block (0x0E46 + channel * 0x1C), family `dos`.
         uint8_t mdiModDiv30 = 0;       // +0x09: CC1 / 30
         uint8_t mdiPressureDiv30 = 0;  // +0x0A: channel pressure / 30
+        // SBAWE.VXD channel block (0x442 + channel * 0x24), family `win95`.
+        uint8_t vxdPressureDiv30 = 0;  // +0x0B: channel pressure / 30
         int16_t mdiBendOffset = 0;     // +0x0C: IP offset computed at the last bend
         bool    mdiRpnMode = false;    // +0x14 == 0x100 after CC100 / CC101
         uint8_t mdiRpnLsb = 0;         // +0x16
@@ -163,14 +172,18 @@ private:
                     const SoundFont::VoiceParams& vp,
                     const SoundFont::Bank* bank, const SoundFont::Region* region);
     void StartFallbackVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocity);
+    void KillExclusiveVxd(uint32_t key, uint8_t cls);
     void StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& regions,
-                     uint8_t channel, uint8_t note, uint8_t velocity);
+                     uint8_t channel, uint8_t note, uint8_t velocity, uint32_t presetId = 0);
 
     // Family `dos` (SBAWE32.MDI), see Synth.cpp.
     int  AllocateVoiceMdi(uint16_t state);
+    int  AllocateVoiceSdk(uint16_t state);
     int  AllocateVoiceVxd(uint16_t state);
     void PanVxd(uint8_t channel, uint8_t value);
     void PanStepVxd(int voice);
+    void UpdateFmmodVxd(uint8_t channel);
+    void UpdateAttenVxd(uint8_t channel);
     void NoteOffMdi(int voice);
     void UpdateAttenMdi(uint8_t channel);
     void UpdateFmmodMdi(uint8_t channel, int value);
