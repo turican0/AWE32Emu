@@ -244,7 +244,7 @@ static void DelayMs(unsigned ms)
 #define REC_RATE     44100
 /* Zmereno na skutecnem stroji: bloky 1-22 trvaly 999 s, cely beh vyjde
    pres pul tretiho tisice sekund i s MIDI bloky na konci. */
-#define AWETEST_SECONDS 3100L     /* v26: bloky 40-41 (+100 s); v25 delsi mezery a bloky 35-38 */
+#define AWETEST_SECONDS 3530L     /* v28: bloky 43-46 (+300 s); v27: blok 42 (+130 s); v26: bloky 40-41 (+100 s); v25 delsi mezery a bloky 35-38 */
 /* 64 kB = 372 ms zvuku, tedy dvojnasobna rezerva proti tomu, kdyz disk na
    chvili nestiha. Kdyz se 128 kB v DOSu nesezene, spadne se na 32 kB. */
 static long rec_ring = 65536L;         /* ring buffer, ~372 ms of audio     */
@@ -1331,7 +1331,7 @@ static SAMPLE SMP_LONG  = { 100000L, 100000L, 1000000L };
    soucasne prejmenovat vystup v BUILD32.CMD na AWETESTnn.EXE. Cislo je
    v hlavicce i na prvnim radku logu, takze u kazde nahravky je poznat,
    cim vznikla. */
-#define AWETEST_VER "26"
+#define AWETEST_VER "28"
 
 #define V_TEST      29
 #define V_MARK      28
@@ -1342,6 +1342,9 @@ static SAMPLE SMP_LONG  = { 100000L, 100000L, 1000000L };
 /* Which blocks to play. Useful for a quick check, and so that a single block
    can be repeated if it went wrong in the recording. */
 static int          g_from = 1, g_to = 99;
+/* /ONLY:22,23,42 - just these blocks, in one run and one recording. */
+static char         g_only[100];
+static int          g_only_set = 0;
 
 /* ------------------------------------------------------------------------ *
  *  Record of what was played and when   (declared above the capture code,
@@ -1484,7 +1487,11 @@ static void VoiceOff(unsigned v)
     RegW(P_DATA0HI, R_VTFT,  v, 0x0000);      /* high half = volume, mute  */
 }
 
-static void ToneStart(unsigned v, TONE *t)
+/* Everything but the write that starts the note (DCYSUSV). ToneStart does
+   setup, stamp, trigger - the same writes in the same order as before v28;
+   several voices can be set up first and triggered back to back, so that
+   they start within microseconds of each other (block 43). */
+static void ToneSetup(unsigned v, TONE *t)
 {
     unsigned long ccca, psst, csl;
     unsigned      att;
@@ -1533,12 +1540,21 @@ static void ToneStart(unsigned v, TONE *t)
           ((unsigned long) (t->ptrx_target & 0xFFFF) << 16)
           | ((unsigned long) (t->reverb & 0xFF) << 8));
 
-    /* razitko otevreneho radku logu = okamzik nastupu (znacky ne) */
-    if (v != V_MARK) LogFinish();
+}
 
+static void ToneTrigger(unsigned v, TONE *t)
+{
     /* this one starts the note */
     RegW(P_DATA1, R_DCYSUSV, v,
          (unsigned) (((t->sustain & 0x7F) << 8) | (t->decay & 0x7F)));
+}
+
+static void ToneStart(unsigned v, TONE *t)
+{
+    ToneSetup(v, t);
+    /* razitko otevreneho radku logu = okamzik nastupu (znacky ne) */
+    if (v != V_MARK) LogFinish();
+    ToneTrigger(v, t);
 }
 
 static void ToneRelease(unsigned v, TONE *t)
@@ -2351,6 +2367,7 @@ static int BlockMark(int n, const char *name)
 {
     int i;
     if (n < g_from || n > g_to) return 0;
+    if (g_only_set && (n < 0 || n > 99 || !g_only[n])) return 0;
     g_block = n;
     LogFinish();
     if (g_log) fprintf(g_log, "%8lu %2d ---- %s\n", g_ms, n, name);
@@ -3776,6 +3793,384 @@ static void BlockStopband(int n)
 }
 
 /* 38: co se v run5 topilo v sumu, znovu pri +12 a +24 dB. */
+/* ------------------------------------------------------------------------ *
+ *  42 (v27): the chorus feedback loop, without the LFO
+ *
+ *  Block 40 left one thing open: after a tick the card's chorus return dies
+ *  away smoothly (about 0.27 dB/ms for presets 2 and 3), while a delay line
+ *  with the feedback from the register (1/16, 1/8) falls by 18-24 dB per
+ *  pass. The first repeat has the register's level, the later ones decay
+ *  far slower. With an 18 ms loop, a 30 ms tick and the delay swinging it
+ *  cannot be told what the loop really is.
+ *
+ *  Here preset 6 (short delay: 64 ms, LFO depth 0, the right tap 40 ms
+ *  earlier) is set and only its feedback register (INIT3 slot 9, low byte)
+ *  is overwritten, so the repeats come 64 ms apart and stand still. Ticks at
+ *  three pitches show whether the loop gain depends on frequency, feedback
+ *  0x00 shows whether there is a tail with no feedback at all, and a lower
+ *  send at 0x80 whether it depends on the level. The right output of the
+ *  card carries the return alone - record the line out as well.
+ * ------------------------------------------------------------------------ */
+static void BlockChorusLoop(int n)
+{
+    static const unsigned fb[5] = { 0x00, 0x10, 0x40, 0x80, 0xC0 };
+    static const int      ip[3] = { -8192, 0, 8191 };   /* 184, 735, 2940 Hz; IP is 16 bit */
+    TONE t;
+    int  f, i, k;
+
+    if (!BlockMark(n, "chorus loop: preset 6 without LFO, feedback 00..C0, ticks"))
+        return;
+    SetSteps(5 * 3 * 2 + 2);
+
+    for (f = 0; f < 5; f++) {
+        Trace("chorus loop feedback 0x%02lX", (long) fb[f]);
+        awe32Chorus(6);
+        RegW(P_DATA1, 3, 9, 0xE600u | fb[f]);
+        for (i = 0; i < 3; i++) {
+            for (k = 0; k < 2; k++) {
+                ToneDefaults(&t);
+                t.smp    = &SMP_TICK;
+                t.ip     = (unsigned) (IP_UNITY + ip[i]);
+                t.chorus = 255u;
+                LogLine("feedback 0x%02lX, tick IP %ld, send 255", (long) fb[f], (long) t.ip, 0);
+                PlayTone(&t, 30, fb[f] >= 0xC0 ? 5000 : 2500);
+                StepDone();
+            }
+        }
+        if (fb[f] == 0x80) {
+            for (k = 0; k < 2; k++) {
+                ToneDefaults(&t);
+                t.smp    = &SMP_TICK;
+                t.chorus = 64u;
+                LogLine("feedback 0x%02lX, tick IP %ld, send 64", (long) fb[f], (long) t.ip, 0);
+                PlayTone(&t, 30, 2500);
+                StepDone();
+            }
+        }
+    }
+
+    Trace("chorus loop: resetting", 0);
+    awe32Chorus(0);
+}
+
+/* ------------------------------------------------------------------------ *
+ *  43-46 (v28): the last line-out measurements
+ *
+ *  Everything here is meant for the LINE OUT recording (the card's right
+ *  output carries the effect returns alone). Earlier line recordings were
+ *  clipped by the recorder, so all of this is played quieter (atten 12 and
+ *  more), and block 43 opens with the loudest signal of blocks 43-46 as a
+ *  calibration: the recording level is set so that it stays clear of full
+ *  scale.
+ * ------------------------------------------------------------------------ */
+
+/* N voices of the same low sine (170 Hz), set up first and triggered back to
+   back so they start in phase; absolute level (no g_att_offset). */
+static void PlayVoices(int nv, unsigned att, unsigned on, unsigned off)
+{
+    TONE t;
+    int  k;
+
+    ToneDefaults(&t);
+    t.ip    = (unsigned) (IP_UNITY - 2 * IP_OCT);
+    t.atten = att;
+    t.raw   = 1;
+    for (k = 0; k < nv; k++) ToneSetup((unsigned) (V_EXTRA - k), &t);
+    LogFinish();
+    for (k = 0; k < nv; k++) ToneTrigger((unsigned) (V_EXTRA - k), &t);
+    Wait(on);
+    for (k = 0; k < nv; k++) VoiceOff((unsigned) (V_EXTRA - k));
+    Wait(off);
+}
+
+/* 43: headroom of the output, the volume slide with the envelope running,
+   chorus saturation. */
+static void BlockHeadroom(int n)
+{
+    static const int      cnt[6]  = { 1, 2, 3, 4, 6, 8 };
+    static const unsigned csend[4] = { 32u, 64u, 128u, 255u };
+    unsigned saved = wt_level;
+    TONE     t;
+    int      pass, i, k, p;
+
+    if (!BlockMark(n, "line out: headroom, volume slide, chorus saturation"))
+        return;
+    SetSteps(2 + 3 * 6 + 2 + 4 + 8 + 4 + 8);
+
+    /* Calibration: the loudest signal of blocks 43-46 (8 voices in phase,
+       +18 dB over one voice). The recording level must keep it clear of
+       full scale. */
+    for (k = 0; k < 2; k++) {
+        LogLine("calibration: 8 voices in phase, loudest signal of blocks 43-46", 0, 0, 0);
+        PlayVoices(8, 0u, 2000, 800);
+        StepDone();
+    }
+
+    /* Headroom: 1..8 voices in phase = 0 .. +18 dB. Pass 1 with the
+       wavetable mixer 12 dB lower - if the knee moves with it, it is the
+       analog stage, if not, the chip. Pass 2 at -18 dB: linear sum. */
+    for (pass = 0; pass < 3; pass++) {
+        if (pass == 1) {
+            wt_level = (saved >= 0x30u) ? saved - 0x30u : 0u;
+            MixerW(0x34, (unsigned char) wt_level);
+            MixerW(0x35, (unsigned char) wt_level);
+        }
+        if (pass == 2) {
+            wt_level = saved;
+            MixerW(0x34, (unsigned char) wt_level);
+            MixerW(0x35, (unsigned char) wt_level);
+        }
+        for (i = 0; i < 6; i++) {
+            LogLine(pass == 1 ? "headroom: %ld voices in phase, atten %ld, mixer -12 dB"
+                              : "headroom: %ld voices in phase, atten %ld",
+                    (long) cnt[i], pass == 2 ? 48L : 0L, 0);
+            PlayVoices(cnt[i], pass == 2 ? 48u : 0u, 1500, 700);
+            StepDone();
+        }
+    }
+    wt_level = saved;
+    MixerW(0x34, (unsigned char) wt_level);
+    MixerW(0x35, (unsigned char) wt_level);
+
+    /* Volume slide with the envelope on: IFATN steps during a held note
+       (12 -> 72 -> 12 -> 48, i.e. -22.5 / +22.5 / -13.5 dB - the low level
+       has to stay well above the line noise). */
+    for (k = 0; k < 2; k++) {
+        ToneDefaults(&t);
+        t.atten = 12;
+        LogLine("slide: held sine, IFATN 12 -> 72 -> 12 -> 48 every 700 ms", 0, 0, 0);
+        ToneStart(V_TEST, &t);
+        Wait(700);
+        RegW(P_DATA3, R_IFATN, V_TEST, (255u << 8) | ((72u + g_att_offset) & 0xFF));
+        Wait(700);
+        RegW(P_DATA3, R_IFATN, V_TEST, (255u << 8) | ((12u + g_att_offset) & 0xFF));
+        Wait(700);
+        RegW(P_DATA3, R_IFATN, V_TEST, (255u << 8) | ((48u + g_att_offset) & 0xFF));
+        Wait(700);
+        VoiceOff(V_TEST);
+        Wait(800);
+        StepDone();
+    }
+    /* Instant attack, high sine: the rise of the note shows the upward
+       volume slide. */
+    for (k = 0; k < 4; k++) {
+        ToneDefaults(&t);
+        t.ip    = (unsigned) (IP_UNITY + 2 * IP_OCT - 1);
+        t.atten = 12;
+        LogLine("slide: note-on, sine +2 oct, instant attack", 0, 0, 0);
+        PlayTone(&t, 300, 500);
+        StepDone();
+    }
+
+    /* Chorus saturation: preset 6 (64 ms, no LFO) with feedback 0 and 0xC0,
+       ticks with send 32..255; then held tones of presets 1 and 4 at three
+       levels. */
+    for (k = 0; k < 2; k++) {
+        unsigned fb = k ? 0xC0u : 0x00u;
+        awe32Chorus(6);
+        RegW(P_DATA1, 3, 9, 0xE600u | fb);
+        for (i = 0; i < 4; i++) {
+            if (k && (i == 0 || i == 2)) continue;
+            for (p = 0; p < 2; p++) {
+                ToneDefaults(&t);
+                t.smp    = &SMP_TICK;
+                t.chorus = csend[i];
+                t.atten  = 12;
+                LogLine("chorus ladder: feedback 0x%02lX, tick send %ld", (long) fb, (long) csend[i], 0);
+                PlayTone(&t, 30, k ? 4000 : 1000);
+                StepDone();
+            }
+        }
+    }
+    for (p = 1; p <= 4; p += 3) {
+        awe32Chorus((WORD) p);
+        for (i = 0; i < 4; i++) {
+            ToneDefaults(&t);
+            t.atten  = (unsigned) (i == 0 ? 12 : 12 * i);
+            t.chorus = i == 0 ? 0u : 255u;
+            LogLine("chorus ladder: preset %ld, held sine atten %ld, send %ld",
+                    (long) p, (long) t.atten, (long) t.chorus);
+            PlayTone(&t, 3000, 1200);
+            StepDone();
+        }
+    }
+    awe32Chorus(0);
+}
+
+/* 44: interpolation and filter on the line out. */
+static void BlockInterpFilter(int n)
+{
+    static const long nip[9] = { -12288L, -8192L, -4096L, -2048L, -683L, 0L, 2048L, 4096L, 8191L };
+    static const long sip[4] = { 1365L, 4096L, 6827L, 8191L };
+    static const int  cut[7] = { 32, 64, 96, 128, 160, 192, 224 };
+    static const int  qs[3]  = { 0, 8, 15 };
+    TONE t;
+    int  i, k;
+
+    if (!BlockMark(n, "line out: interpolation, filter on noise"))
+        return;
+    SetSteps(9 + 4 + 3 + 21);
+
+    for (i = 0; i < 9; i++) {
+        ToneDefaults(&t);
+        t.smp   = &SMP_NOISE;
+        t.ip    = (unsigned) ((long) IP_UNITY + nip[i]);
+        t.atten = 12;
+        LogLine("interpolation: noise, IP offset %ld", nip[i], 0, 0);
+        PlayTone(&t, 1500, 600);
+        StepDone();
+    }
+    for (i = 0; i < 4; i++) {
+        ToneDefaults(&t);
+        t.ip    = (unsigned) ((long) IP_UNITY + sip[i]);
+        t.atten = 12;
+        LogLine("interpolation: sine, IP offset %ld", sip[i], 0, 0);
+        PlayTone(&t, 1200, 600);
+        StepDone();
+    }
+
+    /* Q 0 / 8 / 15 at atten 12 / 24 / 36: the resonance peak stays under
+       the calibration level, the stopband as far above the noise as it
+       goes. Each level has its own anchor (filter open). */
+    for (k = 0; k < 3; k++) {
+        ToneDefaults(&t);
+        t.smp   = &SMP_NOISE;
+        t.atten = (unsigned) (12 + 12 * k);
+        LogLine("filter: noise anchor, cutoff 255, Q 0, atten %ld", (long) t.atten, 0, 0);
+        PlayTone(&t, 1500, 600);
+        StepDone();
+    }
+    for (k = 0; k < 3; k++) {
+        for (i = 0; i < 7; i++) {
+            ToneDefaults(&t);
+            t.smp    = &SMP_NOISE;
+            t.atten  = (unsigned) (12 + 12 * k);
+            t.cutoff = (unsigned) cut[i];
+            t.q      = (unsigned) qs[k];
+            LogLine("filter: noise, cutoff %ld, Q %ld, atten %ld", (long) cut[i], (long) qs[k], (long) t.atten);
+            PlayTone(&t, 1500, 600);
+            StepDone();
+        }
+    }
+}
+
+/* 45: reverb with noise - colour of the tail and the impulse response. */
+static void BlockReverbNoise(int n)
+{
+    TONE t;
+    int  p;
+
+    if (!BlockMark(n, "line out: reverb with noise (colour, impulse, EQ)"))
+        return;
+    SetSteps(8 * 2 + 2);
+
+    for (p = 0; p < 8; p++) {
+        awe32Reverb((WORD) p);
+        /* 500 ms at atten 6: the tail's upper bands (damping) must stay
+           above the line noise up to 1.4 s */
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.atten  = 6;
+        t.reverb = 255u;
+        LogLine("reverb preset %ld, noise burst 500 ms, send 255", (long) p, 0, 0);
+        PlayTone(&t, 500, 3000);
+        StepDone();
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.atten  = 6;
+        t.reverb = 255u;
+        LogLine("reverb preset %ld, noise click 10 ms, send 255", (long) p, 0, 0);
+        PlayTone(&t, 10, 2500);
+        StepDone();
+    }
+
+    /* Does the EQ act on the reverb return? Treble flat, then +12 dB. */
+    awe32Reverb(4);
+    for (p = 0; p < 2; p++) {
+        EqSet(5, p ? 11 : 5);
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.atten  = 6;
+        t.reverb = 255u;
+        LogLine("reverb EQ: preset 4, treble %ld, noise burst 500 ms", p ? 11L : 5L, 0, 0);
+        PlayTone(&t, 500, 3000);
+        StepDone();
+    }
+    EqSet(5, 9);                    /* back to the SDK default */
+    awe32Reverb(0);
+}
+
+/* 46: chorus with noise, long flanger tone, chorus -> reverb, EQ. */
+static void BlockChorusNoise(int n)
+{
+    TONE t;
+    int  p;
+
+    if (!BlockMark(n, "line out: chorus with noise, flanger, chorus to reverb, EQ"))
+        return;
+    SetSteps(8 + 2 + 2 + 2);
+
+    for (p = 0; p < 8; p++) {
+        awe32Chorus((WORD) p);
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.atten  = 12;
+        t.chorus = 255u;
+        LogLine("chorus preset %ld, noise 3 s, send 255", (long) p, 0, 0);
+        PlayTone(&t, 3000, 1200);
+        StepDone();
+    }
+
+    /* Long tones: the flanger LFO is 0.1 Hz, preset 0 about 0.3 Hz. */
+    awe32Chorus(5);
+    ToneDefaults(&t);
+    t.atten  = 12;
+    t.chorus = 255u;
+    LogLine("chorus preset 5 (flanger), held sine 12 s, send 255", 0, 0, 0);
+    PlayTone(&t, 12000, 1500);
+    StepDone();
+    awe32Chorus(0);
+    ToneDefaults(&t);
+    t.atten  = 12;
+    t.chorus = 255u;
+    LogLine("chorus preset 0, held sine 8 s, send 255", 0, 0, 0);
+    PlayTone(&t, 8000, 1500);
+    StepDone();
+
+    /* Chorus -> reverb: 64 ms echo without feedback and hall 2. With chorus
+       send only, any reverb tail in the return means the chorus feeds the
+       reverb. */
+    awe32Chorus(6);
+    awe32Reverb(4);
+    for (p = 0; p < 2; p++) {
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.atten  = 6;
+        t.chorus = p ? 0u : 255u;
+        t.reverb = p ? 255u : 0u;
+        LogLine(p ? "chorus to reverb: noise 300 ms, reverb send only"
+                  : "chorus to reverb: noise 300 ms, chorus send only", 0, 0, 0);
+        PlayTone(&t, 300, 3000);
+        StepDone();
+    }
+    awe32Reverb(0);
+
+    /* Does the EQ act on the chorus return? */
+    awe32Chorus(2);
+    for (p = 0; p < 2; p++) {
+        EqSet(5, p ? 11 : 5);
+        ToneDefaults(&t);
+        t.smp    = &SMP_NOISE;
+        t.atten  = 12;
+        t.chorus = 255u;
+        LogLine("chorus EQ: preset 2, treble %ld, noise 2 s", p ? 11L : 5L, 0, 0);
+        PlayTone(&t, 2000, 1200);
+        StepDone();
+    }
+    EqSet(5, 9);
+    awe32Chorus(0);
+}
+
 static void BlockQuiet(int n)
 {
     if (!BlockMark(n, "quiet material again at +12 and +24 dB capture level"))
@@ -4138,6 +4533,16 @@ int main(int argc, char **argv)
             g_from = atoi(argv[n] + 6);
         else if (!strncmp(argv[n], "/TO:", 4) || !strncmp(argv[n], "/to:", 4))
             g_to = atoi(argv[n] + 4);
+        else if (!strncmp(argv[n], "/ONLY:", 6) || !strncmp(argv[n], "/only:", 6)) {
+            const char *s = argv[n] + 6;
+            while (*s) {
+                int b = atoi(s);
+                if (b >= 0 && b <= 99) g_only[b] = 1;
+                g_only_set = 1;
+                while (*s && *s != ',') s++;
+                if (*s == ',') s++;
+            }
+        }
         else if (!strncmp(argv[n], "/MB:", 4) || !strncmp(argv[n], "/mb:", 4))
             cap_cap = (unsigned long) atol(argv[n] + 4) * 1024UL * 1024UL;
         else if (!strncmp(argv[n], "/REC:", 5) || !strncmp(argv[n], "/rec:", 5))
@@ -4151,9 +4556,9 @@ int main(int argc, char **argv)
             if (wt_level > 0xFF) wt_level = 0xFF;
         }
         else {
-            printf("Usage: AWETEST [/FROM:n] [/TO:n] [/MB:n] [/REC:file.wav]"
+            printf("Usage: AWETEST [/FROM:n] [/TO:n] [/ONLY:n,n,..] [/MB:n] [/REC:file.wav]"
                    " [/SBK:path] [/WT:hex]\n");
-            printf("  with no switches all 41 blocks play (about %ld minutes)\n",
+            printf("  with no switches all 46 blocks play (about %ld minutes)\n",
                    AWETEST_SECONDS / 60L);
             printf("  /REC also captures the card's own output to a WAV file\n");
             printf("       (44.1 kHz stereo, about 240 MB for the full run)\n");
@@ -4428,6 +4833,11 @@ int main(int argc, char **argv)
     BlockReference(n++);            /* 39 (do v24 to bylo 35)             */
     BlockChorusDetail(n++);         /* 40 v26: chorus zblizka            */
     BlockStopband(n++);             /* 41 v26: filtr hluboko pod mezi    */
+    BlockChorusLoop(n++);           /* 42 v27: smycka chorusu bez LFO    */
+    BlockHeadroom(n++);             /* 43 v28: rezerva, skluz, saturace  */
+    BlockInterpFilter(n++);         /* 44 v28: interpolace, filtr na sumu */
+    BlockReverbNoise(n++);          /* 45 v28: dozvuk sumem              */
+    BlockChorusNoise(n++);          /* 46 v28: chorus sumem, flanger     */
 
     RecStop();
     if (g_bname[0]) printf("\n");
