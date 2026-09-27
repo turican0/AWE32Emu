@@ -8,7 +8,7 @@ research tool is in the **`sources` branch**:
 git clone --branch sources --single-branch https://github.com/turican0/AWE32Emu.git AWE32Emu-sources
 ```
 
-It is an orphan branch (no shared history with `main`), about 1 GB, mostly
+It is an orphan branch (no shared history with `main`), about 0.8 GB, mostly
 FLAC recordings.
 
 ## Layout of the `sources` branch
@@ -33,7 +33,6 @@ output carries only the effect returns.
 | `2026-09-06/`, `2026-09-07/` | early AWETEST | the first recordings (`ver3`; `test4`, `end4` with the log) — **partly invalid**: the test tone played on voice 31, which the driver reserves for the DRAM refresh, and `test4` is overdriven (see `hardware_tests.md`) |
 | `2026-09-08/` | AWETEST v05 (run5) | internal capture, blocks 1-15 and 22-35 |
 | `2026-09-12/` | AWETEST v25 | internal capture (`reca` blocks 1-11, `recb` 11-13, `recc` 11-39) with logs, and the external line recording `awetst25` |
-| `2026-09-12/mc2/`, `2026-09-14/mc2/` | Magic Carpet 2 | the game recorded from the card: menu music, level 1, intro |
 | `2026-09-23/39-41/` | AWETEST v26 | blocks 39-41, line + internal |
 | `2026-09-26/22-23-42/` | AWETEST v27 | blocks 22, 23, 42 (reverb, chorus, chorus loop), line + internal |
 | `2026-09-27/28/` | AWETEST v28 | blocks 43-46 (headroom, interpolation, reverb and chorus with noise), line + internal |
@@ -52,13 +51,14 @@ are reproducible from `tools/awetest`).
 - the wave ROM `awe32.raw` — see [USAGE.md](USAGE.md) for where to get it
 - Creative's drivers, SoundFont banks (`SYNTHGM.SBK`, game banks), the AWE32
   SDK, the demo CDs
-- game music (MIDI/XMI) apart from the short excerpts in `demos/`
+- game music (MIDI/XMI, and the full Magic Carpet 2 recordings from the
+  card) apart from the short excerpts in `demos/`
 - the virtual machine images (they contain Windows 95, DOS and games)
 - the 86Box source tree (it is upstream 86Box plus the patch in
   `ref86box/86box-patch/`)
 
-Older commits of `main` contained some of these files; they are no longer in
-the current tree.
+Older commits of `main` contained some of these files; they were removed from
+the history in September 2026.
 
 ## Local layout used during development
 
