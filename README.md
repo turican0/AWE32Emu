@@ -53,7 +53,9 @@ the excerpts are included for comparison only.
   [`conf/mc2.conf`](conf/mc2.conf)) and the AIL master volume
 - SBK → SF2 conversion (`--export-sf2`) that converts units and semantics,
   ROM samples included
-- `.wav` rendering (all platforms) and live playback (Windows)
+- `.wav` rendering and live playback on all platforms (`--audio`: RtAudio,
+  WinMM, BASS or a silent real-time output)
+- messages in English, translated through gettext (Czech included)
 - tools for verification: port-write traces (`--trace`), trace replay
   (`--replay`), per-note register dumps (`--dump-notes`)
 
@@ -81,7 +83,8 @@ AWE32Emu 004_C2INTRO_w.xmi --rom awe32.raw --sf SBAWE32.MDI --sf BULLFROG.SBK \
 AWE32Emu --rom awe32.raw --sf GAME.SBK --export-sf2 game.sf2
 ```
 
-Without `--wav` the song plays live (Windows). Every option is explained in
+Without `--wav` the song plays live (`--audio` selects the output). Every
+option is explained in
 [docs/USAGE.md](docs/USAGE.md).
 
 ## Building
@@ -100,8 +103,13 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-No external libraries. `-DAWE32EMU_WITH_86BOX=OFF` builds without the 86Box
-chip core (then only the older own core, `--chip ours`, is available).
+CMake downloads RtAudio 6.0.1 for live playback (or uses an installed one);
+on Linux it needs `libasound2-dev` and/or `libpulse-dev`, and `gettext`
+for the translations. Options: `-DAWE32EMU_WITH_RTAUDIO=OFF` (no RtAudio),
+`-DAWE32EMU_NLS=OFF` (English only), `-DAWE32EMU_WITH_86BOX=OFF` (without
+the 86Box chip core; then only the older own core, `--chip ours`, is
+available). The Visual Studio solution needs nothing extra: it builds with
+WinMM, BASS and the silent output, in English.
 
 ## How it is verified
 
@@ -173,7 +181,6 @@ and banks, the SDK, game music, VM images.
 ## Open points
 
 - XMIDI loops (`RBRN`, CC116/117) and SysEx are not interpreted
-- live output is Windows-only (WinMM); a portable backend is wanted
 - the project is a command-line program; a reusable library API is planned
 - small chip details that the recordings cannot decide (see the end of
   [emu8000_tuning.md](docs/re-notes/emu8000_tuning.md))

@@ -1,4 +1,5 @@
 #include "MidiFile.h"
+#include "I18n.h"
 #include <fstream>
 #include <algorithm>
 #include <cstring>
@@ -149,14 +150,14 @@ namespace MidiFile
         std::ifstream file(path, std::ios::binary);
         if (!file)
         {
-            seq.errorMessage = "Cannot open file: " + path;
+            seq.errorMessage = StrFormat(_("Cannot open file: %s"), path.c_str());
             return seq;
         }
 
         std::vector<uint8_t> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         if (buffer.size() < 14 || std::memcmp(buffer.data(), "MThd", 4) != 0)
         {
-            seq.errorMessage = "Missing MThd header - not a valid SMF file";
+            seq.errorMessage = _("Missing MThd header - not a valid SMF file");
             return seq;
         }
 
@@ -170,7 +171,7 @@ namespace MidiFile
         if (division & 0x8000)
         {
             // SMPTE format (frames/sec + ticks/frame) - TODO: support, see docs/TODO.md 1.1
-            seq.errorMessage = "SMPTE division is not supported yet";
+            seq.errorMessage = _("SMPTE division is not supported yet");
             return seq;
         }
         seq.ticksPerQuarterNote = division;
@@ -184,7 +185,7 @@ namespace MidiFile
         {
             if (std::memcmp(&buffer[pos], "MTrk", 4) != 0)
             {
-                seq.errorMessage = "Expected MTrk chunk not found (track " + std::to_string(t) + ")";
+                seq.errorMessage = StrFormat(_("Expected MTrk chunk not found (track %d)"), static_cast<int>(t));
                 return seq;
             }
             uint32_t trackLen = ReadBE32(&buffer[pos + 4]);
@@ -192,7 +193,7 @@ namespace MidiFile
             size_t trackEnd = trackStart + trackLen;
             if (trackEnd > buffer.size())
             {
-                seq.errorMessage = "Damaged track length " + std::to_string(t);
+                seq.errorMessage = StrFormat(_("Damaged track length %d"), static_cast<int>(t));
                 return seq;
             }
 

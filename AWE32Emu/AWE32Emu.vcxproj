@@ -107,6 +107,9 @@
     <ClCompile Include="src\SoundFont.cpp" />
     <ClCompile Include="src\SoundFontExport.cpp" />
     <ClCompile Include="src\AudioOutputWin.cpp" />
+    <ClCompile Include="src\AudioOutput.cpp" />
+    <ClCompile Include="src\AudioOutputBass.cpp" />
+    <ClCompile Include="src\I18n.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\Emu8000.h" />
@@ -123,6 +126,8 @@
     <ClInclude Include="src\Synth.h" />
     <ClInclude Include="src\SoundFont.h" />
     <ClInclude Include="src\AudioOutputWin.h" />
+    <ClInclude Include="src\AudioOutput.h" />
+    <ClInclude Include="src\I18n.h" />
     <ClInclude Include="src\WavWriter.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

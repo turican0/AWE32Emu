@@ -1,4 +1,5 @@
 #include "SoundFont.h"
+#include "I18n.h"
 #include "Emu8000Regs.h"
 #include "Awe32Driver.h"
 
@@ -389,7 +390,7 @@ namespace
             }
             if (n > 50) { ptab = p; pend = t; }
         }
-        if (!pend) { error = "SBAWE32.MDI: preset table not found"; return false; }
+        if (!pend) { error = _("SBAWE32.MDI: preset table not found"); return false; }
 
         const size_t nPresets = (pend - ptab) / 4;
         const uint16_t nPbag = Rd16(d, pend + 2);
@@ -414,7 +415,7 @@ namespace
         const size_t nIgen = ibag.back();
         size_t shdrAt = igenAt + 3 * nIgen;
         shdrAt += shdrAt & 1;
-        if (shdrAt > d.size()) { error = "SBAWE32.MDI: tables exceed the file"; return false; }
+        if (shdrAt > d.size()) { error = _("SBAWE32.MDI: tables exceed the file"); return false; }
 
         auto gens = [&](size_t at, size_t count, int& maxSample)
         {
@@ -438,7 +439,7 @@ namespace
         const std::vector<uint8_t> igenB = gens(igenAt, nIgen, maxSample);
 
         const size_t nSamples = static_cast<size_t>(maxSample + 1);
-        if (shdrAt + 16 * nSamples > d.size()) { error = "SBAWE32.MDI: sample table truncated"; return false; }
+        if (shdrAt + 16 * nSamples > d.size()) { error = _("SBAWE32.MDI: sample table truncated"); return false; }
 
         std::vector<uint8_t> phdrB, pbagB, instB, ibagB, shdrB, snamB, pmodB(10, 0), imodB(10, 0);
         auto name20 = [](std::vector<uint8_t>& o, const std::string& s)
@@ -493,7 +494,7 @@ Bank Load(const std::string& path)
     Bank bank;
 
     std::ifstream file(path, std::ios::binary);
-    if (!file) { bank.errorMessage = "Cannot open file: " + path; return bank; }
+    if (!file) { bank.errorMessage = StrFormat(_("Cannot open file: %s"), path.c_str()); return bank; }
 
     std::vector<uint8_t> buf((std::istreambuf_iterator<char>(file)),
                               std::istreambuf_iterator<char>());
@@ -503,13 +504,13 @@ Bank Load(const std::string& path)
         int unmapped = 0;
         if (!BuildSbkFromMdi(buf, riff, bank.errorMessage, unmapped)) return bank;
         if (unmapped)
-            std::fprintf(stderr, "Warning: %s: %d MDI values without an exact SF1 counterpart\n",
+            std::fprintf(stderr, _("Warning: %s: %d MDI values without an exact SF1 counterpart\n"),
                          path.c_str(), unmapped);
         buf.swap(riff);
     }
     if (buf.size() < 12 || std::memcmp(buf.data(), "RIFF", 4) != 0)
     {
-        bank.errorMessage = "Missing RIFF header";
+        bank.errorMessage = _("Missing RIFF header");
         return bank;
     }
 
@@ -524,7 +525,7 @@ Bank Load(const std::string& path)
     };
 
     const Chunk* ifil = need("ifil");
-    if (!ifil || ifil->size < 2) { bank.errorMessage = "Chybi chunk ifil"; return bank; }
+    if (!ifil || ifil->size < 2) { bank.errorMessage = _("Missing chunk ifil"); return bank; }
     const uint16_t major = RdU16(&buf[ifil->offset]);
     bank.version = (major < 2) ? Version::Sf1 : Version::Sf2;
 
@@ -540,7 +541,7 @@ Bank Load(const std::string& path)
 
     // ---- sample headers ----
     const Chunk* shdr = need("shdr");
-    if (!shdr) { bank.errorMessage = "Chybi chunk shdr"; return bank; }
+    if (!shdr) { bank.errorMessage = _("Missing chunk shdr"); return bank; }
 
     if (bank.version == Version::Sf1)
     {
@@ -624,7 +625,7 @@ Bank Load(const std::string& path)
     const Chunk* igen = need("igen"); const Chunk* phdr = need("phdr");
     if (!pbag || !pgen || !inst || !ibag || !igen || !phdr)
     {
-        bank.errorMessage = "One of the chunks phdr/pbag/pgen/inst/ibag/igen is missing";
+        bank.errorMessage = _("One of the chunks phdr/pbag/pgen/inst/ibag/igen is missing");
         return bank;
     }
 

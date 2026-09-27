@@ -108,9 +108,13 @@ Legend: `[x]` done, `[~]` partly done, `[ ]` open.
 - [x] Mixing of 32 voices + effects
 - [x] Resampling to the output rate
 - [x] WAV writer
-- [~] Live output — WinMM only (Windows). A portable backend (e.g.
-      RtAudio or miniaudio) is wanted for Linux/macOS live playback.
-- [ ] Lock-free queue between the sequencer and an audio callback
+- [x] Live output through a common interface (`AudioOutput.h`): RtAudio
+      (portable), WinMM, BASS (loaded at run time) and a silent real-time
+      output; `--audio` selects it (issue #1)
+- [~] Queue between the sequencer and an audio callback — a ring buffer
+      with a mutex in the RtAudio backend; lock-free is not needed so far
+- [ ] MIDI input (e.g. RtMidi), so the emulator can be played as a
+      software synth
 
 ## 7. Library API and integration
 

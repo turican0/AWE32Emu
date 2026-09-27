@@ -1,4 +1,5 @@
 #include "XmiFile.h"
+#include "I18n.h"
 #include <fstream>
 #include <algorithm>
 #include <cstring>
@@ -63,14 +64,14 @@ namespace XmiFile
         std::ifstream file(path, std::ios::binary);
         if (!file)
         {
-            seq.errorMessage = "Cannot open file: " + path;
+            seq.errorMessage = StrFormat(_("Cannot open file: %s"), path.c_str());
             return seq;
         }
 
         std::vector<uint8_t> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         if (buffer.size() < 12 || std::memcmp(buffer.data(), "FORM", 4) != 0)
         {
-            seq.errorMessage = "Missing FORM header - not a valid XMI/IFF file";
+            seq.errorMessage = _("Missing FORM header - not a valid XMI/IFF file");
             return seq;
         }
 
@@ -80,14 +81,14 @@ namespace XmiFile
         long evntLenPos = FindChunk(buffer, "EVNT");
         if (evntLenPos < 0)
         {
-            seq.errorMessage = "No EVNT chunk - not a valid XMI file (or an unsupported variant)";
+            seq.errorMessage = _("No EVNT chunk - not a valid XMI file (or an unsupported variant)");
             return seq;
         }
 
         size_t pos = static_cast<size_t>(evntLenPos);
         if (pos + 4 > buffer.size())
         {
-            seq.errorMessage = "Damaged EVNT chunk (length missing)";
+            seq.errorMessage = _("Damaged EVNT chunk (length missing)");
             return seq;
         }
         uint32_t evntLen = ReadBE32(&buffer[pos]);

@@ -4,8 +4,9 @@ name: release
 # pushed (e.g. v0.3, v1.0.2) and attaches them to a GitHub release.
 #
 # The build goes through CMakeLists.txt in the repository root, not the .sln,
-# so that Linux builds too. Both chip cores are included: our own core and
-# the 86Box one (`--chip 86box`, AWE32Emu/src/86box).
+# so that Linux builds too. Included: both chip cores (our own and the 86Box
+# one, `--chip 86box`), RtAudio for live playback and, on Linux, the message
+# translations (locale/).
 on:
   push:
     tags:
@@ -33,23 +34,24 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libpulse-dev gettext
+
       - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      # MSVC puts the binary into build/Release/, single-configuration
-      # generators straight into build/. Collect either into one folder.
+      # The install step collects the binary and, where built, locale/.
       - name: Collect
         shell: bash
         run: |
+          cmake --install build --config Release --prefix dist
           mkdir -p dist/docs
-          if [ -f "build/Release/${{ matrix.exe }}" ]; then
-            cp "build/Release/${{ matrix.exe }}" dist/
-          else
-            cp "build/${{ matrix.exe }}" dist/
-          fi
           cp README.md dist/
           cp docs/USAGE.md docs/TESTING.md dist/docs/
           cp AWE32Emu/src/86box/README.md dist/docs/86box-core.md
@@ -89,9 +91,20 @@ jobs:
           done
           ls -la
 
-      - uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            artifacts/*.zip
-            artifacts/*.tar.gz
-          generate_release_notes: true
+      # A new tag gets a release with generated notes. When the release
+      # already exists (the workflow ran again for the same tag), only the
+      # files are replaced - generating the notes again would append them to
+      # the text a second time.
+      - name: Publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          shopt -s nullglob
+          files=(artifacts/*.zip artifacts/*.tar.gz)
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" > /dev/null 2>&1; then
+            gh release upload "$TAG" "${files[@]}" --clobber --repo "$GITHUB_REPOSITORY"
+          else
+            gh release create "$TAG" "${files[@]}" --generate-notes --verify-tag \
+                --title "$TAG" --repo "$GITHUB_REPOSITORY"
+          fi

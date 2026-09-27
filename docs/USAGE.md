@@ -9,8 +9,9 @@ AWE32Emu <song.mid|song.xmi> [options]
 AWE32Emu --help
 ```
 
-Live playback goes through `winmm`, so it is Windows only. Rendering to a file
-(`--wav`) works everywhere — on Linux it is the only mode.
+Without `--wav` the song plays live through the output chosen with `--audio`
+(see [Live playback](#live-playback)). Rendering to a file works everywhere
+and does not depend on the output.
 
 ---
 
@@ -266,6 +267,37 @@ affects the result against recordings from real hardware. They apply to
 
 ---
 
+## Live playback
+
+```
+AWE32Emu song.mid --rom awe32.raw --sf SYNTHGM.SBK --audio rtaudio
+```
+
+| `--audio` | what | where |
+|---|---|---|
+| `rtaudio` | [RtAudio](https://github.com/thestk/rtaudio): WASAPI/DirectSound, ALSA/PulseAudio/JACK, CoreAudio | CMake builds (default there) |
+| `winmm` | Windows waveOut, no extra library | Windows (default of the Visual Studio build) |
+| `bass` | [un4seen BASS](https://www.un4seen.com) 2.4, loaded at run time | everywhere, when `bass.dll` / `libbass.so` lies next to the program |
+| `null` | plays nothing but keeps real time | everywhere; for tests without a sound device |
+
+`--help` lists the outputs of the running build and its default. BASS is
+not shipped (its licence is not free for every use); download it from
+un4seen and put the library next to `AWE32Emu`.
+
+## Language of the messages
+
+Builds with gettext (the Linux release, CMake with MSYS2) print the
+messages in the language of the environment (`LANG`, `LC_MESSAGES`,
+`LANGUAGE`), where a translation exists; so far Czech:
+
+```bash
+LANG=cs_CZ.UTF-8 ./AWE32Emu --help
+```
+
+The catalogues are looked up in `locale/` next to the program, or in the
+directory given by `AWE32EMU_LOCALEDIR`. Adding a language is described in
+[DEVELOPMENT.md](DEVELOPMENT.md#translations).
+
 ## Building
 
 ### Windows, Visual Studio
@@ -282,6 +314,16 @@ cmake --build build --config Release
 The 86Box chip core is in the repository and is built in by default;
 `-DAWE32EMU_WITH_86BOX=OFF` leaves it out (`--chip 86box` then reports that
 it is missing).
+
+RtAudio is taken from an installed package or downloaded (6.0.1) during
+configuration; `-DAWE32EMU_WITH_RTAUDIO=OFF` builds without it. On Linux:
+
+```bash
+sudo apt install libasound2-dev libpulse-dev gettext
+```
+
+gettext is used when libintl and msgfmt are found; `-DAWE32EMU_NLS=OFF`
+switches it off.
 
 ### Prebuilt binaries
 

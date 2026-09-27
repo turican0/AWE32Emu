@@ -1,4 +1,5 @@
 #include "Synth.h"
+#include "I18n.h"
 #include <cstdio>
 #include "Awe32Curves.h"
 
@@ -113,11 +114,11 @@ void Synth::BuildDefaultWaveform()
 bool Synth::LoadWaveRom(const std::string& path, std::string& error)
 {
     std::ifstream f(path, std::ios::binary);
-    if (!f) { error = "Cannot open ROM: " + path; return false; }
+    if (!f) { error = StrFormat(_("Cannot open ROM: %s"), path.c_str()); return false; }
 
     std::vector<uint8_t> raw((std::istreambuf_iterator<char>(f)),
                               std::istreambuf_iterator<char>());
-    if (raw.size() < 2) { error = "ROM is empty: " + path; return false; }
+    if (raw.size() < 2) { error = StrFormat(_("ROM is empty: %s"), path.c_str()); return false; }
 
     // A raw dump = 16-bit little-endian samples. The ROM's text header is
     // stored by words (that is why it looks swapped), but the sample data

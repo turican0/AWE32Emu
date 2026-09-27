@@ -1,4 +1,5 @@
 #include "SoundFontExport.h"
+#include "I18n.h"
 #include "Emu8000Regs.h"
 
 #include <algorithm>
@@ -182,7 +183,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
                const ExportOptions& opt,
                std::string& error)
 {
-    if (banks.empty()) { error = "no bank to export"; return false; }
+    if (banks.empty()) { error = _("no bank to export"); return false; }
 
     // ---- 1. collect the presets ----------------------------------------
     // A later bank overrides an earlier one, as in playback.
@@ -192,7 +193,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         for (const Preset& p : b->presets)
             chosen[{p.bank, p.program}] = PresetRef{b, &p};
 
-    if (chosen.empty()) { error = "the banks contain no preset"; return false; }
+    if (chosen.empty()) { error = _("the banks contain no preset"); return false; }
 
     // ---- 2. collect the instruments and samples those presets really use -
     struct SampleRef { const Bank* bank; const Sample* smp; };
@@ -243,9 +244,9 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         if (inRom)
         {
             if (!opt.bakeRom)
-            { error = "the bank refers to ROM, but baking the ROM in is disabled"; return false; }
+            { error = _("the bank refers to ROM, but baking the ROM in is disabled"); return false; }
             if (rom.empty())
-            { error = "the bank refers to the wave ROM, but no ROM was loaded (--rom)"; return false; }
+            { error = _("the bank refers to the wave ROM, but no ROM was loaded (--rom)"); return false; }
             if (s.start >= rom.size()) continue;
             src = rom.data() + s.start;
             avail = std::min<size_t>(s.end, rom.size()) - s.start;
@@ -456,7 +457,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     body.raw(pdta.d.data(), pdta.d.size());
 
     FILE* f = std::fopen(path.c_str(), "wb");
-    if (!f) { error = "cannot write '" + path + "'"; return false; }
+    if (!f) { error = StrFormat(_("cannot write '%s'"), path.c_str()); return false; }
     const uint32_t len = static_cast<uint32_t>(body.size());
     std::fwrite("RIFF", 1, 4, f);
     uint8_t l[4] = { uint8_t(len), uint8_t(len >> 8), uint8_t(len >> 16), uint8_t(len >> 24) };
@@ -464,7 +465,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     std::fwrite(body.d.data(), 1, body.d.size(), f);
     std::fclose(f);
 
-    std::printf("SF2: %zu presets, %zu instruments, %zu samples, %zu thousand sample points\n",
+    std::printf(_("SF2: %zu presets, %zu instruments, %zu samples, %zu thousand sample points\n"),
                 chosen.size(), outInstr.size(), outSamples.size(), smpl.size() / 1000);
     return true;
 }

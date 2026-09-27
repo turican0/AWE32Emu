@@ -1,4 +1,5 @@
 #include "Emu8000Box.h"
+#include "I18n.h"
 
 #ifndef AWE32EMU_WITH_86BOX
 
@@ -13,7 +14,7 @@ Emu8000Box::~Emu8000Box() = default;
 
 bool Emu8000Box::Init(const std::string&, uint16_t, int, std::string& err)
 {
-    err = "built without the 86Box core (AWE32EMU_WITH_86BOX=OFF)";
+    err = _("built without the 86Box core (AWE32EMU_WITH_86BOX=OFF)");
     return false;
 }
 
@@ -152,7 +153,7 @@ bool Emu8000Box::Init(const std::string& romPath, uint16_t basePort, int ramKb, 
 
     if (romPath.empty())
     {
-        err = "the 86box chip needs the wave ROM (--rom)";
+        err = _("the 86box chip needs the wave ROM (--rom)");
         return false;
     }
 
@@ -167,14 +168,14 @@ bool Emu8000Box::Init(const std::string& romPath, uint16_t basePort, int ramKb, 
         std::fclose(f);
         if (bytes < 1048574)   // a card dump without the AWE-DUMP word is 2 bytes shorter
         {
-            err = "wave ROM '" + romPath + "' has only "
-                + std::to_string(bytes) + " B, the 86box chip needs 1 MB";
+            err = StrFormat(_("wave ROM '%s' has only %ld B, the 86box chip needs 1 MB"),
+                            romPath.c_str(), bytes);
             return false;
         }
     }
     else
     {
-        err = "cannot open wave ROM '" + romPath + "'";
+        err = StrFormat(_("cannot open wave ROM '%s'"), romPath.c_str());
         return false;
     }
 

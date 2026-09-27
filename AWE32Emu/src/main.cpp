@@ -13,9 +13,8 @@
 #include "Synth.h"
 #include "SoundFont.h"
 #include "SoundFontExport.h"
-#ifdef _WIN32
-#include "AudioOutputWin.h"
-#endif
+#include "AudioOutput.h"
+#include "I18n.h"
 #include "WavWriter.h"
 
 #include <cstring>
@@ -29,6 +28,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <utility>
+#include <memory>
 
 namespace
 {
@@ -47,7 +47,12 @@ namespace
 
     void PrintUsage()
     {
-        std::cout <<
+        std::string outputs;
+        for (const std::string& n : AudioOutputs::Available())
+            outputs += (outputs.empty() ? "" : ", ") + n;
+        const std::string def = AudioOutputs::DefaultName();
+
+        std::cout << _(
             "AWE32Emu - .mid/.xmi player through an EMU8000 emulation (Sound Blaster AWE32)\n\n"
             "Usage:\n"
             "  AWE32Emu.exe <file.mid|file.xmi> [options]\n\n"
@@ -57,6 +62,7 @@ namespace
             "  --sf <file>         Bank - .sbk, .sf2 or .mdi\n"
             "                      (.mdi = the ROM GM presets compiled into the DOS driver)\n"
             "  --wav <file>        Write the output to a .wav instead of playing it live\n"
+            "  --audio <output>    Output for live playback (see below)\n"
             "  --debug-voices <n>  Print the first n started voices with their registers\n"
             "  --trace <file>      Record the port writes (see docs/TESTING.md)\n"
             "  --replay <trace>    Play a port-write trace through the chip and write --wav\n"
@@ -74,7 +80,14 @@ namespace
             "  --sf <file>@<N>     Load the bank into MIDI bank N (selected by CC0);\n"
             "                      user banks have bank 0 in their phdr\n"
             "  --tracks 1,2,3      Only these MIDI channels (1..16); --tracks -8,-9 = all but these\n"
-            "  --export-sf2 <file> Write the loaded banks (ROM included) as one .sf2\n\n"
+            "  --export-sf2 <file> Write the loaded banks (ROM included) as one .sf2\n\n");
+
+        std::cout << StrFormat(_("Audio outputs in this build: %s (default: %s)\n"
+                                 "  rtaudio = RtAudio, winmm = Windows waveOut, bass = un4seen BASS\n"
+                                 "  (bass.dll / libbass.so next to the program), null = no sound, real time\n\n"),
+                               outputs.c_str(), def.empty() ? _("none") : def.c_str());
+
+        std::cout << _(
             "Options for the old own core only (--chip ours):\n"
             "  --interp linear|cubic|3point|3pointc|sinc   Interpolation (default sinc;\n"
             "                      the 86box chip uses its measured interpolation)\n"
@@ -100,7 +113,7 @@ namespace
             "Banks can be given several times and are layered - later ones override earlier ones.\n"
             "Typical use:\n"
             "  --rom rom/awe32.raw --sf SBAWE32.MDI --sf sbk/BULLFROG.SBK --driver dos\n"
-            "\nAll options are described with examples in docs/USAGE.md.\n";
+            "\nAll options are described with examples in docs/USAGE.md.\n");
     }
 }
 
@@ -130,7 +143,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
     std::ifstream f(path);
     if (!f)
     {
-        err = "cannot open '" + path + "'";
+        err = StrFormat(_("cannot open '%s'"), path.c_str());
         return false;
     }
 
@@ -154,8 +167,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             m.kind = ConfMessage::Kind::Control;
             if (!(is >> m.a >> m.b))
             {
-                err = path + ":" + std::to_string(lineNo)
-                    + ": `cc` wants a controller number and a value";
+                err = StrFormat(_("%s:%d: `cc` wants a controller number and a value"), path.c_str(), lineNo);
                 return false;
             }
         }
@@ -164,8 +176,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             m.kind = ConfMessage::Kind::Program;
             if (!(is >> m.a))
             {
-                err = path + ":" + std::to_string(lineNo)
-                    + ": `program` wants a program number";
+                err = StrFormat(_("%s:%d: `program` wants a program number"), path.c_str(), lineNo);
                 return false;
             }
         }
@@ -174,8 +185,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             m.kind = ConfMessage::Kind::Bend;
             if (!(is >> m.a))
             {
-                err = path + ":" + std::to_string(lineNo)
-                    + ": `bend` wants a value 0..16383";
+                err = StrFormat(_("%s:%d: `bend` wants a value 0..16383"), path.c_str(), lineNo);
                 return false;
             }
         }
@@ -185,8 +195,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             int v = 0;
             if (!(is >> v))
             {
-                err = path + ":" + std::to_string(lineNo)
-                    + ": `trigger_mute` wants 0 or 1";
+                err = StrFormat(_("%s:%d: `trigger_mute` wants 0 or 1"), path.c_str(), lineNo);
                 return false;
             }
             triggerMute = (v != 0);
@@ -196,16 +205,14 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
         {
             if (!(is >> master) || master < 0 || master > 127)
             {
-                err = path + ":" + std::to_string(lineNo)
-                    + ": `master_volume` wants a value 0..127";
+                err = StrFormat(_("%s:%d: `master_volume` wants a value 0..127"), path.c_str(), lineNo);
                 return false;
             }
             continue;                       // not a channel message
         }
         else
         {
-            err = path + ":" + std::to_string(lineNo)
-                + ": unknown command '" + word + "'";
+            err = StrFormat(_("%s:%d: unknown command '%s'"), path.c_str(), lineNo, word.c_str());
             return false;
         }
         out.push_back(m);
@@ -246,6 +253,8 @@ void ApplyConf(Synth& synth, const std::vector<ConfMessage>& msgs)
 
 int main(int argc, char** argv)
 {
+    I18n::Init(argc > 0 ? argv[0] : nullptr);
+
     if (argc < 2)
     {
         PrintUsage();
@@ -255,6 +264,7 @@ int main(int argc, char** argv)
     std::string inputPath;
     std::string romPath;
     std::string wavPath;
+    std::string audioName;
     std::string tracePath;
     std::string replayPath;
     Awe32::Driver driver = Awe32::kDefaultDriver;
@@ -359,6 +369,10 @@ int main(int argc, char** argv)
         {
             wavPath = argv[++i];
         }
+        else if (arg == "--audio" && i + 1 < argc)
+        {
+            audioName = argv[++i];
+        }
         else if (arg == "--trace" && i + 1 < argc)
         {
             tracePath = argv[++i];
@@ -461,8 +475,8 @@ int main(int argc, char** argv)
         {
             if (!Awe32::DriverFromName(argv[++i], driver))
             {
-                std::cerr << "Unknown driver variant '" << argv[i]
-                          << "'. Use 'dos', 'win95' or 'sdk'.\n";
+                std::cerr << StrFormat(_("Unknown driver variant '%s'. Use 'dos', 'win95' or 'sdk'.\n"),
+                                       argv[i]);
                 return 1;
             }
         }
@@ -477,10 +491,24 @@ int main(int argc, char** argv)
         }
     }
 
+    // An unknown output is reported before anything is loaded.
+    if (!audioName.empty() && wavPath.empty())
+    {
+        const auto avail = AudioOutputs::Available();
+        if (std::find(avail.begin(), avail.end(), audioName) == avail.end())
+        {
+            std::string err;
+            AudioOutputs::Create(audioName, err);
+            std::cerr << StrFormat(_("Could not open the audio output '%s': %s\n"),
+                                   audioName.c_str(), err.c_str());
+            return 1;
+        }
+    }
+
     // A bank export plays nothing, so no input song is needed.
     if (inputPath.empty() && exportSf2.empty() && replayPath.empty())
     {
-        std::cerr << "No input file.\n\n";
+        std::cerr << _("No input file.\n\n");
         PrintUsage();
         return 1;
     }
@@ -501,18 +529,20 @@ int main(int argc, char** argv)
         }
         else
         {
-            std::cerr << "Unrecognised extension '" << ext << "' - expected .mid or .xmi\n";
+            std::cerr << StrFormat(_("Unrecognised extension '%s' - expected .mid or .xmi\n"), ext.c_str());
             return 1;
         }
 
         if (!sequence.valid)
         {
-            std::cerr << "Error loading '" << inputPath << "': " << sequence.errorMessage << "\n";
+            std::cerr << StrFormat(_("Error loading '%s': %s\n"), inputPath.c_str(),
+                               sequence.errorMessage.c_str());
             return 1;
         }
 
-        std::cout << "Loaded: " << inputPath << " (" << sequence.events.size() << " events, "
-            << sequence.ticksPerQuarterNote << " ticks per quarter note)\n";
+        std::cout << StrFormat(_("Loaded: %s (%zu events, %u ticks per quarter note)\n"),
+                               inputPath.c_str(), sequence.events.size(),
+                               static_cast<unsigned>(sequence.ticksPerQuarterNote));
     }
 
     // The configuration is read before the master volume is set - it may set
@@ -525,7 +555,7 @@ int main(int argc, char** argv)
         std::string err;
         if (!LoadConf(confPath, confMessages, confMaster, confTriggerMute, err))
         {
-            std::cerr << "Error in the configuration: " << err << "\n";
+            std::cerr << StrFormat(_("Error in the configuration: %s\n"), err.c_str());
             return 1;
         }
         if (confMaster >= 0 && !masterFromCmdline)
@@ -542,10 +572,10 @@ int main(int argc, char** argv)
     {
         std::string err;
         if (!synth.LoadWaveRom(romPath, err))
-            std::cerr << "Warning: " << err << "\n";
+            std::cerr << StrFormat(_("Warning: %s\n"), err.c_str());
         else
-            std::cout << "Wave ROM '" << romPath << "' loaded ("
-                      << synth.Core().RomSize() << " samples).\n";
+            std::cout << StrFormat(_("Wave ROM '%s' loaded (%zu samples).\n"), romPath.c_str(),
+                                   static_cast<size_t>(synth.Core().RomSize()));
     }
 
     // The 86Box chip has to be switched on before the first port write -
@@ -562,15 +592,15 @@ int main(int argc, char** argv)
         synth.Core().SetChipRamKb(chipRamKb);
         if (!synth.Core().UseBox86Chip(romPath, err))
         {
-            std::cerr << "Could not switch on the 86box chip: " << err << "\n";
+            std::cerr << StrFormat(_("Could not switch on the 86box chip: %s\n"), err.c_str());
             return 1;
         }
-        std::cout << "Chip core: snd_emu8k.c from 86Box (latency "
-                  << synth.Core().ChipLatencyFrames() << " frames).\n";
+        std::cout << StrFormat(_("Chip core: snd_emu8k.c from 86Box (latency %u frames).\n"),
+                               static_cast<unsigned>(synth.Core().ChipLatencyFrames()));
     }
     else if (!chip.empty() && chip != "ours")
     {
-        std::cerr << "Unknown --chip '" << chip << "'; known are ours and 86box.\n";
+        std::cerr << StrFormat(_("Unknown --chip '%s'; known are ours and 86box.\n"), chip.c_str());
         return 1;
     }
 
@@ -588,27 +618,26 @@ int main(int argc, char** argv)
         std::string err;
         if (!synth.LoadBank(path, err, inRom, midiBank))
         {
-            std::cerr << "Warning: could not load bank '" << path << "': " << err << "\n";
+            std::cerr << StrFormat(_("Warning: could not load bank '%s': %s\n"), path.c_str(), err.c_str());
             continue;
         }
         const SoundFont::Bank& b = synth.BankAt(synth.BankCount() - 1);
         const bool fromMdi = (b.name == "SBAWE32.MDI GM");
-        std::cout << "Bank '" << path << "': "
-                  << (fromMdi ? "GM presets from the SBAWE32.MDI driver"
-                              : (b.version == SoundFont::Version::Sf1 ? "SoundFont 1.0" : "SoundFont 2.0"))
-                  << ", " << b.presets.size() << " presets, "
-                  << b.instruments.size() << " instruments, "
-                  << b.samples.size() << " samples";
-        if (inRom) std::cout << ", samples in the wave ROM";
-        if (midiBank >= 0) std::cout << ", MIDI bank " << midiBank;
-        if (!b.romName.empty()) std::cout << ", expects ROM '" << b.romName << "'";
+        std::cout << StrFormat(_("Bank '%s': %s, %zu presets, %zu instruments, %zu samples"),
+                               path.c_str(),
+                               fromMdi ? _("GM presets from the SBAWE32.MDI driver")
+                                       : (b.version == SoundFont::Version::Sf1 ? "SoundFont 1.0" : "SoundFont 2.0"),
+                               b.presets.size(), b.instruments.size(), b.samples.size());
+        if (inRom) std::cout << _(", samples in the wave ROM");
+        if (midiBank >= 0) std::cout << StrFormat(_(", MIDI bank %d"), midiBank);
+        if (!b.romName.empty()) std::cout << StrFormat(_(", expects ROM '%s'"), b.romName.c_str());
         std::cout << ".\n";
 
         size_t romRefs = 0;
         for (const SoundFont::Sample& sm : b.samples) if (sm.inRom) ++romRefs;
         if ((romRefs || inRom) && !synth.Core().RomSize())
-            std::cerr << "Warning: the bank refers to samples in ROM, but no ROM"
-                         " is loaded (--rom).\n";
+            std::cerr << _("Warning: the bank refers to samples in ROM, but no ROM"
+                           " is loaded (--rom).\n");
     }
 
     // The SF2 export is done right after the banks are loaded - nothing is
@@ -639,10 +668,10 @@ int main(int argc, char** argv)
         std::string err;
         if (!SoundFont::ExportSf2(banks, rom, exportSf2, eo, err))
         {
-            std::cerr << "SF2 export failed: " << err << "\n";
+            std::cerr << StrFormat(_("SF2 export failed: %s\n"), err.c_str());
             return 1;
         }
-        std::cout << "Written to '" << exportSf2 << "'.\n";
+        std::cout << StrFormat(_("Written to '%s'.\n"), exportSf2.c_str());
         return 0;
     }
 
@@ -655,7 +684,7 @@ int main(int argc, char** argv)
             const size_t n = std::min(synth.Core().DramSize(),
                                       synth.Core().ChipRamWords());
             std::memcpy(ram, synth.Core().DramData(), n * sizeof(int16_t));
-            std::cout << "Copied " << n << " DRAM samples into the 86box chip.\n";
+            std::cout << StrFormat(_("Copied %zu DRAM samples into the 86box chip.\n"), n);
         }
     }
 
@@ -664,7 +693,7 @@ int main(int argc, char** argv)
     // chorus HWCF writes) than the VM had.
     if (replayPath.empty())
         synth.Core().PowerOnInit();
-    std::cout << "Driver: " << Awe32::DriverName(driver) << "\n";
+    std::cout << StrFormat(_("Driver: %s\n"), Awe32::DriverName(driver));
 
     if (debugVoices > 0) synth.SetVoiceDebug(debugVoices);
     synth.SetChannelMask(channelMask);
@@ -684,7 +713,7 @@ int main(int argc, char** argv)
         synth.Core().SetSincTaps(sincTaps);
     else if (sincTaps != 0)
     {
-        std::cerr << "--sinc-taps has to be an even number from 4 to 32.\n";
+        std::cerr << _("--sinc-taps has to be an even number from 4 to 32.\n");
         return 1;
     }
     if (eqMode == "off")         synth.Core().SetEqualizer(false);
@@ -720,7 +749,7 @@ int main(int argc, char** argv)
     {
         if (!synth.Core().OpenTrace(tracePath.c_str()))
         {
-            std::cerr << "Could not open the trace '" << tracePath << "'.\n";
+            std::cerr << StrFormat(_("Could not open the trace '%s'.\n"), tracePath.c_str());
             return 1;
         }
         // The initialisation sequence already ran in the Synth constructor,
@@ -734,13 +763,13 @@ int main(int argc, char** argv)
             std::fwrite(synth.Core().DramData(), sizeof(int16_t),
                         synth.Core().DramSize(), df);
             std::fclose(df);
-            std::cout << "Trace '" << tracePath << "' + DRAM "
-                      << synth.Core().DramSize() << " samples.\n";
+            std::cout << StrFormat(_("Trace '%s' + DRAM %zu samples.\n"), tracePath.c_str(),
+                                   static_cast<size_t>(synth.Core().DramSize()));
         }
     }
 
     if (!noteDumpPath.empty() && !synth.OpenNoteDump(noteDumpPath))
-        std::cerr << "Could not open '" << noteDumpPath << "'.\n";
+        std::cerr << StrFormat(_("Could not open '%s'.\n"), noteDumpPath.c_str());
 
     // Only after the trace is switched on, so that the initial channel state
     // gets into the trace - the game's driver also sends it only after the
@@ -748,10 +777,10 @@ int main(int argc, char** argv)
     if (!confPath.empty())
     {
         ApplyConf(synth, confMessages);
-        std::cout << "Configuration '" << confPath << "': "
-                  << confMessages.size() << " messages on each of the 16 channels";
+        std::cout << StrFormat(_("Configuration '%s': %zu messages on each of the 16 channels"),
+                               confPath.c_str(), confMessages.size());
         if (confMaster >= 0)
-            std::cout << ", master volume " << confMaster;
+            std::cout << StrFormat(_(", master volume %d"), confMaster);
         std::cout << ".\n";
     }
 
@@ -761,7 +790,7 @@ int main(int argc, char** argv)
     {
         if (wavPath.empty())
         {
-            std::cerr << "--replay needs --wav <file>.\n";
+            std::cerr << _("--replay needs --wav <file>.\n");
             return 1;
         }
         struct Ev { unsigned long long t; unsigned port, val; };
@@ -785,14 +814,14 @@ int main(int argc, char** argv)
         }
         else
         {
-            std::cerr << "Could not open the trace '" << replayPath << "'.\n";
+            std::cerr << StrFormat(_("Could not open the trace '%s'.\n"), replayPath.c_str());
             return 1;
         }
 
         WavWriter wav;
         if (!wav.Open(wavPath, kSampleRate))
         {
-            std::cerr << "Could not open the output file '" << wavPath << "'.\n";
+            std::cerr << StrFormat(_("Could not open the output file '%s'.\n"), wavPath.c_str());
             return 1;
         }
         std::vector<int16_t> buf(static_cast<size_t>(kFramesPerBuffer) * 2);
@@ -821,10 +850,10 @@ int main(int argc, char** argv)
         for (unsigned long long done = 0; done < tail; done += kFramesPerBuffer)
             emit(kFramesPerBuffer);
         wav.Close();
-        std::cout << "Trace '" << replayPath << "': " << evs.size() << " writes"
-                  << (byteWrites ? ", byte writes skipped: " : "")
-                  << (byteWrites ? std::to_string(byteWrites) : std::string())
-                  << ", " << cur << " frames -> '" << wavPath << "'.\n";
+        std::cout << StrFormat(_("Trace '%s': %zu writes"), replayPath.c_str(), evs.size());
+        if (byteWrites)
+            std::cout << StrFormat(_(", byte writes skipped: %zu"), byteWrites);
+        std::cout << StrFormat(_(", %llu frames -> '%s'.\n"), cur, wavPath.c_str());
         return 0;
     }
 
@@ -843,11 +872,11 @@ int main(int argc, char** argv)
         WavWriter wav;
         if (!wav.Open(wavPath, kSampleRate))
         {
-            std::cerr << "Could not open the output file '" << wavPath << "'.\n";
+            std::cerr << StrFormat(_("Could not open the output file '%s'.\n"), wavPath.c_str());
             return 1;
         }
 
-        std::cout << "Rendering to '" << wavPath << "'...\n";
+        std::cout << StrFormat(_("Rendering to '%s'...\n"), wavPath.c_str());
         // The 86Box chip delivers its sound one block late; that latency is
         // dropped at the start and rendered on at the end, so the file
         // matches emu8k_ref.exe frame for frame.
@@ -872,29 +901,34 @@ int main(int argc, char** argv)
         }
         wav.Close();
         synth.Core().CloseTrace();
-        std::cout << "Done.\n";
+        std::cout << _("Done.\n");
         return 0;
     }
 
-#ifndef _WIN32
-    // Live playback goes through `winmm`, so outside Windows we can only
-    // render to a file. It is no limitation of the core - that is portable.
-    std::cerr << "Live playback is Windows only; use --wav <file>.\n";
-    return 1;
-#else
-    AudioOutputWin audioOut;
-    if (!audioOut.Open(kSampleRate, kFramesPerBuffer))
+    // Live playback through the selected backend (AudioOutput.h).
+    if (audioName.empty())
+        audioName = AudioOutputs::DefaultName();
+    if (audioName.empty())
     {
-        std::cerr << "Could not open the audio output (waveOutOpen failed).\n";
+        std::cerr << _("This build has no audio output for live playback; use --wav <file>\n"
+                       "or --audio bass (with libbass.so next to the program).\n");
+        return 1;
+    }
+    std::string audioErr;
+    std::unique_ptr<AudioOutput> audioOut = AudioOutputs::Create(audioName, audioErr);
+    if (!audioOut || !audioOut->Open(kSampleRate, kFramesPerBuffer, audioErr))
+    {
+        std::cerr << StrFormat(_("Could not open the audio output '%s': %s\n"),
+                               audioName.c_str(), audioErr.c_str());
         return 1;
     }
 
-    std::cout << "Playing... (Ctrl+C to stop)\n";
+    std::cout << StrFormat(_("Playing through %s... (Ctrl+C to stop)\n"), audioName.c_str());
 
     while (sequencer.HasMoreEvents())
     {
         sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
-        audioOut.Write(block.data(), kFramesPerBuffer);
+        audioOut->Write(block.data(), kFramesPerBuffer);
     }
 
     // "Tail" - render a bit more silence / decay after the last event, so
@@ -902,11 +936,10 @@ int main(int argc, char** argv)
     for (uint32_t i = 0; i < tailBlocks; ++i)
     {
         sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
-        audioOut.Write(block.data(), kFramesPerBuffer);
+        audioOut->Write(block.data(), kFramesPerBuffer);
     }
 
-    audioOut.Close();
-    std::cout << "Done.\n";
+    audioOut->Close();
+    std::cout << _("Done.\n");
     return 0;
-#endif
 }

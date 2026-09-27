@@ -1,0 +1,54 @@
+name: build
+
+# Builds Windows and Linux on every push and pull request, with all optional
+# parts: the 86Box chip, RtAudio and gettext (Linux; MSVC has no libintl).
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            name: windows-x64
+          - os: ubuntu-latest
+            name: linux-x64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev libpulse-dev gettext
+          sudo locale-gen cs_CZ.UTF-8
+
+      - name: Configure
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build --config Release --parallel
+
+      - name: Install
+        run: cmake --install build --config Release --prefix dist
+
+      - name: Smoke test
+        shell: bash
+        run: |
+          exe=dist/AWE32Emu
+          [ -f dist/AWE32Emu.exe ] && exe=dist/AWE32Emu.exe
+          "$exe" --help | tee help.txt
+          grep -q 'rtaudio' help.txt
+          # an unknown output is refused before anything is loaded
+          if "$exe" none.mid --audio nothing; then exit 1; fi
+
+      - name: Translation (Linux)
+        if: runner.os == 'Linux'
+        run: LANG=cs_CZ.UTF-8 dist/AWE32Emu --help | grep 'Použití'

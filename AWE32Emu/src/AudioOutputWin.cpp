@@ -1,4 +1,5 @@
 #include "AudioOutputWin.h"
+#include "I18n.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -12,7 +13,12 @@ AudioOutputWin::~AudioOutputWin()
     Close();
 }
 
-bool AudioOutputWin::Open(uint32_t sampleRate, uint32_t framesPerBuffer)
+std::unique_ptr<AudioOutput> CreateAudioOutputWin()
+{
+    return std::make_unique<AudioOutputWin>();
+}
+
+bool AudioOutputWin::Open(uint32_t sampleRate, uint32_t framesPerBuffer, std::string& err)
 {
     WAVEFORMATEX wfx{};
     wfx.wFormatTag = WAVE_FORMAT_PCM;
@@ -25,7 +31,10 @@ bool AudioOutputWin::Open(uint32_t sampleRate, uint32_t framesPerBuffer)
     HWAVEOUT hwo = nullptr;
     MMRESULT res = waveOutOpen(&hwo, WAVE_MAPPER, &wfx, 0, 0, CALLBACK_NULL);
     if (res != MMSYSERR_NOERROR)
+    {
+        err = StrFormat(_("waveOutOpen failed (MMRESULT %u)"), static_cast<unsigned>(res));
         return false;
+    }
     m_hWaveOut = hwo;
 
     m_framesPerBuffer = framesPerBuffer;

@@ -21,6 +21,23 @@ reference renderer `emu8k_ref` and the 86Box used for the virtual machines
 (see `ref86box/` in the `sources` branch). Then `chipcheck.py` over all
 AWETEST blocks.
 
+## Translations
+
+User-facing messages are English and wrapped in `_()` (`I18n.h`); a message
+composed of parts is one format string (`StrFormat`), so the translator sees
+the whole sentence. Traces, CSV dumps and other machine-read output are not
+translated, and `I18n::Init` keeps `LC_NUMERIC` at `C`.
+
+```bash
+cmake --build build --target pot        # po/awe32emu.pot from the sources
+cmake --build build --target update-po  # merge it into po/*.po
+msginit -i po/awe32emu.pot -l de_DE.UTF-8 -o po/de.po   # a new language
+```
+
+Every `po/<lang>.po` is compiled into `locale/<lang>/LC_MESSAGES/awe32emu.mo`
+at build time. On Windows `xgettext`, `msgmerge` and `msgfmt` come with
+MSYS2 (`C:\msys64\usr\bin`).
+
 ## Rules
 
 1. **Two levels, two standards.** The driver layer is matched 1:1 against the

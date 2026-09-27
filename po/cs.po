@@ -1,0 +1,586 @@
+# Czech translation of AWE32Emu.
+# This file is distributed under the same license as the AWE32Emu package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: AWE32Emu\n"
+"Report-Msgid-Bugs-To: https://github.com/turican0/AWE32Emu/issues\n"
+"POT-Creation-Date: 2026-09-27 19:00+0200\n"
+"PO-Revision-Date: 2026-09-27 19:00+0200\n"
+"Last-Translator: AWE32Emu contributors\n"
+"Language-Team: Czech\n"
+"Language: cs\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1) ? 0 : (n>=2 && n<=4) ? 1 : 2;\n"
+
+#: AWE32Emu/src/AudioOutput.cpp:86
+#, c-format
+msgid "unknown or unavailable audio output '%s'; this build has: %s"
+msgstr "neznámý nebo nedostupný zvukový výstup '%s'; tento build má: %s"
+
+#: AWE32Emu/src/AudioOutputBass.cpp:69
+msgid "BASS: version 2.4 is required"
+msgstr "BASS: je potřeba verze 2.4"
+
+#: AWE32Emu/src/AudioOutputBass.cpp:74
+#, c-format
+msgid "BASS_Init failed (error %d)"
+msgstr "BASS_Init selhal (chyba %d)"
+
+#: AWE32Emu/src/AudioOutputBass.cpp:83
+#, c-format
+msgid "BASS_StreamCreate failed (error %d)"
+msgstr "BASS_StreamCreate selhal (chyba %d)"
+
+#: AWE32Emu/src/AudioOutputBass.cpp:163
+#, c-format
+msgid ""
+"cannot load %s - download BASS from https://www.un4seen.com and put the "
+"library next to AWE32Emu"
+msgstr ""
+"nelze načíst %s - stáhněte BASS z https://www.un4seen.com a dejte knihovnu "
+"vedle AWE32Emu"
+
+#: AWE32Emu/src/AudioOutputBass.cpp:184
+#, c-format
+msgid "%s is not a usable BASS library"
+msgstr "%s není použitelná knihovna BASS"
+
+#: AWE32Emu/src/AudioOutputRt.cpp:28
+msgid "RtAudio found no audio device"
+msgstr "RtAudio nenašlo žádné zvukové zařízení"
+
+#: AWE32Emu/src/AudioOutputRt.cpp:49
+#, c-format
+msgid "RtAudio: %s"
+msgstr "RtAudio: %s"
+
+#: AWE32Emu/src/AudioOutputWin.cpp:35
+#, c-format
+msgid "waveOutOpen failed (MMRESULT %u)"
+msgstr "waveOutOpen selhal (MMRESULT %u)"
+
+#: AWE32Emu/src/Emu8000Box.cpp:17
+msgid "built without the 86Box core (AWE32EMU_WITH_86BOX=OFF)"
+msgstr "sestaveno bez jádra z 86Boxu (AWE32EMU_WITH_86BOX=OFF)"
+
+#: AWE32Emu/src/Emu8000Box.cpp:156
+msgid "the 86box chip needs the wave ROM (--rom)"
+msgstr "čip 86box potřebuje wave ROM (--rom)"
+
+#: AWE32Emu/src/Emu8000Box.cpp:171
+#, c-format
+msgid "wave ROM '%s' has only %ld B, the 86box chip needs 1 MB"
+msgstr "wave ROM '%s' má jen %ld B, čip 86box potřebuje 1 MB"
+
+#: AWE32Emu/src/Emu8000Box.cpp:178
+#, c-format
+msgid "cannot open wave ROM '%s'"
+msgstr "nelze otevřít wave ROM '%s'"
+
+#: AWE32Emu/src/MidiFile.cpp:153 AWE32Emu/src/SoundFont.cpp:497
+#: AWE32Emu/src/XmiFile.cpp:67
+#, c-format
+msgid "Cannot open file: %s"
+msgstr "Nelze otevřít soubor: %s"
+
+#: AWE32Emu/src/MidiFile.cpp:160
+msgid "Missing MThd header - not a valid SMF file"
+msgstr "Chybí hlavička MThd - není to platný soubor SMF"
+
+#: AWE32Emu/src/MidiFile.cpp:174
+msgid "SMPTE division is not supported yet"
+msgstr "Dělení času SMPTE zatím není podporováno"
+
+#: AWE32Emu/src/MidiFile.cpp:188
+#, c-format
+msgid "Expected MTrk chunk not found (track %d)"
+msgstr "Očekávaný chunk MTrk nenalezen (stopa %d)"
+
+#: AWE32Emu/src/MidiFile.cpp:196
+#, c-format
+msgid "Damaged track length %d"
+msgstr "Poškozená délka stopy %d"
+
+#: AWE32Emu/src/SoundFont.cpp:393
+msgid "SBAWE32.MDI: preset table not found"
+msgstr "SBAWE32.MDI: tabulka presetů nenalezena"
+
+#: AWE32Emu/src/SoundFont.cpp:418
+msgid "SBAWE32.MDI: tables exceed the file"
+msgstr "SBAWE32.MDI: tabulky přesahují soubor"
+
+#: AWE32Emu/src/SoundFont.cpp:442
+msgid "SBAWE32.MDI: sample table truncated"
+msgstr "SBAWE32.MDI: tabulka vzorků je useknutá"
+
+#: AWE32Emu/src/SoundFont.cpp:507
+#, c-format
+msgid "Warning: %s: %d MDI values without an exact SF1 counterpart\n"
+msgstr "Varování: %s: %d hodnot MDI bez přesného protějšku v SF1\n"
+
+#: AWE32Emu/src/SoundFont.cpp:513
+msgid "Missing RIFF header"
+msgstr "Chybí hlavička RIFF"
+
+#: AWE32Emu/src/SoundFont.cpp:528
+msgid "Missing chunk ifil"
+msgstr "Chybí chunk ifil"
+
+#: AWE32Emu/src/SoundFont.cpp:544
+msgid "Missing chunk shdr"
+msgstr "Chybí chunk shdr"
+
+#: AWE32Emu/src/SoundFont.cpp:628
+msgid "One of the chunks phdr/pbag/pgen/inst/ibag/igen is missing"
+msgstr "Chybí jeden z chunků phdr/pbag/pgen/inst/ibag/igen"
+
+#: AWE32Emu/src/SoundFontExport.cpp:186
+msgid "no bank to export"
+msgstr "není co exportovat, žádná banka"
+
+#: AWE32Emu/src/SoundFontExport.cpp:196
+msgid "the banks contain no preset"
+msgstr "banky neobsahují žádný preset"
+
+#: AWE32Emu/src/SoundFontExport.cpp:247
+msgid "the bank refers to ROM, but baking the ROM in is disabled"
+msgstr "banka odkazuje do ROM, ale zapečení ROM je vypnuté"
+
+#: AWE32Emu/src/SoundFontExport.cpp:249
+msgid "the bank refers to the wave ROM, but no ROM was loaded (--rom)"
+msgstr "banka odkazuje do wave ROM, ale žádná ROM není načtená (--rom)"
+
+#: AWE32Emu/src/SoundFontExport.cpp:460
+#, c-format
+msgid "cannot write '%s'"
+msgstr "nelze zapsat '%s'"
+
+#: AWE32Emu/src/SoundFontExport.cpp:468
+#, c-format
+msgid ""
+"SF2: %zu presets, %zu instruments, %zu samples, %zu thousand sample points\n"
+msgstr "SF2: %zu presetů, %zu nástrojů, %zu vzorků, %zu tisíc bodů vzorků\n"
+
+#: AWE32Emu/src/Synth.cpp:117
+#, c-format
+msgid "Cannot open ROM: %s"
+msgstr "Nelze otevřít ROM: %s"
+
+#: AWE32Emu/src/Synth.cpp:121
+#, c-format
+msgid "ROM is empty: %s"
+msgstr "ROM je prázdná: %s"
+
+#: AWE32Emu/src/XmiFile.cpp:74
+msgid "Missing FORM header - not a valid XMI/IFF file"
+msgstr "Chybí hlavička FORM - není to platný soubor XMI/IFF"
+
+#: AWE32Emu/src/XmiFile.cpp:84
+msgid "No EVNT chunk - not a valid XMI file (or an unsupported variant)"
+msgstr ""
+"Chybí chunk EVNT - není to platný soubor XMI (nebo nepodporovaná varianta)"
+
+#: AWE32Emu/src/XmiFile.cpp:91
+msgid "Damaged EVNT chunk (length missing)"
+msgstr "Poškozený chunk EVNT (chybí délka)"
+
+#: AWE32Emu/src/main.cpp:56
+msgid ""
+"AWE32Emu - .mid/.xmi player through an EMU8000 emulation (Sound Blaster "
+"AWE32)\n"
+"\n"
+"Usage:\n"
+"  AWE32Emu.exe <file.mid|file.xmi> [options]\n"
+"\n"
+"Options:\n"
+"  --rom <file>        Wave ROM of the card (raw dump, e.g. awe32.raw)\n"
+"  --rombank <file>    A bank that only DESCRIBES the ROM contents (e.g. 1mgm."
+"sf2)\n"
+"  --sf <file>         Bank - .sbk, .sf2 or .mdi\n"
+"                      (.mdi = the ROM GM presets compiled into the DOS "
+"driver)\n"
+"  --wav <file>        Write the output to a .wav instead of playing it live\n"
+"  --audio <output>    Output for live playback (see below)\n"
+"  --debug-voices <n>  Print the first n started voices with their registers\n"
+"  --trace <file>      Record the port writes (see docs/TESTING.md)\n"
+"  --replay <trace>    Play a port-write trace through the chip and write --"
+"wav\n"
+"                      (format as emu8k_ref; no MIDI file is given then)\n"
+"  --driver dos|win95|sdk  Creative driver variant; default win95\n"
+"                      (sdk = the AWE32 DOS SDK as DOSMid uses it)\n"
+"  --chip ours|86box   Chip core: 86box = snd_emu8k.c from 86Box with the\n"
+"                      measured corrections (default when --rom is given),\n"
+"                      ours = the older own core (default without --rom)\n"
+"  --ram <KB>          DRAM of the 86box chip in KB (onboard_ram), default "
+"8192\n"
+"  --conf <file>       Initial state of the MIDI channels, as a game sends "
+"it\n"
+"  --dump-notes <csv>  Intermediate values at note-on, columns following the\n"
+"                      parameter block of SBAWE.VXD\n"
+"  --master-volume N   Master volume of the AIL sequencer 0..127 (default "
+"127)\n"
+"  --sf <file>@<N>     Load the bank into MIDI bank N (selected by CC0);\n"
+"                      user banks have bank 0 in their phdr\n"
+"  --tracks 1,2,3      Only these MIDI channels (1..16); --tracks -8,-9 = all "
+"but these\n"
+"  --export-sf2 <file> Write the loaded banks (ROM included) as one .sf2\n"
+"\n"
+msgstr ""
+"AWE32Emu - přehrávač .mid/.xmi přes emulaci EMU8000 (Sound Blaster AWE32)\n"
+"\n"
+"Použití:\n"
+"  AWE32Emu.exe <soubor.mid|soubor.xmi> [volby]\n"
+"\n"
+"Volby:\n"
+"  --rom <soubor>      Wave ROM karty (surový dump, např. awe32.raw)\n"
+"  --rombank <soubor>  Banka, která jen POPISUJE obsah ROM (např. 1mgm.sf2)\n"
+"  --sf <soubor>       Banka - .sbk, .sf2 nebo .mdi\n"
+"                      (.mdi = GM presety z ROM zakompilované v DOS "
+"ovladači)\n"
+"  --wav <soubor>      Zapsat výstup do .wav místo živého přehrávání\n"
+"  --audio <výstup>    Výstup pro živé přehrávání (viz níže)\n"
+"  --debug-voices <n>  Vypsat prvních n spuštěných hlasů s jejich registry\n"
+"  --trace <soubor>    Zaznamenat zápisy na porty (viz docs/TESTING.md)\n"
+"  --replay <stopa>    Přehrát stopu zápisů na porty přes čip a zapsat --wav\n"
+"                      (formát jako emu8k_ref; MIDI soubor se pak nezadává)\n"
+"  --driver dos|win95|sdk  Varianta ovladače Creative; výchozí win95\n"
+"                      (sdk = AWE32 DOS SDK, jak ho používá DOSMid)\n"
+"  --chip ours|86box   Jádro čipu: 86box = snd_emu8k.c z 86Boxu s naměřenými\n"
+"                      opravami (výchozí, když je zadáno --rom),\n"
+"                      ours = starší vlastní jádro (výchozí bez --rom)\n"
+"  --ram <KB>          DRAM čipu 86box v KB (onboard_ram), výchozí 8192\n"
+"  --conf <soubor>     Počáteční stav MIDI kanálů, jak ho posílá hra\n"
+"  --dump-notes <csv>  Mezivýsledky při note-on, sloupce podle bloku\n"
+"                      parametrů SBAWE.VXD\n"
+"  --master-volume N   Hlavní hlasitost sekvenceru AIL 0..127 (výchozí 127)\n"
+"  --sf <soubor>@<N>   Načíst banku do MIDI banky N (volí se přes CC0);\n"
+"                      uživatelské banky mají v phdr banku 0\n"
+"  --tracks 1,2,3      Jen tyto MIDI kanály (1..16); --tracks -8,-9 = všechny "
+"kromě nich\n"
+"  --export-sf2 <soubor> Zapsat načtené banky (včetně ROM) jako jeden .sf2\n"
+"\n"
+
+#: AWE32Emu/src/main.cpp:85
+#, c-format
+msgid ""
+"Audio outputs in this build: %s (default: %s)\n"
+"  rtaudio = RtAudio, winmm = Windows waveOut, bass = un4seen BASS\n"
+"  (bass.dll / libbass.so next to the program), null = no sound, real time\n"
+"\n"
+msgstr ""
+"Zvukové výstupy v tomto buildu: %s (výchozí: %s)\n"
+"  rtaudio = RtAudio, winmm = Windows waveOut, bass = un4seen BASS\n"
+"  (bass.dll / libbass.so vedle programu), null = bez zvuku, v reálném čase\n"
+"\n"
+
+#: AWE32Emu/src/main.cpp:88
+msgid "none"
+msgstr "žádný"
+
+#: AWE32Emu/src/main.cpp:91
+msgid ""
+"Options for the old own core only (--chip ours):\n"
+"  --interp linear|cubic|3point|3pointc|sinc   Interpolation (default sinc;\n"
+"                      the 86box chip uses its measured interpolation)\n"
+"  --reverb 0..7  --chorus 0..7   Effect preset\n"
+"  --rev-room --rev-damp --rev-return --cho-return   Effect tuning\n"
+"  --filter-top <Hz>   Cutoff frequency at register 0xFF (default 8000)\n"
+"  --cutoff-base <Hz>  Cutoff frequency at register 0 (default 101.81)\n"
+"  --q-cutoff-shift <oct>  Drop of the cutoff at Q=15 in octaves (default 0)\n"
+"  --q-base <x>        Base resonance of the filter (1.0 default, 0.7071 "
+"Butterworth)\n"
+"  --filter-atten <x>  Strength of the filter input attenuation (1 = chip "
+"table, 0 = none)\n"
+"  --resonance-db <x>  Resonance at Q=15 in dB (default 24)\n"
+"  --resonance-curve faq|flat  Does the resonance depend on the cutoff? "
+"(default flat)\n"
+"  --sinc-taps <n>     Number of sinc taps (even, 4-32; default 8)\n"
+"  --hold-scale <x>  --decay-scale <x>  --attack-scale <x>\n"
+"                      Scales of the envelope time constants (default 1)\n"
+"  --cutoff-map exp|lin  Register to cutoff mapping (lin = 100+31.25*reg Hz)\n"
+"  --filter-mode cham|tpt|86box  Filter structure (default cham = Chamberlin "
+"as\n"
+"                      measured on the card; tpt = the earlier bilinear; "
+"86box = upstream)\n"
+"  --pan linear|power  Pan law (linear = a multiplier, as in the chip)\n"
+"  --loop-wrap on|off  Wrap the interpolation samples into the loop (default "
+"on)\n"
+"  --eq on|off         The card's equaliser from INIT3/INIT4 (default on; own "
+"core only)\n"
+"  --filter-poles 1|2|4  Filter slope 6/12/24 dB per octave (default 2)\n"
+"\n"
+"Banks can be given several times and are layered - later ones override "
+"earlier ones.\n"
+"Typical use:\n"
+"  --rom rom/awe32.raw --sf SBAWE32.MDI --sf sbk/BULLFROG.SBK --driver dos\n"
+"\n"
+"All options are described with examples in docs/USAGE.md.\n"
+msgstr ""
+"Volby jen pro staré vlastní jádro (--chip ours):\n"
+"  --interp linear|cubic|3point|3pointc|sinc   Interpolace (výchozí sinc;\n"
+"                      čip 86box používá svou naměřenou interpolaci)\n"
+"  --reverb 0..7  --chorus 0..7   Preset efektu\n"
+"  --rev-room --rev-damp --rev-return --cho-return   Ladění efektů\n"
+"  --filter-top <Hz>   Mezní kmitočet při registru 0xFF (výchozí 8000)\n"
+"  --cutoff-base <Hz>  Mezní kmitočet při registru 0 (výchozí 101.81)\n"
+"  --q-cutoff-shift <okt>  Pokles mezního kmitočtu při Q=15 v oktávách "
+"(výchozí 0)\n"
+"  --q-base <x>        Základní rezonance filtru (výchozí 1.0, 0.7071 "
+"Butterworth)\n"
+"  --filter-atten <x>  Síla vstupního útlumu filtru (1 = tabulka čipu, 0 = "
+"žádný)\n"
+"  --resonance-db <x>  Rezonance při Q=15 v dB (výchozí 24)\n"
+"  --resonance-curve faq|flat  Závisí rezonance na mezním kmitočtu? (výchozí "
+"flat)\n"
+"  --sinc-taps <n>     Počet koeficientů sinc (sudý, 4-32; výchozí 8)\n"
+"  --hold-scale <x>  --decay-scale <x>  --attack-scale <x>\n"
+"                      Měřítka časových konstant obálky (výchozí 1)\n"
+"  --cutoff-map exp|lin  Převod registru na mezní kmitočet (lin = "
+"100+31.25*reg Hz)\n"
+"  --filter-mode cham|tpt|86box  Struktura filtru (výchozí cham = Chamberlin, "
+"jak\n"
+"                      byl naměřen na kartě; tpt = dřívější bilineární; 86box "
+"= upstream)\n"
+"  --pan linear|power  Zákon panoramy (linear = násobitel, jako v čipu)\n"
+"  --loop-wrap on|off  Zabalit interpolační vzorky do smyčky (výchozí on)\n"
+"  --eq on|off         Ekvalizér karty z INIT3/INIT4 (výchozí on; jen vlastní "
+"jádro)\n"
+"  --filter-poles 1|2|4  Strmost filtru 6/12/24 dB na oktávu (výchozí 2)\n"
+"\n"
+"Banky lze zadat vícekrát a vrství se - pozdější přepisují dřívější.\n"
+"Typické použití:\n"
+"  --rom rom/awe32.raw --sf SBAWE32.MDI --sf sbk/BULLFROG.SBK --driver dos\n"
+"\n"
+"Všechny volby jsou s příklady popsané v docs/USAGE.md.\n"
+
+#: AWE32Emu/src/main.cpp:146
+#, c-format
+msgid "cannot open '%s'"
+msgstr "nelze otevřít '%s'"
+
+#: AWE32Emu/src/main.cpp:170
+#, c-format
+msgid "%s:%d: `cc` wants a controller number and a value"
+msgstr "%s:%d: `cc` chce číslo controlleru a hodnotu"
+
+#: AWE32Emu/src/main.cpp:179
+#, c-format
+msgid "%s:%d: `program` wants a program number"
+msgstr "%s:%d: `program` chce číslo programu"
+
+#: AWE32Emu/src/main.cpp:188
+#, c-format
+msgid "%s:%d: `bend` wants a value 0..16383"
+msgstr "%s:%d: `bend` chce hodnotu 0..16383"
+
+#: AWE32Emu/src/main.cpp:198
+#, c-format
+msgid "%s:%d: `trigger_mute` wants 0 or 1"
+msgstr "%s:%d: `trigger_mute` chce 0 nebo 1"
+
+#: AWE32Emu/src/main.cpp:208
+#, c-format
+msgid "%s:%d: `master_volume` wants a value 0..127"
+msgstr "%s:%d: `master_volume` chce hodnotu 0..127"
+
+#: AWE32Emu/src/main.cpp:215
+#, c-format
+msgid "%s:%d: unknown command '%s'"
+msgstr "%s:%d: neznámý příkaz '%s'"
+
+#: AWE32Emu/src/main.cpp:478
+#, c-format
+msgid "Unknown driver variant '%s'. Use 'dos', 'win95' or 'sdk'.\n"
+msgstr "Neznámá varianta ovladače '%s'. Použijte 'dos', 'win95' nebo 'sdk'.\n"
+
+#: AWE32Emu/src/main.cpp:502 AWE32Emu/src/main.cpp:921
+#, c-format
+msgid "Could not open the audio output '%s': %s\n"
+msgstr "Nelze otevřít zvukový výstup '%s': %s\n"
+
+#: AWE32Emu/src/main.cpp:511
+msgid ""
+"No input file.\n"
+"\n"
+msgstr ""
+"Chybí vstupní soubor.\n"
+"\n"
+
+#: AWE32Emu/src/main.cpp:532
+#, c-format
+msgid "Unrecognised extension '%s' - expected .mid or .xmi\n"
+msgstr "Nerozpoznaná přípona '%s' - čekám .mid nebo .xmi\n"
+
+#: AWE32Emu/src/main.cpp:538
+#, c-format
+msgid "Error loading '%s': %s\n"
+msgstr "Chyba při načítání '%s': %s\n"
+
+#: AWE32Emu/src/main.cpp:543
+#, c-format
+msgid "Loaded: %s (%zu events, %u ticks per quarter note)\n"
+msgstr "Načteno: %s (%zu událostí, %u tiků na čtvrťovou notu)\n"
+
+#: AWE32Emu/src/main.cpp:558
+#, c-format
+msgid "Error in the configuration: %s\n"
+msgstr "Chyba v konfiguraci: %s\n"
+
+#: AWE32Emu/src/main.cpp:575
+#, c-format
+msgid "Warning: %s\n"
+msgstr "Varování: %s\n"
+
+#: AWE32Emu/src/main.cpp:577
+#, c-format
+msgid "Wave ROM '%s' loaded (%zu samples).\n"
+msgstr "Wave ROM '%s' načtena (%zu vzorků).\n"
+
+#: AWE32Emu/src/main.cpp:595
+#, c-format
+msgid "Could not switch on the 86box chip: %s\n"
+msgstr "Nelze zapnout čip 86box: %s\n"
+
+#: AWE32Emu/src/main.cpp:598
+#, c-format
+msgid "Chip core: snd_emu8k.c from 86Box (latency %u frames).\n"
+msgstr "Jádro čipu: snd_emu8k.c z 86Boxu (latence %u snímků).\n"
+
+#: AWE32Emu/src/main.cpp:603
+#, c-format
+msgid "Unknown --chip '%s'; known are ours and 86box.\n"
+msgstr "Neznámý --chip '%s'; známé jsou ours a 86box.\n"
+
+#: AWE32Emu/src/main.cpp:621
+#, c-format
+msgid "Warning: could not load bank '%s': %s\n"
+msgstr "Varování: nelze načíst banku '%s': %s\n"
+
+#: AWE32Emu/src/main.cpp:626
+#, c-format
+msgid "Bank '%s': %s, %zu presets, %zu instruments, %zu samples"
+msgstr "Banka '%s': %s, %zu presetů, %zu nástrojů, %zu vzorků"
+
+#: AWE32Emu/src/main.cpp:628
+msgid "GM presets from the SBAWE32.MDI driver"
+msgstr "GM presety z ovladače SBAWE32.MDI"
+
+#: AWE32Emu/src/main.cpp:631
+msgid ", samples in the wave ROM"
+msgstr ", vzorky ve wave ROM"
+
+#: AWE32Emu/src/main.cpp:632
+#, c-format
+msgid ", MIDI bank %d"
+msgstr ", MIDI banka %d"
+
+#: AWE32Emu/src/main.cpp:633
+#, c-format
+msgid ", expects ROM '%s'"
+msgstr ", očekává ROM '%s'"
+
+#: AWE32Emu/src/main.cpp:639
+msgid ""
+"Warning: the bank refers to samples in ROM, but no ROM is loaded (--rom).\n"
+msgstr ""
+"Varování: banka odkazuje na vzorky v ROM, ale žádná ROM není načtená (--"
+"rom).\n"
+
+#: AWE32Emu/src/main.cpp:671
+#, c-format
+msgid "SF2 export failed: %s\n"
+msgstr "Export SF2 selhal: %s\n"
+
+#: AWE32Emu/src/main.cpp:674
+#, c-format
+msgid "Written to '%s'.\n"
+msgstr "Zapsáno do '%s'.\n"
+
+#: AWE32Emu/src/main.cpp:687
+#, c-format
+msgid "Copied %zu DRAM samples into the 86box chip.\n"
+msgstr "Zkopírováno %zu vzorků DRAM do čipu 86box.\n"
+
+#: AWE32Emu/src/main.cpp:696
+#, c-format
+msgid "Driver: %s\n"
+msgstr "Ovladač: %s\n"
+
+#: AWE32Emu/src/main.cpp:716
+msgid "--sinc-taps has to be an even number from 4 to 32.\n"
+msgstr "--sinc-taps musí být sudé číslo od 4 do 32.\n"
+
+#: AWE32Emu/src/main.cpp:752 AWE32Emu/src/main.cpp:817
+#, c-format
+msgid "Could not open the trace '%s'.\n"
+msgstr "Nelze otevřít stopu '%s'.\n"
+
+#: AWE32Emu/src/main.cpp:766
+#, c-format
+msgid "Trace '%s' + DRAM %zu samples.\n"
+msgstr "Stopa '%s' + DRAM %zu vzorků.\n"
+
+#: AWE32Emu/src/main.cpp:772
+#, c-format
+msgid "Could not open '%s'.\n"
+msgstr "Nelze otevřít '%s'.\n"
+
+#: AWE32Emu/src/main.cpp:780
+#, c-format
+msgid "Configuration '%s': %zu messages on each of the 16 channels"
+msgstr "Konfigurace '%s': %zu zpráv na každém ze 16 kanálů"
+
+#: AWE32Emu/src/main.cpp:783
+#, c-format
+msgid ", master volume %d"
+msgstr ", hlavní hlasitost %d"
+
+#: AWE32Emu/src/main.cpp:793
+msgid "--replay needs --wav <file>.\n"
+msgstr "--replay potřebuje --wav <soubor>.\n"
+
+#: AWE32Emu/src/main.cpp:824 AWE32Emu/src/main.cpp:875
+#, c-format
+msgid "Could not open the output file '%s'.\n"
+msgstr "Nelze otevřít výstupní soubor '%s'.\n"
+
+#: AWE32Emu/src/main.cpp:853
+#, c-format
+msgid "Trace '%s': %zu writes"
+msgstr "Stopa '%s': %zu zápisů"
+
+#: AWE32Emu/src/main.cpp:855
+#, c-format
+msgid ", byte writes skipped: %zu"
+msgstr ", přeskočené bajtové zápisy: %zu"
+
+#: AWE32Emu/src/main.cpp:856
+#, c-format
+msgid ", %llu frames -> '%s'.\n"
+msgstr ", %llu snímků -> '%s'.\n"
+
+#: AWE32Emu/src/main.cpp:879
+#, c-format
+msgid "Rendering to '%s'...\n"
+msgstr "Renderuji do '%s'...\n"
+
+#: AWE32Emu/src/main.cpp:904 AWE32Emu/src/main.cpp:943
+msgid "Done.\n"
+msgstr "Hotovo.\n"
+
+#: AWE32Emu/src/main.cpp:913
+msgid ""
+"This build has no audio output for live playback; use --wav <file>\n"
+"or --audio bass (with libbass.so next to the program).\n"
+msgstr ""
+"Tento build nemá zvukový výstup pro živé přehrávání; použijte --wav "
+"<soubor>\n"
+"nebo --audio bass (s libbass.so vedle programu).\n"
+
+#: AWE32Emu/src/main.cpp:926
+#, c-format
+msgid "Playing through %s... (Ctrl+C to stop)\n"
+msgstr "Přehrávám přes %s... (Ctrl+C zastaví)\n"
