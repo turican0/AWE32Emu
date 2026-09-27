@@ -22,7 +22,7 @@ import awe25  # noqa: E402
 from awe25 import SR, events, seg  # noqa: E402
 
 awe25.LATENCY = 0.003
-FLAC = r'C:\Users\vesely\Downloads\awetst25.flac'
+FLAC = r'C:\prenos\AWE32EmuData\from-downloads\tester\awetst25.flac'
 _flac = sf.SoundFile(FLAC)
 
 

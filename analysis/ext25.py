@@ -33,7 +33,7 @@ from awe25 import SR, events, seg  # noqa: E402
 
 awe25.LATENCY = 0.003
 HERE = os.path.dirname(os.path.abspath(__file__))
-FLAC = r'C:\Users\vesely\Downloads\awetst25.flac'
+FLAC = r'C:\prenos\AWE32EmuData\from-downloads\tester\awetst25.flac'
 CACHE = os.path.join(HERE, 'ext25_map.json')
 ENVC = os.path.join(HERE, 'flac_env10.npy')
 _flac = sf.SoundFile(FLAC)
