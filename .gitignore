@@ -1,0 +1,7 @@
+# Full Magic Carpet 2 music recorded from the card is not published;
+# only the short excerpts in demos/ are.
+recordings/2026-09-12/mc2/
+recordings/2026-09-14/
+
+__pycache__/
+*.pyc

@@ -1,0 +1,760 @@
+# ms block description
+       0  1 ---- reference tone
+       0  1 ---- planned 0 ms, real 109 ms
+     600  1 reference sine, IP 57344, atten 0
+    4600  2 ---- attenuation IFATN 0..126 step 2
+    4600  2 ---- planned 4600 ms, real 4833 ms
+    5300  2 atten 0
+    5900  2 atten 2
+    6500  2 atten 4
+    7100  2 atten 6
+    7700  2 atten 8
+    8300  2 atten 10
+    8900  2 atten 12
+    9500  2 atten 14
+   10100  2 atten 16
+   10700  2 atten 18
+   11300  2 atten 20
+   11900  2 atten 22
+   12500  2 atten 24
+   13100  2 atten 26
+   13700  2 atten 28
+   14300  2 atten 30
+   14900  2 atten 32
+   15500  2 atten 34
+   16100  2 atten 36
+   16700  2 atten 38
+   17300  2 atten 40
+   17900  2 atten 42
+   18500  2 atten 44
+   19100  2 atten 46
+   19700  2 atten 48
+   20300  2 atten 50
+   20900  2 atten 52
+   21500  2 atten 54
+   22100  2 atten 56
+   22700  2 atten 58
+   23300  2 atten 60
+   23900  2 atten 62
+   24500  2 atten 64
+   25100  2 atten 66
+   25700  2 atten 68
+   26300  2 atten 70
+   26900  2 atten 72
+   27500  2 atten 74
+   28100  2 atten 76
+   28700  2 atten 78
+   29300  2 atten 80
+   29900  2 atten 82
+   30500  2 atten 84
+   31100  2 atten 86
+   31700  2 atten 88
+   32300  2 atten 90
+   32900  2 atten 92
+   33500  2 atten 94
+   34100  2 atten 96
+   34700  2 atten 98
+   35300  2 atten 100
+   35900  2 atten 102
+   36500  2 atten 104
+   37100  2 atten 106
+   37700  2 atten 108
+   38300  2 atten 110
+   38900  2 atten 112
+   39500  2 atten 114
+   40100  2 atten 116
+   40700  2 atten 118
+   41300  2 atten 120
+   41900  2 atten 122
+   42500  2 atten 124
+   43100  2 atten 126
+   43700  3 ---- pan PSST 0..255 step 8
+   43700  3 ---- planned 43700 ms, real 44159 ms
+   44500  3 pan 0
+   45100  3 pan 8
+   45700  3 pan 16
+   46300  3 pan 24
+   46900  3 pan 32
+   47500  3 pan 40
+   48100  3 pan 48
+   48700  3 pan 56
+   49300  3 pan 64
+   49900  3 pan 72
+   50500  3 pan 80
+   51100  3 pan 88
+   51700  3 pan 96
+   52300  3 pan 104
+   52900  3 pan 112
+   53500  3 pan 120
+   54100  3 pan 128
+   54700  3 pan 136
+   55300  3 pan 144
+   55900  3 pan 152
+   56500  3 pan 160
+   57100  3 pan 168
+   57700  3 pan 176
+   58300  3 pan 184
+   58900  3 pan 192
+   59500  3 pan 200
+   60100  3 MINUTE 60
+   60700  3 pan 208
+   61300  3 pan 216
+   61900  3 pan 224
+   62500  3 pan 232
+   63100  3 pan 240
+   63700  3 pan 248
+   64300  4 ---- pitch: sine -36..+23 semitones
+   64300  4 ---- planned 64300 ms, real 65086 ms
+   65200  4 semitone -36, IP 45056
+   65800  4 semitone -35, IP 45398
+   66400  4 semitone -34, IP 45739
+   67000  4 semitone -33, IP 46080
+   67600  4 semitone -32, IP 46422
+   68200  4 semitone -31, IP 46763
+   68800  4 semitone -30, IP 47104
+   69400  4 semitone -29, IP 47446
+   70000  4 semitone -28, IP 47787
+   70600  4 semitone -27, IP 48128
+   71200  4 semitone -26, IP 48470
+   71800  4 semitone -25, IP 48811
+   72400  4 semitone -24, IP 49152
+   73000  4 semitone -23, IP 49494
+   73600  4 semitone -22, IP 49835
+   74200  4 semitone -21, IP 50176
+   74800  4 semitone -20, IP 50518
+   75400  4 semitone -19, IP 50859
+   76000  4 semitone -18, IP 51200
+   76600  4 semitone -17, IP 51542
+   77200  4 semitone -16, IP 51883
+   77800  4 semitone -15, IP 52224
+   78400  4 semitone -14, IP 52566
+   79000  4 semitone -13, IP 52907
+   79600  4 semitone -12, IP 53248
+   80200  4 semitone -11, IP 53590
+   80800  4 semitone -10, IP 53931
+   81400  4 semitone -9, IP 54272
+   82000  4 semitone -8, IP 54614
+   82600  4 semitone -7, IP 54955
+   83200  4 semitone -6, IP 55296
+   83800  4 semitone -5, IP 55638
+   84400  4 semitone -4, IP 55979
+   85000  4 semitone -3, IP 56320
+   85600  4 semitone -2, IP 56662
+   86200  4 semitone -1, IP 57003
+   86800  4 semitone 0, IP 57344
+   87400  4 semitone 1, IP 57685
+   88000  4 semitone 2, IP 58026
+   88600  4 semitone 3, IP 58368
+   89200  4 semitone 4, IP 58709
+   89800  4 semitone 5, IP 59050
+   90400  4 semitone 6, IP 59392
+   91000  4 semitone 7, IP 59733
+   91600  4 semitone 8, IP 60074
+   92200  4 semitone 9, IP 60416
+   92800  4 semitone 10, IP 60757
+   93400  4 semitone 11, IP 61098
+   94000  4 semitone 12, IP 61440
+   94600  4 semitone 13, IP 61781
+   95200  4 semitone 14, IP 62122
+   95800  4 semitone 15, IP 62464
+   96400  4 semitone 16, IP 62805
+   97000  4 semitone 17, IP 63146
+   97600  4 semitone 18, IP 63488
+   98200  4 semitone 19, IP 63829
+   98800  4 semitone 20, IP 64170
+   99400  4 semitone 21, IP 64512
+  100000  4 semitone 22, IP 64853
+  100600  4 semitone 23, IP 65194
+  101200  5 ---- pitch: noise -36..+23 semitones (interpolation)
+  101200  5 ---- planned 101200 ms, real 102270 ms
+  102200  5 semitone -36, IP 45056
+  102800  5 semitone -35, IP 45398
+  103400  5 semitone -34, IP 45739
+  104000  5 semitone -33, IP 46080
+  104600  5 semitone -32, IP 46422
+  105200  5 semitone -31, IP 46763
+  105800  5 semitone -30, IP 47104
+  106400  5 semitone -29, IP 47446
+  107000  5 semitone -28, IP 47787
+  107600  5 semitone -27, IP 48128
+  108200  5 semitone -26, IP 48470
+  108800  5 semitone -25, IP 48811
+  109400  5 semitone -24, IP 49152
+  110000  5 semitone -23, IP 49494
+  110600  5 semitone -22, IP 49835
+  111200  5 semitone -21, IP 50176
+  111800  5 semitone -20, IP 50518
+  112400  5 semitone -19, IP 50859
+  113000  5 semitone -18, IP 51200
+  113600  5 semitone -17, IP 51542
+  114200  5 semitone -16, IP 51883
+  114800  5 semitone -15, IP 52224
+  115400  5 semitone -14, IP 52566
+  116000  5 semitone -13, IP 52907
+  116600  5 semitone -12, IP 53248
+  117200  5 semitone -11, IP 53590
+  117800  5 semitone -10, IP 53931
+  118400  5 semitone -9, IP 54272
+  119000  5 semitone -8, IP 54614
+  119600  5 semitone -7, IP 54955
+  120200  5 MINUTE 120
+  120800  5 semitone -6, IP 55296
+  121400  5 semitone -5, IP 55638
+  122000  5 semitone -4, IP 55979
+  122600  5 semitone -3, IP 56320
+  123200  5 semitone -2, IP 56662
+  123800  5 semitone -1, IP 57003
+  124400  5 semitone 0, IP 57344
+  125000  5 semitone 1, IP 57685
+  125600  5 semitone 2, IP 58026
+  126200  5 semitone 3, IP 58368
+  126800  5 semitone 4, IP 58709
+  127400  5 semitone 5, IP 59050
+  128000  5 semitone 6, IP 59392
+  128600  5 semitone 7, IP 59733
+  129200  5 semitone 8, IP 60074
+  129800  5 semitone 9, IP 60416
+  130400  5 semitone 10, IP 60757
+  131000  5 semitone 11, IP 61098
+  131600  5 semitone 12, IP 61440
+  132200  5 semitone 13, IP 61781
+  132800  5 semitone 14, IP 62122
+  133400  5 semitone 15, IP 62464
+  134000  5 semitone 16, IP 62805
+  134600  5 semitone 17, IP 63146
+  135200  5 semitone 18, IP 63488
+  135800  5 semitone 19, IP 63829
+  136400  5 semitone 20, IP 64170
+  137000  5 semitone 21, IP 64512
+  137600  5 semitone 22, IP 64853
+  138200  5 semitone 23, IP 65194
+  138800  6 ---- filter cutoff, noise, Q=0
+  138800  6 ---- planned 138800 ms, real 140058 ms
+  139900  6 cutoff 0
+  140600  6 cutoff 4
+  141300  6 cutoff 8
+  142000  6 cutoff 12
+  142700  6 cutoff 16
+  143400  6 cutoff 20
+  144100  6 cutoff 24
+  144800  6 cutoff 28
+  145500  6 cutoff 32
+  146200  6 cutoff 36
+  146900  6 cutoff 40
+  147600  6 cutoff 44
+  148300  6 cutoff 48
+  149000  6 cutoff 52
+  149700  6 cutoff 56
+  150400  6 cutoff 60
+  151100  6 cutoff 64
+  151800  6 cutoff 68
+  152500  6 cutoff 72
+  153200  6 cutoff 76
+  153900  6 cutoff 80
+  154600  6 cutoff 84
+  155300  6 cutoff 88
+  156000  6 cutoff 92
+  156700  6 cutoff 96
+  157400  6 cutoff 100
+  158100  6 cutoff 104
+  158800  6 cutoff 108
+  159500  6 cutoff 112
+  160200  6 cutoff 116
+  160900  6 cutoff 120
+  161600  6 cutoff 124
+  162300  6 cutoff 128
+  163000  6 cutoff 132
+  163700  6 cutoff 136
+  164400  6 cutoff 140
+  165100  6 cutoff 144
+  165800  6 cutoff 148
+  166500  6 cutoff 152
+  167200  6 cutoff 156
+  167900  6 cutoff 160
+  168600  6 cutoff 164
+  169300  6 cutoff 168
+  170000  6 cutoff 172
+  170700  6 cutoff 176
+  171400  6 cutoff 180
+  172100  6 cutoff 184
+  172800  6 cutoff 188
+  173500  6 cutoff 192
+  174200  6 cutoff 196
+  174900  6 cutoff 200
+  175600  6 cutoff 204
+  176300  6 cutoff 208
+  177000  6 cutoff 212
+  177700  6 cutoff 216
+  178400  6 cutoff 220
+  179100  6 cutoff 224
+  179800  6 cutoff 228
+  180500  6 MINUTE 180
+  181100  6 cutoff 232
+  181800  6 cutoff 236
+  182500  6 cutoff 240
+  183200  6 cutoff 244
+  183900  6 cutoff 248
+  184600  6 cutoff 252
+  185300  7 ---- resonance, noise, 6 cutoffs x Q 0..15
+  185300  7 ---- planned 185300 ms, real 186799 ms
+  186500  7 cutoff 32, Q 0
+  187200  7 cutoff 32, Q 1
+  187900  7 cutoff 32, Q 2
+  188600  7 cutoff 32, Q 3
+  189300  7 cutoff 32, Q 4
+  190000  7 cutoff 32, Q 5
+  190700  7 cutoff 32, Q 6
+  191400  7 cutoff 32, Q 7
+  192100  7 cutoff 32, Q 8
+  192800  7 cutoff 32, Q 9
+  193500  7 cutoff 32, Q 10
+  194200  7 cutoff 32, Q 11
+  194900  7 cutoff 32, Q 12
+  195600  7 cutoff 32, Q 13
+  196300  7 cutoff 32, Q 14
+  197000  7 cutoff 32, Q 15
+  197700  7 cutoff 64, Q 0
+  198400  7 cutoff 64, Q 1
+  199100  7 cutoff 64, Q 2
+  199800  7 cutoff 64, Q 3
+  200500  7 cutoff 64, Q 4
+  201200  7 cutoff 64, Q 5
+  201900  7 cutoff 64, Q 6
+  202600  7 cutoff 64, Q 7
+  203300  7 cutoff 64, Q 8
+  204000  7 cutoff 64, Q 9
+  204700  7 cutoff 64, Q 10
+  205400  7 cutoff 64, Q 11
+  206100  7 cutoff 64, Q 12
+  206800  7 cutoff 64, Q 13
+  207500  7 cutoff 64, Q 14
+  208200  7 cutoff 64, Q 15
+  208900  7 cutoff 96, Q 0
+  209600  7 cutoff 96, Q 1
+  210300  7 cutoff 96, Q 2
+  211000  7 cutoff 96, Q 3
+  211700  7 cutoff 96, Q 4
+  212400  7 cutoff 96, Q 5
+  213100  7 cutoff 96, Q 6
+  213800  7 cutoff 96, Q 7
+  214500  7 cutoff 96, Q 8
+  215200  7 cutoff 96, Q 9
+  215900  7 cutoff 96, Q 10
+  216600  7 cutoff 96, Q 11
+  217300  7 cutoff 96, Q 12
+  218000  7 cutoff 96, Q 13
+  218700  7 cutoff 96, Q 14
+  219400  7 cutoff 96, Q 15
+  220100  7 cutoff 144, Q 0
+  220800  7 cutoff 144, Q 1
+  221500  7 cutoff 144, Q 2
+  222200  7 cutoff 144, Q 3
+  222900  7 cutoff 144, Q 4
+  223600  7 cutoff 144, Q 5
+  224300  7 cutoff 144, Q 6
+  225000  7 cutoff 144, Q 7
+  225700  7 cutoff 144, Q 8
+  226400  7 cutoff 144, Q 9
+  227100  7 cutoff 144, Q 10
+  227800  7 cutoff 144, Q 11
+  228500  7 cutoff 144, Q 12
+  229200  7 cutoff 144, Q 13
+  229900  7 cutoff 144, Q 14
+  230600  7 cutoff 144, Q 15
+  231300  7 cutoff 192, Q 0
+  232000  7 cutoff 192, Q 1
+  232700  7 cutoff 192, Q 2
+  233400  7 cutoff 192, Q 3
+  234100  7 cutoff 192, Q 4
+  234800  7 cutoff 192, Q 5
+  235500  7 cutoff 192, Q 6
+  236200  7 cutoff 192, Q 7
+  236900  7 cutoff 192, Q 8
+  237600  7 cutoff 192, Q 9
+  238300  7 cutoff 192, Q 10
+  239000  7 cutoff 192, Q 11
+  239700  7 cutoff 192, Q 12
+  240400  7 MINUTE 240
+  241000  7 cutoff 192, Q 13
+  241700  7 cutoff 192, Q 14
+  242400  7 cutoff 192, Q 15
+  243100  7 cutoff 255, Q 0
+  243800  7 cutoff 255, Q 1
+  244500  7 cutoff 255, Q 2
+  245200  7 cutoff 255, Q 3
+  245900  7 cutoff 255, Q 4
+  246600  7 cutoff 255, Q 5
+  247300  7 cutoff 255, Q 6
+  248000  7 cutoff 255, Q 7
+  248700  7 cutoff 255, Q 8
+  249400  7 cutoff 255, Q 9
+  250100  7 cutoff 255, Q 10
+  250800  7 cutoff 255, Q 11
+  251500  7 cutoff 255, Q 12
+  252200  7 cutoff 255, Q 13
+  252900  7 cutoff 255, Q 14
+  253600  7 cutoff 255, Q 15
+  254300  8 ---- envelope: attack 0x04..0x7F
+  254300  8 ---- planned 254300 ms, real 256060 ms
+  255600  8 attack 0x04
+  258800  8 attack 0x08
+  262000  8 attack 0x0C
+  265200  8 attack 0x10
+  268400  8 attack 0x14
+  271600  8 attack 0x18
+  274800  8 attack 0x1C
+  278000  8 attack 0x20
+  281200  8 attack 0x24
+  284400  8 attack 0x28
+  287600  8 attack 0x2C
+  290800  8 attack 0x30
+  293000  8 attack 0x34
+  295200  8 attack 0x38
+  297400  8 attack 0x3C
+  299600  8 attack 0x40
+  301800  8 MINUTE 300
+  302400  8 attack 0x44
+  304600  8 attack 0x48
+  306800  8 attack 0x4C
+  309000  8 attack 0x50
+  310400  8 attack 0x54
+  311800  8 attack 0x58
+  313200  8 attack 0x5C
+  314600  8 attack 0x60
+  316000  8 attack 0x64
+  317400  8 attack 0x68
+  318800  8 attack 0x6C
+  320200  8 attack 0x70
+  321200  8 attack 0x74
+  322200  8 attack 0x78
+  323200  8 attack 0x7C
+  324200  9 ---- envelope: hold
+  324200  9 ---- planned 324200 ms, real 326199 ms
+  325600  9 hold 0x7F
+  327600  9 hold 0x7D
+  329600  9 hold 0x7B
+  331600  9 hold 0x79
+  333600  9 hold 0x77
+  335600  9 hold 0x75
+  337600  9 hold 0x73
+  339600  9 hold 0x71
+  341600  9 hold 0x6F
+  343600  9 hold 0x6D
+  345600  9 hold 0x6B
+  347600  9 hold 0x69
+  349600  9 hold 0x67
+  351600  9 hold 0x65
+  353600  9 hold 0x63
+  355600  9 hold 0x61
+  357600 10 ---- envelope: decay 0x04..0x7F
+  357600 10 ---- planned 357600 ms, real 359923 ms
+  359100 10 decay 0x04, sustain 0x20
+  362700 10 MINUTE 360
+  363300 10 decay 0x08, sustain 0x20
+  366900 10 decay 0x0C, sustain 0x20
+  370500 10 decay 0x10, sustain 0x20
+  374100 10 decay 0x14, sustain 0x20
+  377700 10 decay 0x18, sustain 0x20
+  381300 10 decay 0x1C, sustain 0x20
+  384900 10 decay 0x20, sustain 0x20
+  388500 10 decay 0x24, sustain 0x20
+  392100 10 decay 0x28, sustain 0x20
+  395700 10 decay 0x2C, sustain 0x20
+  399300 10 decay 0x30, sustain 0x20
+  401900 10 decay 0x34, sustain 0x20
+  404500 10 decay 0x38, sustain 0x20
+  407100 10 decay 0x3C, sustain 0x20
+  409700 10 decay 0x40, sustain 0x20
+  412300 10 decay 0x44, sustain 0x20
+  414900 10 decay 0x48, sustain 0x20
+  417500 10 decay 0x4C, sustain 0x20
+  420100 10 MINUTE 420
+  420700 10 decay 0x50, sustain 0x20
+  422500 10 decay 0x54, sustain 0x20
+  424300 10 decay 0x58, sustain 0x20
+  426100 10 decay 0x5C, sustain 0x20
+  427900 10 decay 0x60, sustain 0x20
+  429700 10 decay 0x64, sustain 0x20
+  431500 10 decay 0x68, sustain 0x20
+  433300 10 decay 0x6C, sustain 0x20
+  435100 10 decay 0x70, sustain 0x20
+  436500 10 decay 0x74, sustain 0x20
+  437900 10 decay 0x78, sustain 0x20
+  439300 10 decay 0x7C, sustain 0x20
+  440700 11 ---- envelope: sustain
+  440700 11 ---- planned 440700 ms, real 443189 ms
+  442300 11 sustain 0x00
+  444300 11 sustain 0x08
+  446300 11 sustain 0x10
+  448300 11 sustain 0x18
+  450300 11 sustain 0x20
+  452300 11 sustain 0x28
+  454300 11 sustain 0x30
+  456300 11 sustain 0x38
+  458300 11 sustain 0x40
+  460300 11 sustain 0x48
+  462300 11 sustain 0x50
+  464300 11 sustain 0x58
+  466300 11 sustain 0x60
+  468300 11 sustain 0x68
+  470300 11 sustain 0x70
+  472300 11 sustain 0x78
+  474300 12 ---- envelope: release 0x04..0x7F
+  474300 12 ---- planned 474300 ms, real 476913 ms
+  476000 12 release 0x04
+  479700 12 release 0x08
+  483400 12 MINUTE 480
+  484000 12 release 0x0C
+  487700 12 release 0x10
+  491400 12 release 0x14
+  495100 12 release 0x18
+  498800 12 release 0x1C
+  502500 12 release 0x20
+  506200 12 release 0x24
+  509900 12 release 0x28
+  513600 12 release 0x2C
+  517300 12 release 0x30
+  520000 12 release 0x34
+  522700 12 release 0x38
+  525400 12 release 0x3C
+  528100 12 release 0x40
+  530800 12 release 0x44
+  533500 12 release 0x48
+  536200 12 release 0x4C
+  538900 12 release 0x50
+  540800 12 MINUTE 540
+  541400 12 release 0x54
+  543300 12 release 0x58
+  545200 12 release 0x5C
+  547100 12 release 0x60
+  549000 12 release 0x64
+  550900 12 release 0x68
+  552800 12 release 0x6C
+  554700 12 release 0x70
+  556200 12 release 0x74
+  557700 12 release 0x78
+  559200 12 release 0x7C
+  560700 13 ---- envelope: ENVVOL delay
+  560700 13 ---- planned 560700 ms, real 563530 ms
+  562500 13 envvol 0x8000
+  564500 13 envvol 0x7E70
+  566500 13 envvol 0x7CE0
+  568500 13 envvol 0x7B50
+  570500 13 envvol 0x79C0
+  572500 13 envvol 0x7830
+  574500 13 envvol 0x76A0
+  576500 13 envvol 0x7510
+  578500 13 envvol 0x7380
+  580500 13 envvol 0x71F0
+  582500 13 envvol 0x7060
+  584500 13 envvol 0x6ED0
+  586500 13 envvol 0x6D40
+  588500 13 envvol 0x6BB0
+  590500 13 envvol 0x6A20
+  592500 13 envvol 0x6890
+  594500 14 ---- modulation envelope -> pitch
+  594500 14 ---- planned 594500 ms, real 597529 ms
+  596400 14 depth -128, PEFE 0x8000
+  598600 14 depth -112, PEFE 0x9000
+  600800 14 MINUTE 600
+  601400 14 depth -96, PEFE 0xA000
+  603600 14 depth -80, PEFE 0xB000
+  605800 14 depth -64, PEFE 0xC000
+  608000 14 depth -48, PEFE 0xD000
+  610200 14 depth -32, PEFE 0xE000
+  612400 14 depth -16, PEFE 0xF000
+  614600 14 depth 0, PEFE 0x0000
+  616800 14 depth 16, PEFE 0x1000
+  619000 14 depth 32, PEFE 0x2000
+  621200 14 depth 48, PEFE 0x3000
+  623400 14 depth 64, PEFE 0x4000
+  625600 14 depth 80, PEFE 0x5000
+  627800 14 depth 96, PEFE 0x6000
+  630000 14 depth 112, PEFE 0x7000
+  632200 15 ---- modulation envelope -> filter
+  632200 15 ---- planned 632200 ms, real 635372 ms
+  634200 15 depth -128, PEFE 0x0080
+  636400 15 depth -112, PEFE 0x0090
+  638600 15 depth -96, PEFE 0x00A0
+  640800 15 depth -80, PEFE 0x00B0
+  643000 15 depth -64, PEFE 0x00C0
+  645200 15 depth -48, PEFE 0x00D0
+  647400 15 depth -32, PEFE 0x00E0
+  649600 15 depth -16, PEFE 0x00F0
+  651800 15 depth 0, PEFE 0x0000
+  654000 15 depth 16, PEFE 0x0010
+  656200 15 depth 32, PEFE 0x0020
+  658400 15 depth 48, PEFE 0x0030
+  660600 15 MINUTE 660
+  661200 15 depth 64, PEFE 0x0040
+  663400 15 depth 80, PEFE 0x0050
+  665600 15 depth 96, PEFE 0x0060
+  667800 15 depth 112, PEFE 0x0070
+  670000 16 ---- LFO1: rate
+  670000 16 ---- planned 670000 ms, real 673380 ms
+  672100 16 step 0, TREMFRQ 0x4000, FMMOD 0x0000
+  674300 16 step 1, TREMFRQ 0x4011, FMMOD 0x0000
+  676500 16 step 2, TREMFRQ 0x4022, FMMOD 0x0000
+  678700 16 step 3, TREMFRQ 0x4033, FMMOD 0x0000
+  680900 16 step 4, TREMFRQ 0x4044, FMMOD 0x0000
+  683100 16 step 5, TREMFRQ 0x4055, FMMOD 0x0000
+  685300 16 step 6, TREMFRQ 0x4066, FMMOD 0x0000
+  687500 16 step 7, TREMFRQ 0x4077, FMMOD 0x0000
+  689700 16 step 8, TREMFRQ 0x4088, FMMOD 0x0000
+  691900 16 step 9, TREMFRQ 0x4099, FMMOD 0x0000
+  694100 16 step 10, TREMFRQ 0x40AA, FMMOD 0x0000
+  696300 16 step 11, TREMFRQ 0x40BB, FMMOD 0x0000
+  698500 16 step 12, TREMFRQ 0x40CC, FMMOD 0x0000
+  700700 16 step 13, TREMFRQ 0x40DD, FMMOD 0x0000
+  702900 16 step 14, TREMFRQ 0x40EE, FMMOD 0x0000
+  705100 16 step 15, TREMFRQ 0x40FF, FMMOD 0x0000
+  707300 17 ---- LFO1 -> volume (tremolo)
+  707300 17 ---- planned 707300 ms, real 710839 ms
+  709500 17 step 0, TREMFRQ 0x8040, FMMOD 0x0000
+  711700 17 step 1, TREMFRQ 0x9040, FMMOD 0x0000
+  713900 17 step 2, TREMFRQ 0xA040, FMMOD 0x0000
+  716100 17 step 3, TREMFRQ 0xB040, FMMOD 0x0000
+  718300 17 step 4, TREMFRQ 0xC040, FMMOD 0x0000
+  720500 17 MINUTE 720
+  721100 17 step 5, TREMFRQ 0xD040, FMMOD 0x0000
+  723300 17 step 6, TREMFRQ 0xE040, FMMOD 0x0000
+  725500 17 step 7, TREMFRQ 0xF040, FMMOD 0x0000
+  727700 17 step 8, TREMFRQ 0x0040, FMMOD 0x0000
+  729900 17 step 9, TREMFRQ 0x1040, FMMOD 0x0000
+  732100 17 step 10, TREMFRQ 0x2040, FMMOD 0x0000
+  734300 17 step 11, TREMFRQ 0x3040, FMMOD 0x0000
+  736500 17 step 12, TREMFRQ 0x4040, FMMOD 0x0000
+  738700 17 step 13, TREMFRQ 0x5040, FMMOD 0x0000
+  740900 17 step 14, TREMFRQ 0x6040, FMMOD 0x0000
+  743100 17 step 15, TREMFRQ 0x7040, FMMOD 0x0000
+  745300 18 ---- LFO1 -> pitch (vibrato)
+  745300 18 ---- planned 745300 ms, real 748957 ms
+  747600 18 step 0, TREMFRQ 0x0040, FMMOD 0x8000
+  749800 18 step 1, TREMFRQ 0x0040, FMMOD 0x9000
+  752000 18 step 2, TREMFRQ 0x0040, FMMOD 0xA000
+  754200 18 step 3, TREMFRQ 0x0040, FMMOD 0xB000
+  756400 18 step 4, TREMFRQ 0x0040, FMMOD 0xC000
+  758600 18 step 5, TREMFRQ 0x0040, FMMOD 0xD000
+  760800 18 step 6, TREMFRQ 0x0040, FMMOD 0xE000
+  763000 18 step 7, TREMFRQ 0x0040, FMMOD 0xF000
+  765200 18 step 8, TREMFRQ 0x0040, FMMOD 0x0000
+  767400 18 step 9, TREMFRQ 0x0040, FMMOD 0x1000
+  769600 18 step 10, TREMFRQ 0x0040, FMMOD 0x2000
+  771800 18 step 11, TREMFRQ 0x0040, FMMOD 0x3000
+  774000 18 step 12, TREMFRQ 0x0040, FMMOD 0x4000
+  776200 18 step 13, TREMFRQ 0x0040, FMMOD 0x5000
+  778400 18 step 14, TREMFRQ 0x0040, FMMOD 0x6000
+  780600 18 MINUTE 780
+  781200 18 step 15, TREMFRQ 0x0040, FMMOD 0x7000
+  783400 19 ---- LFO1 -> filter (wah)
+  783400 19 ---- planned 783400 ms, real 787240 ms
+  785800 19 step 0, TREMFRQ 0x0040, FMMOD 0x0080
+  788000 19 step 1, TREMFRQ 0x0040, FMMOD 0x0090
+  790200 19 step 2, TREMFRQ 0x0040, FMMOD 0x00A0
+  792400 19 step 3, TREMFRQ 0x0040, FMMOD 0x00B0
+  794600 19 step 4, TREMFRQ 0x0040, FMMOD 0x00C0
+  796800 19 step 5, TREMFRQ 0x0040, FMMOD 0x00D0
+  799000 19 step 6, TREMFRQ 0x0040, FMMOD 0x00E0
+  801200 19 step 7, TREMFRQ 0x0040, FMMOD 0x00F0
+  803400 19 step 8, TREMFRQ 0x0040, FMMOD 0x0000
+  805600 19 step 9, TREMFRQ 0x0040, FMMOD 0x0010
+  807800 19 step 10, TREMFRQ 0x0040, FMMOD 0x0020
+  810000 19 step 11, TREMFRQ 0x0040, FMMOD 0x0030
+  812200 19 step 12, TREMFRQ 0x0040, FMMOD 0x0040
+  814400 19 step 13, TREMFRQ 0x0040, FMMOD 0x0050
+  816600 19 step 14, TREMFRQ 0x0040, FMMOD 0x0060
+  818800 19 step 15, TREMFRQ 0x0040, FMMOD 0x0070
+  821000 20 ---- LFO2: rate and depth
+  821000 20 ---- planned 821000 ms, real 824973 ms
+  823500 20 rate, FM2FRQ2 0x4000
+  825700 20 rate, FM2FRQ2 0x4011
+  827900 20 rate, FM2FRQ2 0x4022
+  830100 20 rate, FM2FRQ2 0x4033
+  832300 20 rate, FM2FRQ2 0x4044
+  834500 20 rate, FM2FRQ2 0x4055
+  836700 20 rate, FM2FRQ2 0x4066
+  838900 20 rate, FM2FRQ2 0x4077
+  841100 20 MINUTE 840
+  841700 20 rate, FM2FRQ2 0x4088
+  843900 20 rate, FM2FRQ2 0x4099
+  846100 20 rate, FM2FRQ2 0x40AA
+  848300 20 rate, FM2FRQ2 0x40BB
+  850500 20 rate, FM2FRQ2 0x40CC
+  852700 20 rate, FM2FRQ2 0x40DD
+  854900 20 rate, FM2FRQ2 0x40EE
+  857100 20 rate, FM2FRQ2 0x40FF
+  859300 20 depth, FM2FRQ2 0x8040
+  861500 20 depth, FM2FRQ2 0x9040
+  863700 20 depth, FM2FRQ2 0xA040
+  865900 20 depth, FM2FRQ2 0xB040
+  868100 20 depth, FM2FRQ2 0xC040
+  870300 20 depth, FM2FRQ2 0xD040
+  872500 20 depth, FM2FRQ2 0xE040
+  874700 20 depth, FM2FRQ2 0xF040
+  876900 20 depth, FM2FRQ2 0x0040
+  879100 20 depth, FM2FRQ2 0x1040
+  881300 20 depth, FM2FRQ2 0x2040
+  883500 20 depth, FM2FRQ2 0x3040
+  885700 20 depth, FM2FRQ2 0x4040
+  887900 20 depth, FM2FRQ2 0x5040
+  890100 20 depth, FM2FRQ2 0x6040
+  892300 20 depth, FM2FRQ2 0x7040
+  894500 21 ---- LFO delay
+  894500 21 ---- planned 894500 ms, real 898627 ms
+  897100 21 LFO1VAL 0x8000
+  899300 21 LFO1VAL 0x7E0C
+  901500 21 MINUTE 900
+  902100 21 LFO1VAL 0x7C18
+  904300 21 LFO1VAL 0x7A24
+  906500 21 LFO1VAL 0x7830
+  908700 21 LFO1VAL 0x763C
+  910900 21 LFO1VAL 0x7448
+  913100 21 LFO1VAL 0x7254
+  915300 21 LFO1VAL 0x7060
+  917500 21 LFO1VAL 0x6E6C
+  919700 21 LFO1VAL 0x6C78
+  921900 21 LFO1VAL 0x6A84
+  924100 22 ---- reverb: 8 presets x 5 send levels
+  924100 22 ---- planned 924100 ms, real 928452 ms
+  926800 22 preset 0, send 0
+  928600 22 preset 0, send 48
+  930400 22 preset 0, send 96
+  932200 22 preset 0, send 160
+  934000 22 preset 0, send 255
+  935800 22 preset 1, send 0
+  937600 22 preset 1, send 48
+  939400 22 preset 1, send 96
+  941200 22 preset 1, send 160
+  943000 22 preset 1, send 255
+  944800 22 preset 2, send 0
+  946600 22 preset 2, send 48
+  948400 22 preset 2, send 96
+  950200 22 preset 2, send 160
+  952000 22 preset 2, send 255
+  953800 22 preset 3, send 0
+  955600 22 preset 3, send 48
+  957400 22 preset 3, send 96
+  959200 22 preset 3, send 160
+  961000 22 MINUTE 960
+  961600 22 preset 3, send 255
+  963400 22 preset 4, send 0
+  965200 22 preset 4, send 48
+  967000 22 preset 4, send 96
+  968800 22 preset 4, send 160
+  970600 22 preset 4, send 255
+  972400 22 preset 5, send 0
+  974200 22 preset 5, send 48
+  976000 22 preset 5, send 96
+  977800 22 preset 5, send 160
+  979600 22 preset 5, send 255
+  981400 22 preset 6, send 0
+  983200 22 preset 6, send 48
+  985000 22 preset 6, send 96
+  986800 22 preset 6, send 160
+  988600 22 preset 6, send 255
+  990400 22 preset 7, send 0
+  992200 22 preset 7, send 48
+  994000 22 preset 7, send 96
+  995800 22 preset 7, send 160
+  997600 22 preset 7, send 255
+  999400 -- END

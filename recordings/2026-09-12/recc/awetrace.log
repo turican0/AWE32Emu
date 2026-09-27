@@ -1,0 +1,4841 @@
+start
+hardware ok, base 220
+  irq 5
+  dma 5
+SetupBanks: patch RAM 8388608 B
+SetupBanks: embedded GM presets in bank 0
+probing wavetable
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 187
+RecHwStop: done
+Probe: peak 187
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 373
+RecHwStop: done
+Probe: peak 373
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 720
+RecHwStop: done
+Probe: peak 720
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1434
+RecHwStop: done
+Probe: peak 1434
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 184
+RecHwStop: done
+Probe: peak 184
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 375
+RecHwStop: done
+Probe: peak 375
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 717
+RecHwStop: done
+Probe: peak 717
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1352
+RecHwStop: done
+Probe: peak 1352
+wavetable up to 0xD8
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 305
+RecHwStop: done
+Probe: peak 305
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 560
+RecHwStop: done
+Probe: peak 560
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1126
+RecHwStop: done
+Probe: peak 1126
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 2197
+RecHwStop: done
+Probe: peak 2197
+wavetable up to 0xE8
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 455
+RecHwStop: done
+Probe: peak 455
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 889
+RecHwStop: done
+Probe: peak 889
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1772
+RecHwStop: done
+Probe: peak 1772
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3328
+RecHwStop: done
+Probe: peak 3328
+wavetable up to 0xF8
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 701
+RecHwStop: done
+Probe: peak 701
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1437
+RecHwStop: done
+Probe: peak 1437
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 2817
+RecHwStop: done
+Probe: peak 2817
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4433
+RecHwStop: done
+Probe: peak 4433
+wavetable compressing at 0xE8, back
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 475
+RecHwStop: done
+Probe: peak 475
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 895
+RecHwStop: done
+Probe: peak 895
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1744
+RecHwStop: done
+Probe: peak 1744
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3316
+RecHwStop: done
+Probe: peak 3316
+internal capture peak 3316
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5978
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5654
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 891
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 870
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6029
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3413
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1800
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1715
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 890
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 875
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 442
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 450
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 214
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 233
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 126
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 124
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 68
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 66
+RecHwStop: done
+PitchCheck: start
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3242
+RecHwStop: done
+ProbeZc: nic, zkousim znovu
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3502
+RecHwStop: done
+ProbeZc: nic, zkousim znovu
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3662
+RecHwStop: done
+ProbeZc: nic, zkousim znovu
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6621
+RecHwStop: done
+PitchCheck: unity -1
+PitchCheck: octave 1102500
+PitchCheck: inconclusive
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6713
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 135
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 62
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 49
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5629
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 150
+RecHwStop: done
+MemUsable: 0 ticks
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+path decided, starting the run
+countdown done
+channel marks done
+block 11
+RecHwStop: enter, peak 6290
+RecHwStop: done
+CapFlush: writing 2819696 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2819696 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5853
+RecHwStop: done
+CapFlush: writing 3075132 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3075132 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5963
+RecHwStop: done
+CapFlush: writing 3075236 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3075236 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5763
+RecHwStop: done
+CapFlush: writing 3070486 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3070486 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 12
+RecHwStop: enter, peak 7314
+RecHwStop: done
+CapFlush: writing 3190180 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3190180 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4610
+RecHwStop: done
+CapFlush: writing 2741620 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2741620 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7295
+RecHwStop: done
+CapFlush: writing 3283044 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3283044 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6022
+RecHwStop: done
+CapFlush: writing 3058416 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3058416 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5351
+RecHwStop: done
+CapFlush: writing 2975112 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2975112 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5800
+RecHwStop: done
+CapFlush: writing 2739346 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2739346 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6183
+RecHwStop: done
+CapFlush: writing 2994270 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2994270 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 13
+RecHwStop: enter, peak 6129
+RecHwStop: done
+CapFlush: writing 2952696 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2952696 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5866
+RecHwStop: done
+CapFlush: writing 2976850 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2976850 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5971
+RecHwStop: done
+CapFlush: writing 2987698 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987698 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7184
+RecHwStop: done
+CapFlush: writing 2981606 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2981606 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5865
+RecHwStop: done
+CapFlush: writing 2986534 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2986534 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 14
+RecHwStop: enter, peak 6282
+RecHwStop: done
+CapFlush: writing 3257986 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3257986 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5716
+RecHwStop: done
+CapFlush: writing 2929100 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2929100 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6603
+RecHwStop: done
+CapFlush: writing 2935096 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2935096 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 15
+RecHwStop: enter, peak 7328
+RecHwStop: done
+CapFlush: writing 2852016 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2852016 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6105
+RecHwStop: done
+CapFlush: writing 2924208 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2924208 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 9347
+RecHwStop: done
+CapFlush: writing 2933960 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933960 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 16
+RecHwStop: enter, peak 14415
+RecHwStop: done
+CapFlush: writing 2865518 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2865518 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6172
+RecHwStop: done
+CapFlush: writing 2929252 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2929252 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5895
+RecHwStop: done
+CapFlush: writing 2933848 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933848 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 17
+RecHwStop: enter, peak 6152
+RecHwStop: done
+CapFlush: writing 2889488 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2889488 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7134
+RecHwStop: done
+CapFlush: writing 2935184 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2935184 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6021
+RecHwStop: done
+CapFlush: writing 2929120 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2929120 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 18
+RecHwStop: enter, peak 6233
+RecHwStop: done
+CapFlush: writing 2794436 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2794436 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6141
+RecHwStop: done
+CapFlush: writing 2929104 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2929104 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6271
+RecHwStop: done
+CapFlush: writing 2934992 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2934992 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 19
+RecHwStop: enter, peak 7541
+RecHwStop: done
+CapFlush: writing 2922264 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2922264 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6845
+RecHwStop: done
+CapFlush: writing 2935120 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2935120 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5642
+RecHwStop: done
+CapFlush: writing 2929112 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2929112 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 20
+RecHwStop: enter, peak 6242
+RecHwStop: done
+CapFlush: writing 2935830 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2935830 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6284
+RecHwStop: done
+CapFlush: writing 2933894 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933894 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5936
+RecHwStop: done
+CapFlush: writing 2929104 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2929104 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6431
+RecHwStop: done
+CapFlush: writing 2933756 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933756 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5969
+RecHwStop: done
+CapFlush: writing 2933880 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933880 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7581
+RecHwStop: done
+CapFlush: writing 2929106 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2929106 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 21
+RecHwStop: enter, peak 7227
+RecHwStop: done
+CapFlush: writing 3069046 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3069046 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6225
+RecHwStop: done
+CapFlush: writing 2935182 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2935182 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 22
+reverb preset 0: calling
+reverb preset 0: returned
+RecHwStop: enter, peak 7513
+RecHwStop: done
+CapFlush: writing 3050526 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3050526 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5812
+RecHwStop: done
+CapFlush: writing 2863026 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2863026 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+reverb preset 1: calling
+reverb preset 1: returned
+RecHwStop: enter, peak 3957
+RecHwStop: done
+CapFlush: writing 2833562 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2833562 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+reverb preset 2: calling
+reverb preset 2: returned
+RecHwStop: enter, peak 7588
+RecHwStop: done
+CapFlush: writing 2833590 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2833590 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6144
+RecHwStop: done
+CapFlush: writing 2864324 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2864324 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+reverb preset 3: calling
+reverb preset 3: returned
+RecHwStop: enter, peak 5776
+RecHwStop: done
+CapFlush: writing 2838364 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2838364 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+reverb preset 4: calling
+reverb preset 4: returned
+RecHwStop: enter, peak 5959
+RecHwStop: done
+CapFlush: writing 2833530 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2833530 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5055
+RecHwStop: done
+CapFlush: writing 2858256 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2858256 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+reverb preset 5: calling
+reverb preset 5: returned
+RecHwStop: enter, peak 5681
+RecHwStop: done
+CapFlush: writing 2833644 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2833644 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+reverb preset 6: calling
+reverb preset 6: returned
+RecHwStop: enter, peak 6157
+RecHwStop: done
+CapFlush: writing 2839678 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2839678 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3644
+RecHwStop: done
+CapFlush: writing 2862996 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2862996 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+reverb preset 7: calling
+reverb preset 7: returned
+RecHwStop: enter, peak 5955
+RecHwStop: done
+CapFlush: writing 2833594 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2833594 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+effect block: resetting
+effect block: done
+block 23
+chorus preset 0: calling
+chorus preset 0: returned
+RecHwStop: enter, peak 6230
+RecHwStop: done
+CapFlush: writing 3574920 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3574920 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6713
+RecHwStop: done
+CapFlush: writing 3323120 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3323120 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+chorus preset 1: calling
+chorus preset 1: returned
+RecHwStop: enter, peak 5807
+RecHwStop: done
+CapFlush: writing 3022706 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3022706 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+chorus preset 2: calling
+chorus preset 2: returned
+RecHwStop: enter, peak 5892
+RecHwStop: done
+CapFlush: writing 3022706 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3022706 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+chorus preset 3: calling
+chorus preset 3: returned
+RecHwStop: enter, peak 7790
+RecHwStop: done
+CapFlush: writing 2972046 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2972046 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+chorus preset 4: calling
+chorus preset 4: returned
+RecHwStop: enter, peak 8173
+RecHwStop: done
+CapFlush: writing 2969670 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2969670 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 9299
+RecHwStop: done
+CapFlush: writing 3317114 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3317114 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+chorus preset 5: calling
+chorus preset 5: returned
+RecHwStop: enter, peak 5493
+RecHwStop: done
+CapFlush: writing 3027422 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3027422 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+chorus preset 6: calling
+chorus preset 6: returned
+RecHwStop: enter, peak 9341
+RecHwStop: done
+CapFlush: writing 3027382 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3027382 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+chorus preset 7: calling
+chorus preset 7: returned
+RecHwStop: enter, peak 5960
+RecHwStop: done
+CapFlush: writing 2974320 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2974320 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+effect block: resetting
+effect block: done
+block 24
+RecHwStop: enter, peak 7574
+RecHwStop: done
+CapFlush: writing 4194304 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3670016 B written
+CapFlush: 3932160 B written
+CapFlush: 4194304 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 13958
+RecHwStop: done
+CapFlush: writing 3427994 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3427994 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 13711
+RecHwStop: done
+CapFlush: writing 3427418 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3427418 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 25
+RecHwStop: enter, peak 7607
+RecHwStop: done
+CapFlush: writing 2998784 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2998784 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 14832
+RecHwStop: done
+CapFlush: writing 3070758 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3070758 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6080
+RecHwStop: done
+CapFlush: writing 3075578 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3075578 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5948
+RecHwStop: done
+CapFlush: writing 3075600 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3075600 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6698
+RecHwStop: done
+CapFlush: writing 3071298 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3071298 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 26
+RecHwStop: enter, peak 6789
+RecHwStop: done
+CapFlush: writing 2928254 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2928254 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4470
+RecHwStop: done
+CapFlush: writing 2982574 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982574 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4960
+RecHwStop: done
+CapFlush: writing 2987374 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987374 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5272
+RecHwStop: done
+CapFlush: writing 2987500 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987500 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5914
+RecHwStop: done
+CapFlush: writing 2982730 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982730 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5423
+RecHwStop: done
+CapFlush: writing 2987392 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987392 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5644
+RecHwStop: done
+CapFlush: writing 2987358 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987358 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6126
+RecHwStop: done
+CapFlush: writing 2982714 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982714 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6111
+RecHwStop: done
+CapFlush: writing 2988576 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2988576 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7154
+RecHwStop: done
+CapFlush: writing 2988780 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2988780 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5846
+RecHwStop: done
+CapFlush: writing 2983510 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2983510 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5914
+RecHwStop: done
+CapFlush: writing 2987522 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987522 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5738
+RecHwStop: done
+CapFlush: writing 2987546 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987546 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6152
+RecHwStop: done
+CapFlush: writing 2982690 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982690 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5670
+RecHwStop: done
+CapFlush: writing 2987978 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987978 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5889
+RecHwStop: done
+CapFlush: writing 2987396 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987396 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5176
+RecHwStop: done
+CapFlush: writing 2982580 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982580 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6154
+RecHwStop: done
+CapFlush: writing 2987368 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987368 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 27
+RecHwStop: enter, peak 7169
+RecHwStop: done
+CapFlush: writing 2959786 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2959786 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5953
+RecHwStop: done
+CapFlush: writing 2988004 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2988004 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5850
+RecHwStop: done
+CapFlush: writing 2987408 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987408 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6951
+RecHwStop: done
+CapFlush: writing 2982718 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982718 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5974
+RecHwStop: done
+CapFlush: writing 2987338 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987338 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5817
+RecHwStop: done
+CapFlush: writing 2987436 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987436 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4852
+RecHwStop: done
+CapFlush: writing 2982836 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982836 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5686
+RecHwStop: done
+CapFlush: writing 2987442 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987442 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5901
+RecHwStop: done
+CapFlush: writing 2977796 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2977796 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6120
+RecHwStop: done
+CapFlush: writing 2983228 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2983228 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5992
+RecHwStop: done
+CapFlush: writing 2987488 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987488 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5506
+RecHwStop: done
+CapFlush: writing 2987542 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987542 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4142
+RecHwStop: done
+CapFlush: writing 2982744 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982744 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5459
+RecHwStop: done
+CapFlush: writing 2987500 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987500 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5290
+RecHwStop: done
+CapFlush: writing 2987488 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987488 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5642
+RecHwStop: done
+CapFlush: writing 2982784 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982784 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4531
+RecHwStop: done
+CapFlush: writing 2972380 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2972380 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 28
+RecHwStop: enter, peak 7479
+RecHwStop: done
+CapFlush: writing 2794290 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2794290 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6192
+RecHwStop: done
+CapFlush: writing 2899734 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899734 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5566
+RecHwStop: done
+CapFlush: writing 2899834 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899834 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7131
+RecHwStop: done
+CapFlush: writing 2895084 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2895084 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6104
+RecHwStop: done
+CapFlush: writing 2900272 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2900272 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6201
+RecHwStop: done
+CapFlush: writing 2899932 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899932 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5851
+RecHwStop: done
+CapFlush: writing 2894962 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2894962 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7015
+RecHwStop: done
+CapFlush: writing 2899710 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899710 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7021
+RecHwStop: done
+CapFlush: writing 2899836 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899836 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6515
+RecHwStop: done
+CapFlush: writing 2894968 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2894968 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 11413
+RecHwStop: done
+CapFlush: writing 2899740 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899740 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7464
+RecHwStop: done
+CapFlush: writing 3023220 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3023220 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7052
+RecHwStop: done
+CapFlush: writing 3000002 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3000002 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 29
+RecHwStop: enter, peak 7555
+RecHwStop: done
+CapFlush: writing 4036288 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3670016 B written
+CapFlush: 3932160 B written
+CapFlush: 4036288 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3439
+RecHwStop: done
+CapFlush: writing 2987504 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987504 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4255
+RecHwStop: done
+CapFlush: writing 2982660 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982660 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5531
+RecHwStop: done
+CapFlush: writing 2988802 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2988802 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5474
+RecHwStop: done
+CapFlush: writing 2987514 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987514 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6108
+RecHwStop: done
+CapFlush: writing 2982718 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982718 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5245
+RecHwStop: done
+CapFlush: writing 2987348 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987348 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4713
+RecHwStop: done
+CapFlush: writing 2987458 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987458 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5669
+RecHwStop: done
+CapFlush: writing 2982624 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982624 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7525
+RecHwStop: done
+CapFlush: writing 2987986 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987986 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5690
+RecHwStop: done
+CapFlush: writing 2987616 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987616 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7383
+RecHwStop: done
+CapFlush: writing 2983376 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2983376 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5235
+RecHwStop: done
+CapFlush: writing 2987322 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987322 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3554
+RecHwStop: done
+CapFlush: writing 2988614 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2988614 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5004
+RecHwStop: done
+CapFlush: writing 2982630 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982630 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5766
+RecHwStop: done
+CapFlush: writing 2987442 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987442 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7531
+RecHwStop: done
+CapFlush: writing 2987504 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987504 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 30
+RecHwStop: enter, peak 14596
+RecHwStop: done
+CapFlush: writing 3188932 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3188932 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 13640
+RecHwStop: done
+CapFlush: writing 2898446 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2898446 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 15122
+RecHwStop: done
+CapFlush: writing 2898468 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2898468 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 9000
+RecHwStop: done
+CapFlush: writing 2893672 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2893672 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 31
+RecHwStop: enter, peak 7373
+RecHwStop: done
+CapFlush: writing 2923714 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2923714 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 32
+RecHwStop: enter, peak 7313
+RecHwStop: done
+CapFlush: writing 4097332 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3670016 B written
+CapFlush: 3932160 B written
+CapFlush: 4097332 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 33
+RecHwStop: enter, peak 6751
+RecHwStop: done
+CapFlush: writing 3182132 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3182132 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 34
+RecHwStop: enter, peak 7561
+RecHwStop: done
+CapFlush: writing 3080826 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3080826 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6491
+RecHwStop: done
+CapFlush: writing 2964792 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2964792 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5724
+RecHwStop: done
+CapFlush: writing 2933890 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933890 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 35
+RecHwStop: enter, peak 11175
+RecHwStop: done
+CapFlush: writing 2776980 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2776980 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 9951
+RecHwStop: done
+CapFlush: writing 3074682 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3074682 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7210
+RecHwStop: done
+CapFlush: writing 3075966 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3075966 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 11636
+RecHwStop: done
+CapFlush: writing 3069916 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3069916 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 16447
+RecHwStop: done
+CapFlush: writing 3074674 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3074674 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6028
+RecHwStop: done
+CapFlush: writing 3074756 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3074756 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5791
+RecHwStop: done
+CapFlush: writing 3069920 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3069920 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 36
+RecHwStop: enter, peak 11088
+RecHwStop: done
+CapFlush: writing 3801172 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3670016 B written
+CapFlush: 3801172 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6860
+RecHwStop: done
+CapFlush: writing 2894970 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2894970 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7173
+RecHwStop: done
+CapFlush: writing 2899840 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899840 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5948
+RecHwStop: done
+CapFlush: writing 2899816 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899816 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5865
+RecHwStop: done
+CapFlush: writing 2894978 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2894978 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6184
+RecHwStop: done
+CapFlush: writing 2900264 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2900264 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 7120
+RecHwStop: done
+CapFlush: writing 2899724 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899724 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5893
+RecHwStop: done
+CapFlush: writing 2895138 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2895138 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 8517
+RecHwStop: done
+CapFlush: writing 2793864 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2793864 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 13001
+RecHwStop: done
+CapFlush: writing 2740694 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2740694 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 8659
+RecHwStop: done
+CapFlush: writing 2740558 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2740558 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5927
+RecHwStop: done
+CapFlush: writing 2899284 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899284 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 37
+RecHwStop: enter, peak 11356
+RecHwStop: done
+CapFlush: writing 4194304 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3670016 B written
+CapFlush: 3932160 B written
+CapFlush: 4194304 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5522
+RecHwStop: done
+CapFlush: writing 2928718 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2928718 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 8244
+RecHwStop: done
+CapFlush: writing 3034018 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3034018 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 11641
+RecHwStop: done
+CapFlush: writing 2933522 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933522 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 38
+RecHwStop: enter, peak 7044
+RecHwStop: done
+CapFlush: writing 2812614 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2812614 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6111
+RecHwStop: done
+CapFlush: writing 2917492 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2917492 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6163
+RecHwStop: done
+CapFlush: writing 2740780 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2740780 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5794
+RecHwStop: done
+CapFlush: writing 2776016 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2776016 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5772
+RecHwStop: done
+CapFlush: writing 2933900 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2933900 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5430
+RecHwStop: done
+CapFlush: writing 2880708 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2880708 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6006
+RecHwStop: done
+CapFlush: writing 3036884 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3036884 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5648
+RecHwStop: done
+CapFlush: writing 2806910 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2806910 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5855
+RecHwStop: done
+CapFlush: writing 2987642 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987642 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5722
+RecHwStop: done
+CapFlush: writing 2988774 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2988774 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6877
+RecHwStop: done
+CapFlush: writing 2982810 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982810 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5403
+RecHwStop: done
+CapFlush: writing 2757978 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2757978 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5656
+RecHwStop: done
+CapFlush: writing 2899736 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2899736 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6041
+RecHwStop: done
+CapFlush: writing 2881986 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2881986 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6102
+RecHwStop: done
+CapFlush: writing 2793764 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2793764 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5902
+RecHwStop: done
+CapFlush: writing 3110524 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3110524 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5258
+RecHwStop: done
+CapFlush: writing 2997388 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2997388 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6333
+RecHwStop: done
+CapFlush: writing 2941608 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2941608 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6142
+RecHwStop: done
+CapFlush: writing 2904740 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2904740 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5765
+RecHwStop: done
+CapFlush: writing 2982694 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2982694 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6158
+RecHwStop: done
+CapFlush: writing 2987634 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2987634 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5727
+RecHwStop: done
+CapFlush: writing 2977856 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 2977856 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5853
+RecHwStop: done
+CapFlush: writing 2735602 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2735602 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 39
+RecHwStop: enter, peak 7534
+RecHwStop: done
+CapFlush: writing 3151320 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3151320 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6968
+RecHwStop: done
+CapFlush: writing 2192766 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2192766 B written
+CapFlush: done

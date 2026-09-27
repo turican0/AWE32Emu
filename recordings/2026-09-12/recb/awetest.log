@@ -1,0 +1,101 @@
+# AWETEST v25
+# ms block description
+# stamps: \t@rt <BIOS tick>:<PIT phase 0..65535, 1193182/s> cap <file from ms>:<frame>, taken at note on
+# CARD BLASTER=A220 I5 D1 H5 P330 E620 T6
+# CARD SOUND=C:\SB16
+# CARD MIDI=SYNTH:1 MAP:E MODE:0
+# CARD Sound Blaster base 0x220, EMU8000 base 0x620, IRQ 5, 16-bit DMA 5
+# CARD DSP version 4.13, copyright "COPYRIGHT (C) CREATIVE TECHNOLOGY LTD, 1992."
+# CARD DRAM awe32DramSize 4194304 words = 8388608 B, free for samples 8388608 B
+# CARD EMU8000 HWCF1 0x0058 HWCF2 0x0053 HWCF3 0x0000
+# CARD EQ readback C208 C308 821E D208 031E D308 0219 D26E 8319 D36E 0265 8365
+# CARD mixer 30:D8 31:D8 32:D8 33:D8 34:D8 35:D8 36:D8 37:D8 38:D8 39:D8 3A:00 3B:00 3C:1F 3D:15 3E:0B 3F:00
+# CARD mixer 40:00 41:00 42:00 43:00 44:00 45:00 46:A0 47:A0 80:F2 81:22 82:80
+# CARD guess: AWE32 PnP or SB32 (DSP 4.13), expanded sample RAM
+# CHIP clock: CCCA 108789 -> 285154, 176365 samples in 4771953 PIT cycles (1193182/s) at IP 0xE000
+# CHIP loop 430339..430404 (start 430271): 109 wraps in 150 reads 4 ms apart, address seen 430339..430402
+# CHIP loop 459001..467282 (start 458995): 3 wraps in 150 reads 4 ms apart, address seen 459111..467278
+# CHIP loop 459001..460001 (start 458995): 26 wraps in 150 reads 4 ms apart, address seen 459002..459996
+# LEVEL wavetable 0xE8, input gain 18 dB, atten offset 0: peak 5204 at +0, 959 at +32 (12 dB), ratio 5.42 (linear 3.98)
+# LADDER atten 0 peak 5938
+# LADDER atten 16 peak 1804
+# LADDER atten 32 peak 880
+# LADDER atten 48 peak 446
+# LADDER atten 64 peak 243
+# LADDER atten 80 peak 121
+# LADDER atten 96 peak 72
+# LEVEL final: wavetable 0xE8, input gain 18 dB, atten offset 0, ratio x100 542
+# STEREO normal routing: 3D=40 3E=20, left tone L 5333 R 12, right tone L 140 R 9
+# STEREO mixer readback 3D=40 3E=20 3F=C0 40=C0 41=00 42=00 34=E8 35=E8
+# STEREO both ADC <- chip RIGHT: 3D=20 3E=20, left tone L 95 R 10, right tone L 60 R 9
+# STEREO both ADC <- chip LEFT: 3D=40 3E=40, left tone L 6836 R 3006, right tone L 137 R 64
+# STEREO verdict: MONO capture, left ADC only - block 3 repeats with chip right in it
+# CAPTURE source MIDI/wavetable, wavetable 0xE8, input gain 18 dB, atten offset 0, mono left only
+   44100  0 reference tone	@rt 1117256:48392 cap 0:354989
+       0 11 ---- envelope: sustain 0x51..0x7F
+       0 11 ---- planned 0 ms, PIT 51724 ms, BIOS 0 ms	@rt 1117280:31697 cap 0:412505
+    1600 11 reference tone	@rt 1117310:10938 cap 0:484403
+    2900 11 sustain 0x51	@rt 1117333:54701 cap 0:541731
+    4900 11 sustain 0x53	@rt 1117370:16836 cap 0:629953
+    6900 11 sustain 0x55	@rt 1117406:44510 cap 0:718174
+    8900 11 sustain 0x57	@rt 1117443:6648 cap 0:806396
+   10900 11 sustain 0x59	@rt 1117479:34326 cap 0:894617
+   12900 11 sustain 0x5B	@rt 1117515:62015 cap 0:982840
+   14900 11 sustain 0x5D	@rt 1117552:24152 cap 0:1071061
+   16900 11 sustain 0x5F	@rt 1117588:51837 cap 0:1159283
+   18900 11 sustain 0x61	@rt 1117625:13985 cap 0:1247505
+   20900 11 sustain 0x63	@rt 1117661:41665 cap 0:1335727
+   22900 11 sustain 0x65	@rt 1117698:3804 cap 0:1423949
+   24900 11 sustain 0x67	@rt 1117734:31486 cap 0:1512171
+   26900 11 sustain 0x69	@rt 1117770:59170 cap 0:1600393
+   28900 11 sustain 0x6B	@rt 1117807:21320 cap 0:1688615
+   30900 11 sustain 0x6D	@rt 1117843:48938 cap 0:1776834
+   32900 11 sustain 0x6F	@rt 1117880:11070 cap 0:1865056
+   34900 11 sustain 0x71	@rt 1117916:38744 cap 0:1953277
+   36900 11 sustain 0x73	@rt 1117953:1281 cap 0:2041501
+   38900 11 sustain 0x75	@rt 1117989:28946 cap 0:2129735
+   40900 11 sustain 0x77	@rt 1118025:56623 cap 0:2217957
+   42900 11 sustain 0x79	@rt 1118062:18770 cap 0:2306179
+   44900 11 sustain 0x7B	@rt 1118098:46452 cap 0:2394401
+   46900 11 sustain 0x7D	@rt 1118135:8605 cap 0:2482623
+   48900 11 sustain 0x7F	@rt 1118171:36287 cap 0:2570845
+   50900 12 ---- envelope: release 0x04..0x7F
+   50900 12 ---- planned 50900 ms, PIT 102617 ms, BIOS 50970 ms	@rt 1118208:1739 cap 0:2659189
+   52600 12 reference tone	@rt 1118239:5028 cap 0:2734398
+   53900 12 release 0x04	@rt 1118262:48785 cap 0:2791726
+   61000 12 release 0x08	@rt 1118392:1281 cap 0:3104820
+   67888 12 release 0x0C	@rt 1118517:27567 cap 0:3408600
+   73113 12 release 0x10	@rt 1118612:36009 cap 0:3639020
+   77506 12 release 0x14	@rt 1118692:34954 cap 0:3832756
+   81401 12 release 0x18	@rt 1118763:29602 cap 0:4004533
+   84962 12 release 0x1C	@rt 1118828:19013 cap 0:4161584
+   88287 12 release 0x20	@rt 1118888:54572 cap 0:4308230
+   91433 12 release 0x24	@rt 1118946:7642 cap 0:4446982
+   94329 12 release 0x28	@rt 1118998:55700 cap 0:4574712
+   97059 12 release 0x2C	@rt 1119048:36778 cap 0:4695122
+   99671 12 reference tone	@rt 1119096:8084 cap 0:4810327
+  101371 -- QUALITY ring overruns 0, dropped so far 0 B, peak L 7679 R 13, counter rereads 0, frames 4885305, dma rt 1117110:11845..1119127:6400
+  101371 -- FILE d:/recb001.wav, 19541222 B, from 0 ms
+  101771 12 reference tone	@rt 1119201:10757 cap 101371:18915
+  103071 12 release 0x30	@rt 1119224:54520 cap 101371:76243
+  105594 12 release 0x34	@rt 1119269:50821 cap 101371:185105
+  107992 12 release 0x38	@rt 1119313:29053 cap 101371:290877
+  110306 12 release 0x3C	@rt 1119355:38155 cap 101371:392945
+  112561 12 release 0x40	@rt 1119396:42409 cap 101371:492412
+  114771 12 release 0x44	@rt 1119436:58517 cap 101371:589895
+  116920 12 release 0x48	@rt 1119476:1840 cap 101371:684688
+  119027 12 release 0x4C	@rt 1119514:26120 cap 101371:777628
+  121104 12 release 0x50	@rt 1119552:14624 cap 101371:869247
+  123159 12 release 0x54	@rt 1119589:42370 cap 101371:959893
+  125183 12 release 0x58	@rt 1119626:33174 cap 101371:1049174
+  127186 12 release 0x5C	@rt 1119662:64470 cap 101371:1137530
+  129174 12 release 0x60	@rt 1119699:12319 cap 101371:1225223
+  131151 12 release 0x64	@rt 1119735:12599 cap 101371:1312432
+  133112 12 release 0x68	@rt 1119770:59329 cap 101371:1398936
+  135063 12 release 0x6C	@rt 1119806:28577 cap 101371:1484998
+  137006 12 release 0x70	@rt 1119841:53833 cap 101371:1570708
+  138943 12 release 0x74	@rt 1119877:6375 cap 101371:1656153
+  140873 12 release 0x78	@rt 1119912:16102 cap 101371:1741289
+  142798 12 release 0x7C	@rt 1119947:19876 cap 101371:1826205
+  144719 13 ---- envelope: ENVVOL delay
+  144719 13 ---- planned 144719 ms, PIT 196422 ms, BIOS 148407 ms	@rt 1119982:56399 cap 101371:1912332

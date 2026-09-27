@@ -1,0 +1,651 @@
+# AWETEST v05
+# ms block description
+   13800  0 reference tone
+       0  1 ---- reference tone
+       0  1 ---- planned 0 ms, real 54 ms
+     600  1 reference tone
+    1900  1 reference sine, IP 57344, atten 0
+    5900  2 ---- attenuation IFATN 0..126 step 2
+    5900  2 ---- planned 5900 ms, real 6041 ms
+    6600  2 reference tone
+    7900  2 atten 0
+    8500  2 atten 2
+    9100  2 atten 4
+    9700  2 atten 6
+   10300  2 atten 8
+   10900  2 atten 10
+   11500  2 atten 12
+   12100  2 atten 14
+   12700  2 atten 16
+   13300  2 atten 18
+   13900  2 atten 20
+   14500  2 atten 22
+   15100  2 atten 24
+   15700  2 atten 26
+   16300  2 atten 28
+   16900  2 atten 30
+   17500  2 atten 32
+   18100  2 atten 34
+   18700  2 atten 36
+   19300  2 atten 38
+   19900  2 atten 40
+   20500  2 atten 42
+   21100  2 atten 44
+   21700  2 atten 46
+   22300  2 atten 48
+   22900  2 atten 50
+   23500  2 atten 52
+   24100  2 atten 54
+   24700  2 atten 56
+   25300  2 atten 58
+   25900  2 atten 60
+   26500  2 atten 62
+   27100  2 atten 64
+   27700  2 atten 66
+   28300  2 atten 68
+   28900  2 atten 70
+   29500  2 atten 72
+   30100  2 atten 74
+   30700  2 reference tone
+   32400 -- FILE d:/test7001.wav, 8315544 B, from 0 ms
+   32800  2 reference tone
+   34100  2 atten 76
+   34700  2 atten 78
+   35300  2 atten 80
+   35900  2 atten 82
+   36500  2 atten 84
+   37100  2 atten 86
+   37700  2 atten 88
+   38300  2 atten 90
+   38900  2 atten 92
+   39500  2 atten 94
+   40100  2 atten 96
+   40700  2 atten 98
+   41300  2 atten 100
+   41900  2 atten 102
+   42500  2 atten 104
+   43100  2 atten 106
+   43700  2 atten 108
+   44300  2 atten 110
+   44900  2 atten 112
+   45500  2 atten 114
+   46100  2 atten 116
+   46700  2 atten 118
+   47300  2 atten 120
+   47900  2 atten 122
+   48500  2 atten 124
+   49100  2 atten 126
+   49700  3 ---- pan PSST 0..255 step 8
+   49700  3 ---- planned 49700 ms, real 51409 ms
+   50500  3 reference tone
+   51800  3 pan 0
+   52400  3 pan 8
+   53000  3 pan 16
+   53600  3 pan 24
+   54200  3 pan 32
+   54800  3 pan 40
+   55400  3 pan 48
+   56000  3 pan 56
+   56600  3 pan 64
+   57200  3 pan 72
+   57800  3 pan 80
+   58400  3 pan 88
+   59000  3 pan 96
+   59600  3 pan 104
+   60200  3 pan 112
+   60800  3 pan 120
+   61400  3 pan 128
+   62000  3 pan 136
+   62600  3 pan 144
+   63200  3 pan 152
+   63800  3 pan 160
+   64400  3 pan 168
+   65000  3 pan 176
+   65600  3 pan 184
+   66200  3 pan 192
+   66800  3 pan 200
+   67400  3 pan 208
+   68000  3 pan 216
+   68600  3 pan 224
+   69200  3 pan 232
+   69800  3 pan 240
+   70400  3 pan 248
+   71000  4 ---- pitch: sine -36..+23 semitones
+   71000  4 ---- planned 71000 ms, real 72775 ms
+   71000  4 MINUTE 60
+   72500  4 reference tone
+   73800  4 semitone -36, IP 45056
+   74400  4 reference tone
+   76100 -- FILE d:/test7002.wav, 8388608 B, from 32400 ms
+   76500  4 reference tone
+   77800  4 semitone -35, IP 45398
+   78400  4 semitone -34, IP 45739
+   79000  4 semitone -33, IP 46080
+   79600  4 semitone -32, IP 46422
+   80200  4 semitone -31, IP 46763
+   80800  4 semitone -30, IP 47104
+   81400  4 semitone -29, IP 47446
+   82000  4 semitone -28, IP 47787
+   82600  4 semitone -27, IP 48128
+   83200  4 semitone -26, IP 48470
+   83800  4 semitone -25, IP 48811
+   84400  4 semitone -24, IP 49152
+   85000  4 semitone -23, IP 49494
+   85600  4 semitone -22, IP 49835
+   86200  4 semitone -21, IP 50176
+   86800  4 semitone -20, IP 50518
+   87400  4 semitone -19, IP 50859
+   88000  4 semitone -18, IP 51200
+   88600  4 semitone -17, IP 51542
+   89200  4 semitone -16, IP 51883
+   89800  4 semitone -15, IP 52224
+   90400  4 semitone -14, IP 52566
+   91000  4 semitone -13, IP 52907
+   91600  4 semitone -12, IP 53248
+   92200  4 semitone -11, IP 53590
+   92800  4 semitone -10, IP 53931
+   93400  4 semitone -9, IP 54272
+   94000  4 semitone -8, IP 54614
+   94600  4 semitone -7, IP 54955
+   95200  4 semitone -6, IP 55296
+   95800  4 semitone -5, IP 55638
+   96400  4 semitone -4, IP 55979
+   97000  4 semitone -3, IP 56320
+   97600  4 semitone -2, IP 56662
+   98200  4 semitone -1, IP 57003
+   98800  4 semitone 0, IP 57344
+   99400  4 semitone 1, IP 57685
+  100000  4 semitone 2, IP 58026
+  100600  4 semitone 3, IP 58368
+  101200  4 semitone 4, IP 58709
+  101800  4 semitone 5, IP 59050
+  102400  4 semitone 6, IP 59392
+  103000  4 semitone 7, IP 59733
+  103600  4 semitone 8, IP 60074
+  104200  4 semitone 9, IP 60416
+  104800  4 semitone 10, IP 60757
+  105400  4 semitone 11, IP 61098
+  106000  4 semitone 12, IP 61440
+  106600  4 semitone 13, IP 61781
+  107200  4 semitone 14, IP 62122
+  107800  4 semitone 15, IP 62464
+  108400  4 semitone 16, IP 62805
+  109000  4 semitone 17, IP 63146
+  109600  4 semitone 18, IP 63488
+  110200  4 semitone 19, IP 63829
+  110800  4 semitone 20, IP 64170
+  111400  4 semitone 21, IP 64512
+  112000  4 semitone 22, IP 64853
+  112600  4 semitone 23, IP 65194
+  113200  5 ---- pitch: noise -36..+23 semitones (interpolation)
+  113200  5 ---- planned 113200 ms, real 116550 ms
+  114200  5 reference tone
+  115500  5 semitone -36, IP 45056
+  116100  5 reference tone
+  117800 -- FILE d:/test7003.wav, 8288012 B, from 76100 ms
+  118200  5 reference tone
+  119500  5 semitone -35, IP 45398
+  120100  5 semitone -34, IP 45739
+  120700  5 semitone -33, IP 46080
+  121300  5 semitone -32, IP 46422
+  121900  5 semitone -31, IP 46763
+  122500  5 semitone -30, IP 47104
+  123100  5 semitone -29, IP 47446
+  123700  5 semitone -28, IP 47787
+  124300  5 semitone -27, IP 48128
+  124900  5 semitone -26, IP 48470
+  125500  5 semitone -25, IP 48811
+  126100  5 semitone -24, IP 49152
+  126700  5 semitone -23, IP 49494
+  127300  5 semitone -22, IP 49835
+  127900  5 semitone -21, IP 50176
+  128500  5 semitone -20, IP 50518
+  129100  5 semitone -19, IP 50859
+  129700  5 semitone -18, IP 51200
+  130300  5 semitone -17, IP 51542
+  130900  5 semitone -16, IP 51883
+  131500  5 semitone -15, IP 52224
+  132100  5 semitone -14, IP 52566
+  132700  5 semitone -13, IP 52907
+  133300  5 semitone -12, IP 53248
+  133900  5 semitone -11, IP 53590
+  134500  5 semitone -10, IP 53931
+  135100  5 semitone -9, IP 54272
+  135700  5 semitone -8, IP 54614
+  136300  5 semitone -7, IP 54955
+  136900  5 semitone -6, IP 55296
+  137500  5 semitone -5, IP 55638
+  138100  5 semitone -4, IP 55979
+  138700  5 semitone -3, IP 56320
+  139300  5 semitone -2, IP 56662
+  139900  5 semitone -1, IP 57003
+  140500  5 semitone 0, IP 57344
+  141100  5 semitone 1, IP 57685
+  141700  5 semitone 2, IP 58026
+  142300  5 semitone 3, IP 58368
+  142900  5 semitone 4, IP 58709
+  143500  5 semitone 5, IP 59050
+  144100  5 semitone 6, IP 59392
+  144700  5 semitone 7, IP 59733
+  145300  5 semitone 8, IP 60074
+  145900  5 semitone 9, IP 60416
+  146500  5 semitone 10, IP 60757
+  147100  5 semitone 11, IP 61098
+  147700  5 semitone 12, IP 61440
+  148300  5 semitone 13, IP 61781
+  148900  5 semitone 14, IP 62122
+  149500  5 semitone 15, IP 62464
+  150100  5 semitone 16, IP 62805
+  150700  5 semitone 17, IP 63146
+  151300  5 semitone 18, IP 63488
+  151900  5 semitone 19, IP 63829
+  152500  5 semitone 20, IP 64170
+  153100  5 semitone 21, IP 64512
+  153700  5 semitone 22, IP 64853
+  154300  5 semitone 23, IP 65194
+  154900  6 ---- filter cutoff, noise, Q=0
+  154900  6 ---- planned 154900 ms, real 159721 ms
+  154900  6 MINUTE 120
+  156600  6 reference tone
+  157900  6 cutoff 0
+  158600  6 reference tone
+  160300 -- FILE d:/test7004.wav, 8388608 B, from 117800 ms
+  160700  6 reference tone
+  162000  6 cutoff 4
+  162700  6 cutoff 8
+  163400  6 cutoff 12
+  164100  6 cutoff 16
+  164800  6 cutoff 20
+  165500  6 cutoff 24
+  166200  6 cutoff 28
+  166900  6 cutoff 32
+  167600  6 cutoff 36
+  168300  6 cutoff 40
+  169000  6 cutoff 44
+  169700  6 cutoff 48
+  170400  6 cutoff 52
+  171100  6 cutoff 56
+  171800  6 cutoff 60
+  172500  6 cutoff 64
+  173200  6 cutoff 68
+  173900  6 cutoff 72
+  174600  6 cutoff 76
+  175300  6 cutoff 80
+  176000  6 cutoff 84
+  176700  6 cutoff 88
+  177400  6 cutoff 92
+  178100  6 cutoff 96
+  178800  6 cutoff 100
+  179500  6 cutoff 104
+  180200  6 cutoff 108
+  180900  6 cutoff 112
+  181600  6 cutoff 116
+  182300  6 cutoff 120
+  183000  6 cutoff 124
+  183700  6 cutoff 128
+  184400  6 cutoff 132
+  185100  6 cutoff 136
+  185800  6 cutoff 140
+  186500  6 cutoff 144
+  187200  6 cutoff 148
+  187900  6 cutoff 152
+  188600  6 cutoff 156
+  189300  6 cutoff 160
+  190000  6 cutoff 164
+  190700  6 cutoff 168
+  191400  6 cutoff 172
+  192100  6 cutoff 176
+  192800  6 cutoff 180
+  193500  6 cutoff 184
+  194200  6 cutoff 188
+  194900  6 cutoff 192
+  195600  6 cutoff 196
+  196300  6 cutoff 200
+  197000  6 cutoff 204
+  197700  6 cutoff 208
+  198400  6 cutoff 212
+  199100  6 cutoff 216
+  199800  6 reference tone
+  201500 -- FILE d:/test7005.wav, 8235914 B, from 160300 ms
+  201900  6 reference tone
+  203200  6 cutoff 220
+  203900  6 cutoff 224
+  204600  6 cutoff 228
+  205300  6 cutoff 232
+  206000  6 cutoff 236
+  206700  6 cutoff 240
+  207400  6 cutoff 244
+  208100  6 cutoff 248
+  208800  6 cutoff 252
+  209500  7 ---- resonance, noise, 6 cutoffs x Q 0..15
+  209500  7 ---- planned 209500 ms, real 217283 ms
+  209500  7 MINUTE 180
+  211300  7 reference tone
+  212600  7 cutoff 32, Q 0
+  213300  7 cutoff 32, Q 1
+  214000  7 cutoff 32, Q 2
+  214700  7 cutoff 32, Q 3
+  215400  7 cutoff 32, Q 4
+  216100  7 cutoff 32, Q 5
+  216800  7 cutoff 32, Q 6
+  217500  7 cutoff 32, Q 7
+  218200  7 cutoff 32, Q 8
+  218900  7 cutoff 32, Q 9
+  219600  7 cutoff 32, Q 10
+  220300  7 cutoff 32, Q 11
+  221000  7 cutoff 32, Q 12
+  221700  7 cutoff 32, Q 13
+  222400  7 cutoff 32, Q 14
+  223100  7 cutoff 32, Q 15
+  223800  7 cutoff 64, Q 0
+  224500  7 cutoff 64, Q 1
+  225200  7 cutoff 64, Q 2
+  225900  7 cutoff 64, Q 3
+  226600  7 cutoff 64, Q 4
+  227300  7 cutoff 64, Q 5
+  228000  7 cutoff 64, Q 6
+  228700  7 cutoff 64, Q 7
+  229400  7 cutoff 64, Q 8
+  230100  7 cutoff 64, Q 9
+  230800  7 cutoff 64, Q 10
+  231500  7 cutoff 64, Q 11
+  232200  7 cutoff 64, Q 12
+  232900  7 cutoff 64, Q 13
+  233600  7 cutoff 64, Q 14
+  234300  7 cutoff 64, Q 15
+  235000  7 cutoff 96, Q 0
+  235700  7 cutoff 96, Q 1
+  236400  7 cutoff 96, Q 2
+  237100  7 cutoff 96, Q 3
+  237800  7 cutoff 96, Q 4
+  238500  7 cutoff 96, Q 5
+  239200  7 cutoff 96, Q 6
+  239900  7 cutoff 96, Q 7
+  240600  7 cutoff 96, Q 8
+  241300  7 reference tone
+  243000 -- FILE d:/test7006.wav, 8301350 B, from 201500 ms
+  243400  7 reference tone
+  244700  7 cutoff 96, Q 9
+  245400  7 cutoff 96, Q 10
+  246100  7 cutoff 96, Q 11
+  246800  7 cutoff 96, Q 12
+  247500  7 cutoff 96, Q 13
+  248200  7 cutoff 96, Q 14
+  248900  7 cutoff 96, Q 15
+  249600  7 cutoff 144, Q 0
+  250300  7 cutoff 144, Q 1
+  251000  7 cutoff 144, Q 2
+  251700  7 cutoff 144, Q 3
+  252400  7 cutoff 144, Q 4
+  253100  7 cutoff 144, Q 5
+  253800  7 cutoff 144, Q 6
+  254500  7 cutoff 144, Q 7
+  255200  7 cutoff 144, Q 8
+  255900  7 cutoff 144, Q 9
+  256600  7 cutoff 144, Q 10
+  257300  7 cutoff 144, Q 11
+  258000  7 cutoff 144, Q 12
+  258700  7 cutoff 144, Q 13
+  259400  7 cutoff 144, Q 14
+  260100  7 cutoff 144, Q 15
+  260800  7 cutoff 192, Q 0
+  261500  7 cutoff 192, Q 1
+  262200  7 cutoff 192, Q 2
+  262900  7 cutoff 192, Q 3
+  263600  7 cutoff 192, Q 4
+  264300  7 cutoff 192, Q 5
+  265000  7 cutoff 192, Q 6
+  265700  7 cutoff 192, Q 7
+  266400  7 cutoff 192, Q 8
+  267100  7 cutoff 192, Q 9
+  267800  7 cutoff 192, Q 10
+  268500  7 cutoff 192, Q 11
+  269200  7 cutoff 192, Q 12
+  269900  7 cutoff 192, Q 13
+  270600  7 cutoff 192, Q 14
+  271300  7 cutoff 192, Q 15
+  272000  7 cutoff 255, Q 0
+  272700  7 cutoff 255, Q 1
+  273400  7 cutoff 255, Q 2
+  274100  7 cutoff 255, Q 3
+  274800  7 cutoff 255, Q 4
+  275500  7 cutoff 255, Q 5
+  276200  7 cutoff 255, Q 6
+  276900  7 cutoff 255, Q 7
+  277600  7 cutoff 255, Q 8
+  278300  7 cutoff 255, Q 9
+  279000  7 cutoff 255, Q 10
+  279700  7 cutoff 255, Q 11
+  280400  7 cutoff 255, Q 12
+  281100  7 cutoff 255, Q 13
+  281800  7 cutoff 255, Q 14
+  282500  7 reference tone
+  284200 -- FILE d:/test7007.wav, 8242050 B, from 243000 ms
+  284600  7 reference tone
+  285900  7 cutoff 255, Q 15
+  286600  8 ---- envelope: attack 0x04..0x7F
+  286600  8 ---- planned 286600 ms, real 297418 ms
+  286600  8 MINUTE 240
+  288500  8 reference tone
+  289800  8 attack 0x04
+  293000  8 attack 0x08
+  296200  8 attack 0x0C
+  299400  8 attack 0x10
+  302600  8 attack 0x14
+  305800  8 attack 0x18
+  309000  8 attack 0x1C
+  312200  8 attack 0x20
+  315400  8 attack 0x24
+  318600  8 attack 0x28
+  321800  8 attack 0x2C
+  325000  8 reference tone
+  326700 -- FILE d:/test7008.wav, 8388608 B, from 284200 ms
+  327100  8 reference tone
+  328400  8 attack 0x30
+  330600  8 attack 0x34
+  332800  8 attack 0x38
+  335000  8 attack 0x3C
+  337200  8 attack 0x40
+  339400  8 attack 0x44
+  341600  8 attack 0x48
+  343800  8 attack 0x4C
+  346000  8 attack 0x50
+  347400  8 attack 0x54
+  348800  8 attack 0x58
+  350200  8 attack 0x5C
+  351600  8 attack 0x60
+  353000  8 attack 0x64
+  354400  8 attack 0x68
+  355800  8 attack 0x6C
+  357200  8 attack 0x70
+  358200  8 attack 0x74
+  359200  8 attack 0x78
+  360200  8 attack 0x7C
+  361200  9 ---- envelope: hold
+  361200  9 ---- planned 361200 ms, real 373544 ms
+  361200  9 MINUTE 300
+  363200  9 reference tone
+  364500  9 MINUTE 360
+  365100  9 hold 0x7F, sustain 0x20
+  367100  9 reference tone
+  368800 -- FILE d:/test7009.wav, 8331266 B, from 326700 ms
+  369200  9 reference tone
+  370500  9 hold 0x7D, sustain 0x20
+  372500  9 hold 0x7B, sustain 0x20
+  374500  9 hold 0x79, sustain 0x20
+  376500  9 hold 0x77, sustain 0x20
+  378500  9 hold 0x75, sustain 0x20
+  380500  9 hold 0x73, sustain 0x20
+  382500  9 hold 0x71, sustain 0x20
+  384500  9 hold 0x6F, sustain 0x20
+  386500  9 hold 0x6D, sustain 0x20
+  388500  9 hold 0x6B, sustain 0x20
+  390500  9 hold 0x69, sustain 0x20
+  392500  9 hold 0x67, sustain 0x20
+  394500  9 hold 0x65, sustain 0x20
+  396500  9 hold 0x63, sustain 0x20
+  398500  9 hold 0x61, sustain 0x20
+  400500 10 ---- envelope: decay 0x04..0x7F
+  400500 10 ---- planned 400500 ms, real 414354 ms
+  402000 10 reference tone
+  403300 10 decay 0x04, sustain 0x20
+  406900 10 decay 0x08, sustain 0x20
+  410500 10 reference tone
+  412200 -- FILE d:/test7010.wav, 8388608 B, from 368800 ms
+  412600 10 reference tone
+  413900 10 decay 0x0C, sustain 0x20
+  417500 10 decay 0x10, sustain 0x20
+  421100 10 decay 0x14, sustain 0x20
+  424700 10 decay 0x18, sustain 0x20
+  428300 10 decay 0x1C, sustain 0x20
+  431900 10 decay 0x20, sustain 0x20
+  435500 10 decay 0x24, sustain 0x20
+  439100 10 decay 0x28, sustain 0x20
+  442700 10 decay 0x2C, sustain 0x20
+  446300 10 decay 0x30, sustain 0x20
+  448900 10 decay 0x34, sustain 0x20
+  451500 10 decay 0x38, sustain 0x20
+  454100 10 reference tone
+  455800 -- FILE d:/test7011.wav, 8388608 B, from 412200 ms
+  456200 10 reference tone
+  457500 10 decay 0x3C, sustain 0x20
+  460100 10 decay 0x40, sustain 0x20
+  462700 10 decay 0x44, sustain 0x20
+  465300 10 decay 0x48, sustain 0x20
+  467900 10 decay 0x4C, sustain 0x20
+  470500 10 decay 0x50, sustain 0x20
+  472300 10 decay 0x54, sustain 0x20
+  474100 10 decay 0x58, sustain 0x20
+  475900 10 decay 0x5C, sustain 0x20
+  477700 10 decay 0x60, sustain 0x20
+  479500 10 decay 0x64, sustain 0x20
+  481300 10 decay 0x68, sustain 0x20
+  483100 10 decay 0x6C, sustain 0x20
+  484900 10 decay 0x70, sustain 0x20
+  486300 10 decay 0x74, sustain 0x20
+  487700 10 decay 0x78, sustain 0x20
+  489100 10 decay 0x7C, sustain 0x20
+  490500 11 ---- envelope: sustain 0x51..0x7F
+  490500 11 ---- planned 490500 ms, real 507287 ms
+  490500 11 MINUTE 420
+  492700 11 reference tone
+  494000 11 MINUTE 480
+  494600 11 sustain 0x51
+  496600 11 reference tone
+  498300 -- FILE d:/test7012.wav, 8388608 B, from 455800 ms
+  498700 11 reference tone
+  500000 11 sustain 0x53
+  502000 11 sustain 0x55
+  504000 11 sustain 0x57
+  506000 11 sustain 0x59
+  508000 11 sustain 0x5B
+  510000 11 sustain 0x5D
+  512000 11 sustain 0x5F
+  514000 11 sustain 0x61
+  516000 11 sustain 0x63
+  518000 11 sustain 0x65
+  520000 11 sustain 0x67
+  522000 11 sustain 0x69
+  524000 11 sustain 0x6B
+  526000 11 sustain 0x6D
+  528000 11 sustain 0x6F
+  530000 11 sustain 0x71
+  532000 11 sustain 0x73
+  534000 11 sustain 0x75
+  536000 11 sustain 0x77
+  538000 11 reference tone
+  539700 -- FILE d:/test7013.wav, 8200884 B, from 498300 ms
+  540100 11 reference tone
+  541400 11 sustain 0x79
+  543400 11 sustain 0x7B
+  545400 11 sustain 0x7D
+  547400 11 sustain 0x7F
+  549400 12 ---- envelope: release 0x04..0x7F
+  549400 12 ---- planned 549400 ms, real 569132 ms
+  549400 12 MINUTE 540
+  551700 12 reference tone
+  553000 12 release 0x04
+  556700 12 release 0x08
+  560400 12 release 0x0C
+  564100 12 release 0x10
+  567800 12 release 0x14
+  571500 12 release 0x18
+  575200 12 release 0x1C
+  578900 12 release 0x20
+  582600 12 reference tone
+  584300 -- FILE d:/test7014.wav, 8388608 B, from 539700 ms
+  584700 12 reference tone
+  586000 12 release 0x24
+  589700 12 release 0x28
+  593400 12 release 0x2C
+  597100 12 release 0x30
+  599800 12 release 0x34
+  602500 12 release 0x38
+  605200 12 release 0x3C
+  607900 12 release 0x40
+  610600 12 release 0x44
+  613300 12 release 0x48
+  616000 12 release 0x4C
+  618700 12 release 0x50
+  620600 12 release 0x54
+  622500 12 release 0x58
+  624400 12 reference tone
+  626100 -- FILE d:/test7015.wav, 8245124 B, from 584300 ms
+  626500 12 reference tone
+  627800 12 release 0x5C
+  629700 12 release 0x60
+  631600 12 release 0x64
+  633500 12 release 0x68
+  635400 12 release 0x6C
+  637300 12 release 0x70
+  638800 12 release 0x74
+  640300 12 release 0x78
+  641800 12 release 0x7C
+  643300 13 ---- envelope: ENVVOL delay
+  643300 13 ---- planned 643300 ms, real 666020 ms
+  643300 13 MINUTE 600
+  645700 13 reference tone
+  647000 13 envvol 0x8000
+  649800 13 envvol 0x7F38
+  652600 13 envvol 0x7E70
+  655400 13 envvol 0x7DA8
+  658200 13 envvol 0x7CE0
+  661000 13 envvol 0x7C18
+  663800 13 envvol 0x7B50
+  666600 13 reference tone
+  668300 -- FILE d:/test7016.wav, 8370982 B, from 626100 ms
+  668700 13 reference tone
+  670000 13 envvol 0x7A88
+  672800 13 envvol 0x79C0
+  675600 13 envvol 0x78F8
+  678400 13 envvol 0x7830
+  681200 13 envvol 0x7768
+  684000 13 envvol 0x76A0
+  686800 13 envvol 0x75D8
+  689600 13 envvol 0x7510
+  692400 13 envvol 0x7448
+  695200 14 ---- modulation envelope -> pitch
+  695200 14 ---- planned 695200 ms, real 719407 ms
+  695200 14 MINUTE 660
+  697700 14 reference tone
+  699000 14 depth -128, PEFE 0x8000
+  701200 14 depth -112, PEFE 0x9000
+  703400 14 depth -96, PEFE 0xA000
+  705600 14 depth -80, PEFE 0xB000
+  707800 14 reference tone
+  709500 -- FILE d:/test7017.wav, 8196888 B, from 668300 ms
+  709900 14 reference tone
+  711200 14 depth -64, PEFE 0xC000
+  713400 14 depth -48, PEFE 0xD000
+  715600 14 depth -32, PEFE 0xE000
+  717800 14 depth -16, PEFE 0xF000
+  720000 14 depth 0, PEFE 0x0000
+  722200 14 depth 16, PEFE 0x1000
+  724400 14 depth 32, PEFE 0x2000
+  726600 14 depth 48, PEFE 0x3000
+  728800 14 depth 64, PEFE 0x4000
+  731000 14 depth 80, PEFE 0x5000
+  733200 14 depth 96, PEFE 0x6000
+  735400 14 depth 112, PEFE 0x7000
+  737600 15 ---- modulation envelope -> filter
+  737600 15 ---- planned 737600 ms, real 763292 ms

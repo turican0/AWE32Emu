@@ -1,0 +1,617 @@
+start
+hardware ok, base 220
+  irq 5
+  dma 5
+SetupBanks: patch RAM 8388608 B
+SetupBanks: embedded GM presets in bank 0
+probing wavetable
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 194
+RecHwStop: done
+Probe: peak 194
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 363
+RecHwStop: done
+Probe: peak 363
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 749
+RecHwStop: done
+Probe: peak 749
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1414
+RecHwStop: done
+Probe: peak 1414
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 195
+RecHwStop: done
+Probe: peak 195
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 362
+RecHwStop: done
+Probe: peak 362
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 717
+RecHwStop: done
+Probe: peak 717
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1395
+RecHwStop: done
+Probe: peak 1395
+wavetable up to 0xD8
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 304
+RecHwStop: done
+Probe: peak 304
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 560
+RecHwStop: done
+Probe: peak 560
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1182
+RecHwStop: done
+Probe: peak 1182
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 2162
+RecHwStop: done
+Probe: peak 2162
+wavetable up to 0xE8
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 469
+RecHwStop: done
+Probe: peak 469
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 892
+RecHwStop: done
+Probe: peak 892
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1746
+RecHwStop: done
+Probe: peak 1746
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6222
+RecHwStop: done
+Probe: peak 6222
+wavetable up to 0xF8
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 725
+RecHwStop: done
+Probe: peak 725
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1402
+RecHwStop: done
+Probe: peak 1402
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 2834
+RecHwStop: done
+Probe: peak 2834
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6474
+RecHwStop: done
+Probe: peak 6474
+wavetable compressing at 0xE8, back
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 467
+RecHwStop: done
+Probe: peak 467
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 920
+RecHwStop: done
+Probe: peak 920
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1690
+RecHwStop: done
+Probe: peak 1690
+Probe: src 0
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3484
+RecHwStop: done
+Probe: peak 3484
+internal capture peak 3484
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5204
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3514
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 959
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 929
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5938
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5666
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1804
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 1730
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 870
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 880
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 446
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 443
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 220
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 243
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 121
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 119
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 68
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 72
+RecHwStop: done
+PitchCheck: start
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 3355
+RecHwStop: done
+ProbeZc: nic, zkousim znovu
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4787
+RecHwStop: done
+ProbeZc: nic, zkousim znovu
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4453
+RecHwStop: done
+ProbeZc: nic, zkousim znovu
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 4730
+RecHwStop: done
+ProbeZc: nic, zkousim znovu
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6761
+RecHwStop: done
+PitchCheck: unity -1
+PitchCheck: octave 1044473
+PitchCheck: inconclusive
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 5333
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 140
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 95
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 60
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 6836
+RecHwStop: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+RecHwStop: enter, peak 137
+RecHwStop: done
+MemUsable: 1 ticks
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+path decided, starting the run
+countdown done
+channel marks done
+block 11
+block 12
+RecHwStop: enter, peak 7679
+RecHwStop: done
+CapFlush: writing 19541222 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3670016 B written
+CapFlush: 3932160 B written
+CapFlush: 4194304 B written
+CapFlush: 4456448 B written
+CapFlush: 4718592 B written
+CapFlush: 4980736 B written
+CapFlush: 5242880 B written
+CapFlush: 5505024 B written
+CapFlush: 5767168 B written
+CapFlush: 6029312 B written
+CapFlush: 6291456 B written
+CapFlush: 6553600 B written
+CapFlush: 6815744 B written
+CapFlush: 7077888 B written
+CapFlush: 7340032 B written
+CapFlush: 7602176 B written
+CapFlush: 7864320 B written
+CapFlush: 8126464 B written
+CapFlush: 8388608 B written
+CapFlush: 8650752 B written
+CapFlush: 8912896 B written
+CapFlush: 9175040 B written
+CapFlush: 9437184 B written
+CapFlush: 9699328 B written
+CapFlush: 9961472 B written
+CapFlush: 10223616 B written
+CapFlush: 10485760 B written
+CapFlush: 10747904 B written
+CapFlush: 11010048 B written
+CapFlush: 11272192 B written
+CapFlush: 11534336 B written
+CapFlush: 11796480 B written
+CapFlush: 12058624 B written
+CapFlush: 12320768 B written
+CapFlush: 12582912 B written
+CapFlush: 12845056 B written
+CapFlush: 13107200 B written
+CapFlush: 13369344 B written
+CapFlush: 13631488 B written
+CapFlush: 13893632 B written
+CapFlush: 14155776 B written
+CapFlush: 14417920 B written
+CapFlush: 14680064 B written
+CapFlush: 14942208 B written
+CapFlush: 15204352 B written
+CapFlush: 15466496 B written
+CapFlush: 15728640 B written
+CapFlush: 15990784 B written
+CapFlush: 16252928 B written
+CapFlush: 16515072 B written
+CapFlush: 16777216 B written
+CapFlush: 17039360 B written
+CapFlush: 17301504 B written
+CapFlush: 17563648 B written
+CapFlush: 17825792 B written
+CapFlush: 18087936 B written
+CapFlush: 18350080 B written
+CapFlush: 18612224 B written
+CapFlush: 18874368 B written
+CapFlush: 19136512 B written
+CapFlush: 19398656 B written
+CapFlush: 19541222 B written
+CapFlush: done
+RecHwStart: enter
+RecHwStart: buffer at 00030000
+RecHwStart: ring 65536 B
+RecHwStart: DSP reset ok
+RecHwStart: IRQ 5 hooked
+RecHwStart: running, DMA 5
+block 13
+RecHwStop: enter, peak 7631
+RecHwStop: done
+CapFlush: writing 19828966 B
+CapFlush: 262144 B written
+CapFlush: 524288 B written
+CapFlush: 786432 B written
+CapFlush: 1048576 B written
+CapFlush: 1310720 B written
+CapFlush: 1572864 B written
+CapFlush: 1835008 B written
+CapFlush: 2097152 B written
+CapFlush: 2359296 B written
+CapFlush: 2621440 B written
+CapFlush: 2883584 B written
+CapFlush: 3145728 B written
+CapFlush: 3407872 B written
+CapFlush: 3670016 B written
+CapFlush: 3932160 B written
+CapFlush: 4194304 B written
+CapFlush: 4456448 B written
+CapFlush: 4718592 B written
+CapFlush: 4980736 B written
+CapFlush: 5242880 B written
+CapFlush: 5505024 B written
+CapFlush: 5767168 B written
+CapFlush: 6029312 B written
+CapFlush: 6291456 B written

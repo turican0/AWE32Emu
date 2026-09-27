@@ -1,0 +1,833 @@
+# AWETEST v05
+# ms block description
+   13800  0 reference tone
+       0 22 ---- reverb: 8 presets x 5 send levels
+       0 22 ---- planned 0 ms, real 0 ms
+    2700 22 reference tone
+    4000 22 preset 0, send 0
+    5800 22 preset 0, send 48
+    7600 22 preset 0, send 96
+    9400 22 preset 0, send 160
+   11200 22 preset 0, send 255
+   13000 22 preset 1, send 0
+   14800 22 preset 1, send 48
+   16600 22 preset 1, send 96
+   18400 22 preset 1, send 160
+   20200 22 preset 1, send 255
+   22000 22 preset 2, send 0
+   23800 22 preset 2, send 48
+   25600 22 preset 2, send 96
+   27400 22 preset 2, send 160
+   29200 22 preset 2, send 255
+   31000 22 reference tone
+   32700 -- FILE d:/test8001.wav, 8381508 B, from 0 ms
+   33100 22 reference tone
+   34400 22 preset 3, send 0
+   36200 22 preset 3, send 48
+   38000 22 preset 3, send 96
+   39800 22 preset 3, send 160
+   41600 22 preset 3, send 255
+   43400 22 preset 4, send 0
+   45200 22 preset 4, send 48
+   47000 22 preset 4, send 96
+   48800 22 preset 4, send 160
+   50600 22 preset 4, send 255
+   52400 22 preset 5, send 0
+   54200 22 preset 5, send 48
+   56000 22 preset 5, send 96
+   57800 22 preset 5, send 160
+   59600 22 preset 5, send 255
+   61400 22 preset 6, send 0
+   63200 22 preset 6, send 48
+   65000 22 preset 6, send 96
+   66800 22 preset 6, send 160
+   68600 22 preset 6, send 255
+   70400 22 preset 7, send 0
+   72200 22 reference tone
+   73900 -- FILE d:/test8002.wav, 8213312 B, from 32700 ms
+   74300 22 reference tone
+   75600 22 preset 7, send 48
+   77400 22 preset 7, send 96
+   79200 22 preset 7, send 160
+   81000 22 preset 7, send 255
+   82800 23 ---- chorus: 8 presets x 5 send levels
+   82800 23 ---- planned 82800 ms, real 86067 ms
+   82800 23 MINUTE 60
+   86200 23 reference tone
+   87500 23 preset 0, send 0
+   89300 23 preset 0, send 48
+   91100 23 preset 0, send 96
+   92900 23 preset 0, send 160
+   94700 23 preset 0, send 255
+   96500 23 preset 1, send 0
+   98300 23 preset 1, send 48
+  100100 23 preset 1, send 96
+  101900 23 preset 1, send 160
+  103700 23 preset 1, send 255
+  105500 23 preset 2, send 0
+  107300 23 preset 2, send 48
+  109100 23 preset 2, send 96
+  110900 23 preset 2, send 160
+  112700 23 preset 2, send 255
+  114500 23 reference tone
+  116200 -- FILE d:/test8003.wav, 8388608 B, from 73900 ms
+  116600 23 reference tone
+  117900 23 preset 3, send 0
+  119700 23 preset 3, send 48
+  121500 23 preset 3, send 96
+  123300 23 preset 3, send 160
+  125100 23 preset 3, send 255
+  126900 23 preset 4, send 0
+  128700 23 preset 4, send 48
+  130500 23 preset 4, send 96
+  132300 23 preset 4, send 160
+  134100 23 preset 4, send 255
+  135900 23 preset 5, send 0
+  137700 23 preset 5, send 48
+  139500 23 preset 5, send 96
+  141300 23 preset 5, send 160
+  143100 23 preset 5, send 255
+  144900 23 preset 6, send 0
+  146700 23 preset 6, send 48
+  148500 23 preset 6, send 96
+  150300 23 preset 6, send 160
+  152100 23 preset 6, send 255
+  153900 23 preset 7, send 0
+  155700 23 reference tone
+  157400 -- FILE d:/test8004.wav, 8235516 B, from 116200 ms
+  157800 23 reference tone
+  159100 23 preset 7, send 48
+  160900 23 preset 7, send 96
+  162700 23 preset 7, send 160
+  164500 23 preset 7, send 255
+  166300 24 ---- loop: long sustained tones
+  166300 24 ---- planned 166300 ms, real 172794 ms
+  166300 24 MINUTE 120
+  169800 24 reference tone
+  171100 24 sine, semitone -12
+  175100 24 sine, semitone 0
+  179100 24 sine, semitone 7
+  183100 24 noise, semitone -12
+  187100 24 noise, semitone 0
+  191100 24 noise, semitone 7
+  195100 25 ---- voice summing 1..16
+  195100 25 ---- planned 195100 ms, real 201629 ms
+  195100 25 MINUTE 180
+  198700 25 reference tone
+  200000 25 voices 1
+  202000 25 reference tone
+  203700 -- FILE d:/test8005.wav, 8388608 B, from 157400 ms
+  204100 25 reference tone
+  205400 25 voices 2
+  207400 25 voices 3
+  209400 25 voices 4
+  211400 25 voices 6
+  213400 25 voices 8
+  215400 25 voices 12
+  217400 25 voices 16
+  219400 26 ---- as a game does: ROM GM presets 0..15
+  219400 26 ---- planned 219400 ms, real 227444 ms
+  222500 26 reference tone
+  223800 26 preset 0, note 36, velocity 40
+  224500 26 preset 0, note 36, velocity 120
+  225200 26 preset 0, note 48, velocity 40
+  225900 26 preset 0, note 48, velocity 120
+  226600 26 preset 0, note 60, velocity 40
+  227300 26 preset 0, note 60, velocity 120
+  228000 26 preset 0, note 72, velocity 40
+  228700 26 preset 0, note 72, velocity 120
+  229400 26 preset 0, note 84, velocity 40
+  230100 26 preset 0, note 84, velocity 120
+  230800 26 preset 1, note 36, velocity 40
+  231500 26 preset 1, note 36, velocity 120
+  232200 26 preset 1, note 48, velocity 40
+  232900 26 preset 1, note 48, velocity 120
+  233600 26 preset 1, note 60, velocity 40
+  234300 26 preset 1, note 60, velocity 120
+  235000 26 preset 1, note 72, velocity 40
+  235700 26 preset 1, note 72, velocity 120
+  236400 26 preset 1, note 84, velocity 40
+  237100 26 preset 1, note 84, velocity 120
+  237800 26 preset 2, note 36, velocity 40
+  238500 26 preset 2, note 36, velocity 120
+  239200 26 preset 2, note 48, velocity 40
+  239900 26 preset 2, note 48, velocity 120
+  240600 26 preset 2, note 60, velocity 40
+  241300 26 preset 2, note 60, velocity 120
+  242000 26 preset 2, note 72, velocity 40
+  242700 26 preset 2, note 72, velocity 120
+  243400 26 preset 2, note 84, velocity 40
+  244100 26 reference tone
+  245800 -- FILE d:/test8006.wav, 8272062 B, from 203700 ms
+  246200 26 reference tone
+  247500 26 preset 2, note 84, velocity 120
+  248200 26 preset 3, note 36, velocity 40
+  248900 26 preset 3, note 36, velocity 120
+  249600 26 preset 3, note 48, velocity 40
+  250300 26 preset 3, note 48, velocity 120
+  251000 26 preset 3, note 60, velocity 40
+  251700 26 preset 3, note 60, velocity 120
+  252400 26 preset 3, note 72, velocity 40
+  253100 26 preset 3, note 72, velocity 120
+  253800 26 preset 3, note 84, velocity 40
+  254500 26 preset 3, note 84, velocity 120
+  255200 26 preset 4, note 36, velocity 40
+  255900 26 preset 4, note 36, velocity 120
+  256600 26 preset 4, note 48, velocity 40
+  257300 26 preset 4, note 48, velocity 120
+  258000 26 preset 4, note 60, velocity 40
+  258700 26 preset 4, note 60, velocity 120
+  259400 26 preset 4, note 72, velocity 40
+  260100 26 preset 4, note 72, velocity 120
+  260800 26 preset 4, note 84, velocity 40
+  261500 26 preset 4, note 84, velocity 120
+  262200 26 preset 5, note 36, velocity 40
+  262900 26 preset 5, note 36, velocity 120
+  263600 26 preset 5, note 48, velocity 40
+  264300 26 preset 5, note 48, velocity 120
+  265000 26 preset 5, note 60, velocity 40
+  265700 26 preset 5, note 60, velocity 120
+  266400 26 preset 5, note 72, velocity 40
+  267100 26 preset 5, note 72, velocity 120
+  267800 26 preset 5, note 84, velocity 40
+  268500 26 preset 5, note 84, velocity 120
+  269200 26 preset 6, note 36, velocity 40
+  269900 26 preset 6, note 36, velocity 120
+  270600 26 preset 6, note 48, velocity 40
+  271300 26 preset 6, note 48, velocity 120
+  272000 26 preset 6, note 60, velocity 40
+  272700 26 preset 6, note 60, velocity 120
+  273400 26 preset 6, note 72, velocity 40
+  274100 26 preset 6, note 72, velocity 120
+  274800 26 preset 6, note 84, velocity 40
+  275500 26 preset 6, note 84, velocity 120
+  276200 26 preset 7, note 36, velocity 40
+  276900 26 preset 7, note 36, velocity 120
+  277600 26 preset 7, note 48, velocity 40
+  278300 26 preset 7, note 48, velocity 120
+  279000 26 preset 7, note 60, velocity 40
+  279700 26 preset 7, note 60, velocity 120
+  280400 26 preset 7, note 72, velocity 40
+  281100 26 preset 7, note 72, velocity 120
+  281800 26 preset 7, note 84, velocity 40
+  282500 26 preset 7, note 84, velocity 120
+  283200 26 preset 8, note 36, velocity 40
+  283900 26 preset 8, note 36, velocity 120
+  284600 26 preset 8, note 48, velocity 40
+  285300 26 preset 8, note 48, velocity 120
+  286000 26 reference tone
+  287700 -- FILE d:/test8007.wav, 8260662 B, from 245800 ms
+  288100 26 reference tone
+  289400 26 preset 8, note 60, velocity 40
+  290100 26 preset 8, note 60, velocity 120
+  290800 26 preset 8, note 72, velocity 40
+  291500 26 preset 8, note 72, velocity 120
+  292200 26 preset 8, note 84, velocity 40
+  292900 26 preset 8, note 84, velocity 120
+  293600 26 preset 9, note 36, velocity 40
+  294300 26 preset 9, note 36, velocity 120
+  295000 26 preset 9, note 48, velocity 40
+  295700 26 preset 9, note 48, velocity 120
+  296400 26 preset 9, note 60, velocity 40
+  297100 26 preset 9, note 60, velocity 120
+  297800 26 preset 9, note 72, velocity 40
+  298500 26 preset 9, note 72, velocity 120
+  299200 26 preset 9, note 84, velocity 40
+  299900 26 preset 9, note 84, velocity 120
+  300600 26 preset 10, note 36, velocity 40
+  301300 26 preset 10, note 36, velocity 120
+  302000 26 preset 10, note 48, velocity 40
+  302700 26 preset 10, note 48, velocity 120
+  303400 26 preset 10, note 60, velocity 40
+  304100 26 preset 10, note 60, velocity 120
+  304800 26 preset 10, note 72, velocity 40
+  305500 26 preset 10, note 72, velocity 120
+  306200 26 preset 10, note 84, velocity 40
+  306900 26 preset 10, note 84, velocity 120
+  307600 26 preset 11, note 36, velocity 40
+  308300 26 preset 11, note 36, velocity 120
+  309000 26 preset 11, note 48, velocity 40
+  309700 26 preset 11, note 48, velocity 120
+  310400 26 preset 11, note 60, velocity 40
+  311100 26 preset 11, note 60, velocity 120
+  311800 26 preset 11, note 72, velocity 40
+  312500 26 preset 11, note 72, velocity 120
+  313200 26 preset 11, note 84, velocity 40
+  313900 26 preset 11, note 84, velocity 120
+  314600 26 preset 12, note 36, velocity 40
+  315300 26 preset 12, note 36, velocity 120
+  316000 26 preset 12, note 48, velocity 40
+  316700 26 preset 12, note 48, velocity 120
+  317400 26 preset 12, note 60, velocity 40
+  318100 26 preset 12, note 60, velocity 120
+  318800 26 preset 12, note 72, velocity 40
+  319500 26 preset 12, note 72, velocity 120
+  320200 26 preset 12, note 84, velocity 40
+  320900 26 preset 12, note 84, velocity 120
+  321600 26 preset 13, note 36, velocity 40
+  322300 26 preset 13, note 36, velocity 120
+  323000 26 preset 13, note 48, velocity 40
+  323700 26 preset 13, note 48, velocity 120
+  324400 26 preset 13, note 60, velocity 40
+  325100 26 preset 13, note 60, velocity 120
+  325800 26 preset 13, note 72, velocity 40
+  326500 26 preset 13, note 72, velocity 120
+  327200 26 preset 13, note 84, velocity 40
+  327900 26 reference tone
+  329600 -- FILE d:/test8008.wav, 8230050 B, from 287700 ms
+  330000 26 reference tone
+  331300 26 preset 13, note 84, velocity 120
+  332000 26 preset 14, note 36, velocity 40
+  332700 26 preset 14, note 36, velocity 120
+  333400 26 preset 14, note 48, velocity 40
+  334100 26 preset 14, note 48, velocity 120
+  334800 26 preset 14, note 60, velocity 40
+  335500 26 preset 14, note 60, velocity 120
+  336200 26 preset 14, note 72, velocity 40
+  336900 26 preset 14, note 72, velocity 120
+  337600 26 preset 14, note 84, velocity 40
+  338300 26 preset 14, note 84, velocity 120
+  339000 26 preset 15, note 36, velocity 40
+  339700 26 preset 15, note 36, velocity 120
+  340400 26 preset 15, note 48, velocity 40
+  341100 26 preset 15, note 48, velocity 120
+  341800 26 preset 15, note 60, velocity 40
+  342500 26 preset 15, note 60, velocity 120
+  343200 26 preset 15, note 72, velocity 40
+  343900 26 preset 15, note 72, velocity 120
+  344600 26 preset 15, note 84, velocity 40
+  345300 26 preset 15, note 84, velocity 120
+  346000 27 ---- as a game does: BULLFROG.SBK
+  346000 27 ---- planned 346000 ms, real 358495 ms
+  346000 27 MINUTE 240
+  349800 27 reference tone
+  351100 27 MINUTE 300
+  351700 27 preset 0, note 36, velocity 40
+  352400 27 preset 0, note 36, velocity 120
+  353100 27 preset 0, note 48, velocity 40
+  353800 27 preset 0, note 48, velocity 120
+  354500 27 preset 0, note 60, velocity 40
+  355200 27 preset 0, note 60, velocity 120
+  355900 27 preset 0, note 72, velocity 40
+  356600 27 preset 0, note 72, velocity 120
+  357300 27 preset 0, note 84, velocity 40
+  358000 27 preset 0, note 84, velocity 120
+  358700 27 preset 1, note 36, velocity 40
+  359400 27 preset 1, note 36, velocity 120
+  360100 27 preset 1, note 48, velocity 40
+  360800 27 preset 1, note 48, velocity 120
+  361500 27 preset 1, note 60, velocity 40
+  362200 27 preset 1, note 60, velocity 120
+  362900 27 preset 1, note 72, velocity 40
+  363600 27 preset 1, note 72, velocity 120
+  364300 27 preset 1, note 84, velocity 40
+  365000 27 preset 1, note 84, velocity 120
+  365700 27 preset 2, note 36, velocity 40
+  366400 27 preset 2, note 36, velocity 120
+  367100 27 preset 2, note 48, velocity 40
+  367800 27 preset 2, note 48, velocity 120
+  368500 27 preset 2, note 60, velocity 40
+  369200 27 preset 2, note 60, velocity 120
+  369900 27 reference tone
+  371600 -- FILE d:/test8009.wav, 8314564 B, from 329600 ms
+  372000 27 reference tone
+  373300 27 preset 2, note 72, velocity 40
+  374000 27 preset 2, note 72, velocity 120
+  374700 27 preset 2, note 84, velocity 40
+  375400 27 preset 2, note 84, velocity 120
+  376100 27 preset 3, note 36, velocity 40
+  376800 27 preset 3, note 36, velocity 120
+  377500 27 preset 3, note 48, velocity 40
+  378200 27 preset 3, note 48, velocity 120
+  378900 27 preset 3, note 60, velocity 40
+  379600 27 preset 3, note 60, velocity 120
+  380300 27 preset 3, note 72, velocity 40
+  381000 27 preset 3, note 72, velocity 120
+  381700 27 preset 3, note 84, velocity 40
+  382400 27 preset 3, note 84, velocity 120
+  383100 27 preset 4, note 36, velocity 40
+  383800 27 preset 4, note 36, velocity 120
+  384500 27 preset 4, note 48, velocity 40
+  385200 27 preset 4, note 48, velocity 120
+  385900 27 preset 4, note 60, velocity 40
+  386600 27 preset 4, note 60, velocity 120
+  387300 27 preset 4, note 72, velocity 40
+  388000 27 preset 4, note 72, velocity 120
+  388700 27 preset 4, note 84, velocity 40
+  389400 27 preset 4, note 84, velocity 120
+  390100 27 preset 5, note 36, velocity 40
+  390800 27 preset 5, note 36, velocity 120
+  391500 27 preset 5, note 48, velocity 40
+  392200 27 preset 5, note 48, velocity 120
+  392900 27 preset 5, note 60, velocity 40
+  393600 27 preset 5, note 60, velocity 120
+  394300 27 preset 5, note 72, velocity 40
+  395000 27 preset 5, note 72, velocity 120
+  395700 27 preset 5, note 84, velocity 40
+  396400 27 preset 5, note 84, velocity 120
+  397100 27 preset 6, note 36, velocity 40
+  397800 27 preset 6, note 36, velocity 120
+  398500 27 preset 6, note 48, velocity 40
+  399200 27 preset 6, note 48, velocity 120
+  399900 27 preset 6, note 60, velocity 40
+  400600 27 preset 6, note 60, velocity 120
+  401300 27 preset 6, note 72, velocity 40
+  402000 27 preset 6, note 72, velocity 120
+  402700 27 preset 6, note 84, velocity 40
+  403400 27 preset 6, note 84, velocity 120
+  404100 27 preset 7, note 36, velocity 40
+  404800 27 preset 7, note 36, velocity 120
+  405500 27 preset 7, note 48, velocity 40
+  406200 27 preset 7, note 48, velocity 120
+  406900 27 preset 7, note 60, velocity 40
+  407600 27 preset 7, note 60, velocity 120
+  408300 27 preset 7, note 72, velocity 40
+  409000 27 preset 7, note 72, velocity 120
+  409700 27 preset 7, note 84, velocity 40
+  410400 27 preset 7, note 84, velocity 120
+  411100 27 preset 8, note 36, velocity 40
+  411800 27 reference tone
+  413500 -- FILE d:/test8010.wav, 8319676 B, from 371600 ms
+  413900 27 reference tone
+  415200 27 preset 8, note 36, velocity 120
+  415900 27 preset 8, note 48, velocity 40
+  416600 27 preset 8, note 48, velocity 120
+  417300 27 preset 8, note 60, velocity 40
+  418000 27 preset 8, note 60, velocity 120
+  418700 27 preset 8, note 72, velocity 40
+  419400 27 preset 8, note 72, velocity 120
+  420100 27 preset 8, note 84, velocity 40
+  420800 27 preset 8, note 84, velocity 120
+  421500 27 preset 9, note 36, velocity 40
+  422200 27 preset 9, note 36, velocity 120
+  422900 27 preset 9, note 48, velocity 40
+  423600 27 preset 9, note 48, velocity 120
+  424300 27 preset 9, note 60, velocity 40
+  425000 27 preset 9, note 60, velocity 120
+  425700 27 preset 9, note 72, velocity 40
+  426400 27 preset 9, note 72, velocity 120
+  427100 27 preset 9, note 84, velocity 40
+  427800 27 preset 9, note 84, velocity 120
+  428500 27 preset 10, note 36, velocity 40
+  429200 27 preset 10, note 36, velocity 120
+  429900 27 preset 10, note 48, velocity 40
+  430600 27 preset 10, note 48, velocity 120
+  431300 27 preset 10, note 60, velocity 40
+  432000 27 preset 10, note 60, velocity 120
+  432700 27 preset 10, note 72, velocity 40
+  433400 27 preset 10, note 72, velocity 120
+  434100 27 preset 10, note 84, velocity 40
+  434800 27 preset 10, note 84, velocity 120
+  435500 27 preset 11, note 36, velocity 40
+  436200 27 preset 11, note 36, velocity 120
+  436900 27 preset 11, note 48, velocity 40
+  437600 27 preset 11, note 48, velocity 120
+  438300 27 preset 11, note 60, velocity 40
+  439000 27 preset 11, note 60, velocity 120
+  439700 27 preset 11, note 72, velocity 40
+  440400 27 preset 11, note 72, velocity 120
+  441100 27 preset 11, note 84, velocity 40
+  441800 27 preset 11, note 84, velocity 120
+  442500 27 preset 12, note 36, velocity 40
+  443200 27 preset 12, note 36, velocity 120
+  443900 27 preset 12, note 48, velocity 40
+  444600 27 preset 12, note 48, velocity 120
+  445300 27 preset 12, note 60, velocity 40
+  446000 27 preset 12, note 60, velocity 120
+  446700 27 preset 12, note 72, velocity 40
+  447400 27 preset 12, note 72, velocity 120
+  448100 27 preset 12, note 84, velocity 40
+  448800 27 preset 12, note 84, velocity 120
+  449500 27 preset 13, note 36, velocity 40
+  450200 27 preset 13, note 36, velocity 120
+  450900 27 preset 13, note 48, velocity 40
+  451600 27 preset 13, note 48, velocity 120
+  452300 27 preset 13, note 60, velocity 40
+  453000 27 preset 13, note 60, velocity 120
+  453700 27 reference tone
+  455400 -- FILE d:/test8011.wav, 8239590 B, from 413500 ms
+  455800 27 reference tone
+  457100 27 preset 13, note 72, velocity 40
+  457800 27 preset 13, note 72, velocity 120
+  458500 27 preset 13, note 84, velocity 40
+  459200 27 preset 13, note 84, velocity 120
+  459900 27 preset 14, note 36, velocity 40
+  460600 27 preset 14, note 36, velocity 120
+  461300 27 preset 14, note 48, velocity 40
+  462000 27 preset 14, note 48, velocity 120
+  462700 27 preset 14, note 60, velocity 40
+  463400 27 preset 14, note 60, velocity 120
+  464100 27 preset 14, note 72, velocity 40
+  464800 27 preset 14, note 72, velocity 120
+  465500 27 preset 14, note 84, velocity 40
+  466200 27 preset 14, note 84, velocity 120
+  466900 28 ---- filter by sine: cutoff sweep, then PEFE and FMMOD depth
+  466900 28 ---- planned 466900 ms, real 483834 ms
+  466900 28 MINUTE 360
+  470800 28 reference tone
+  472100 28 MINUTE 420
+  472700 28 filter sine IP 53248, cutoff 0
+  473300 28 filter sine IP 53248, cutoff 8
+  473900 28 filter sine IP 53248, cutoff 16
+  474500 28 filter sine IP 53248, cutoff 24
+  475100 28 filter sine IP 53248, cutoff 32
+  475700 28 filter sine IP 53248, cutoff 40
+  476300 28 filter sine IP 53248, cutoff 48
+  476900 28 filter sine IP 53248, cutoff 56
+  477500 28 filter sine IP 53248, cutoff 64
+  478100 28 filter sine IP 53248, cutoff 72
+  478700 28 filter sine IP 53248, cutoff 80
+  479300 28 filter sine IP 53248, cutoff 88
+  479900 28 filter sine IP 53248, cutoff 96
+  480500 28 filter sine IP 53248, cutoff 104
+  481100 28 filter sine IP 53248, cutoff 112
+  481700 28 filter sine IP 53248, cutoff 120
+  482300 28 filter sine IP 53248, cutoff 128
+  482900 28 filter sine IP 53248, cutoff 136
+  483500 28 filter sine IP 53248, cutoff 144
+  484100 28 filter sine IP 53248, cutoff 152
+  484700 28 filter sine IP 53248, cutoff 160
+  485300 28 filter sine IP 53248, cutoff 168
+  485900 28 filter sine IP 53248, cutoff 176
+  486500 28 filter sine IP 53248, cutoff 184
+  487100 28 filter sine IP 53248, cutoff 192
+  487700 28 filter sine IP 53248, cutoff 200
+  488300 28 filter sine IP 53248, cutoff 208
+  488900 28 filter sine IP 53248, cutoff 216
+  489500 28 filter sine IP 53248, cutoff 224
+  490100 28 filter sine IP 53248, cutoff 232
+  490700 28 filter sine IP 53248, cutoff 240
+  491300 28 filter sine IP 53248, cutoff 248
+  491900 28 filter sine IP 57344, cutoff 0
+  492500 28 filter sine IP 57344, cutoff 8
+  493100 28 filter sine IP 57344, cutoff 16
+  493700 28 filter sine IP 57344, cutoff 24
+  494300 28 filter sine IP 57344, cutoff 32
+  494900 28 filter sine IP 57344, cutoff 40
+  495500 28 reference tone
+  497200 -- FILE d:/test8012.wav, 8226394 B, from 455400 ms
+  497600 28 reference tone
+  498900 28 filter sine IP 57344, cutoff 48
+  499500 28 filter sine IP 57344, cutoff 56
+  500100 28 filter sine IP 57344, cutoff 64
+  500700 28 filter sine IP 57344, cutoff 72
+  501300 28 filter sine IP 57344, cutoff 80
+  501900 28 filter sine IP 57344, cutoff 88
+  502500 28 filter sine IP 57344, cutoff 96
+  503100 28 filter sine IP 57344, cutoff 104
+  503700 28 filter sine IP 57344, cutoff 112
+  504300 28 filter sine IP 57344, cutoff 120
+  504900 28 filter sine IP 57344, cutoff 128
+  505500 28 filter sine IP 57344, cutoff 136
+  506100 28 filter sine IP 57344, cutoff 144
+  506700 28 filter sine IP 57344, cutoff 152
+  507300 28 filter sine IP 57344, cutoff 160
+  507900 28 filter sine IP 57344, cutoff 168
+  508500 28 filter sine IP 57344, cutoff 176
+  509100 28 filter sine IP 57344, cutoff 184
+  509700 28 filter sine IP 57344, cutoff 192
+  510300 28 filter sine IP 57344, cutoff 200
+  510900 28 filter sine IP 57344, cutoff 208
+  511500 28 filter sine IP 57344, cutoff 216
+  512100 28 filter sine IP 57344, cutoff 224
+  512700 28 filter sine IP 57344, cutoff 232
+  513300 28 filter sine IP 57344, cutoff 240
+  513900 28 filter sine IP 57344, cutoff 248
+  514500 28 filter sine IP 61440, cutoff 0
+  515100 28 filter sine IP 61440, cutoff 8
+  515700 28 filter sine IP 61440, cutoff 16
+  516300 28 filter sine IP 61440, cutoff 24
+  516900 28 filter sine IP 61440, cutoff 32
+  517500 28 filter sine IP 61440, cutoff 40
+  518100 28 filter sine IP 61440, cutoff 48
+  518700 28 filter sine IP 61440, cutoff 56
+  519300 28 filter sine IP 61440, cutoff 64
+  519900 28 filter sine IP 61440, cutoff 72
+  520500 28 filter sine IP 61440, cutoff 80
+  521100 28 filter sine IP 61440, cutoff 88
+  521700 28 filter sine IP 61440, cutoff 96
+  522300 28 filter sine IP 61440, cutoff 104
+  522900 28 filter sine IP 61440, cutoff 112
+  523500 28 filter sine IP 61440, cutoff 120
+  524100 28 filter sine IP 61440, cutoff 128
+  524700 28 filter sine IP 61440, cutoff 136
+  525300 28 filter sine IP 61440, cutoff 144
+  525900 28 filter sine IP 61440, cutoff 152
+  526500 28 filter sine IP 61440, cutoff 160
+  527100 28 filter sine IP 61440, cutoff 168
+  527700 28 filter sine IP 61440, cutoff 176
+  528300 28 filter sine IP 61440, cutoff 184
+  528900 28 filter sine IP 61440, cutoff 192
+  529500 28 filter sine IP 61440, cutoff 200
+  530100 28 filter sine IP 61440, cutoff 208
+  530700 28 filter sine IP 61440, cutoff 216
+  531300 28 filter sine IP 61440, cutoff 224
+  531900 28 filter sine IP 61440, cutoff 232
+  532500 28 filter sine IP 61440, cutoff 240
+  533100 28 filter sine IP 61440, cutoff 248
+  533700 28 filter sine IP 65535, cutoff 0
+  534300 28 filter sine IP 65535, cutoff 8
+  534900 28 filter sine IP 65535, cutoff 16
+  535500 28 filter sine IP 65535, cutoff 24
+  536100 28 filter sine IP 65535, cutoff 32
+  536700 28 filter sine IP 65535, cutoff 40
+  537300 28 reference tone
+  539000 -- FILE d:/test8013.wav, 8284800 B, from 497200 ms
+  539400 28 reference tone
+  540700 28 filter sine IP 65535, cutoff 48
+  541300 28 filter sine IP 65535, cutoff 56
+  541900 28 filter sine IP 65535, cutoff 64
+  542500 28 filter sine IP 65535, cutoff 72
+  543100 28 filter sine IP 65535, cutoff 80
+  543700 28 filter sine IP 65535, cutoff 88
+  544300 28 filter sine IP 65535, cutoff 96
+  544900 28 filter sine IP 65535, cutoff 104
+  545500 28 filter sine IP 65535, cutoff 112
+  546100 28 filter sine IP 65535, cutoff 120
+  546700 28 filter sine IP 65535, cutoff 128
+  547300 28 filter sine IP 65535, cutoff 136
+  547900 28 filter sine IP 65535, cutoff 144
+  548500 28 filter sine IP 65535, cutoff 152
+  549100 28 filter sine IP 65535, cutoff 160
+  549700 28 filter sine IP 65535, cutoff 168
+  550300 28 filter sine IP 65535, cutoff 176
+  550900 28 filter sine IP 65535, cutoff 184
+  551500 28 filter sine IP 65535, cutoff 192
+  552100 28 filter sine IP 65535, cutoff 200
+  552700 28 filter sine IP 65535, cutoff 208
+  553300 28 filter sine IP 65535, cutoff 216
+  553900 28 filter sine IP 65535, cutoff 224
+  554500 28 filter sine IP 65535, cutoff 232
+  555100 28 filter sine IP 65535, cutoff 240
+  555700 28 filter sine IP 65535, cutoff 248
+  556300 28 env->filter depth -128, PEFE 0x0080
+  556900 28 env->filter depth -112, PEFE 0x0090
+  557500 28 env->filter depth -96, PEFE 0x00A0
+  558100 28 env->filter depth -80, PEFE 0x00B0
+  558700 28 env->filter depth -64, PEFE 0x00C0
+  559300 28 env->filter depth -48, PEFE 0x00D0
+  559900 28 env->filter depth -32, PEFE 0x00E0
+  560500 28 env->filter depth -16, PEFE 0x00F0
+  561100 28 env->filter depth 0, PEFE 0x0000
+  561700 28 env->filter depth 16, PEFE 0x0010
+  562300 28 env->filter depth 32, PEFE 0x0020
+  562900 28 env->filter depth 48, PEFE 0x0030
+  563500 28 env->filter depth 64, PEFE 0x0040
+  564100 28 env->filter depth 80, PEFE 0x0050
+  564700 28 env->filter depth 96, PEFE 0x0060
+  565300 28 env->filter depth 112, PEFE 0x0070
+  565900 28 LFO1->filter depth -128, FMMOD 0x0080
+  567400 28 LFO1->filter depth -112, FMMOD 0x0090
+  568900 28 LFO1->filter depth -96, FMMOD 0x00A0
+  570400 28 LFO1->filter depth -80, FMMOD 0x00B0
+  571900 28 LFO1->filter depth -64, FMMOD 0x00C0
+  573400 28 LFO1->filter depth -48, FMMOD 0x00D0
+  574900 28 LFO1->filter depth -32, FMMOD 0x00E0
+  576400 28 LFO1->filter depth -16, FMMOD 0x00F0
+  577900 28 LFO1->filter depth 0, FMMOD 0x0000
+  579400 28 reference tone
+  581100 -- FILE d:/test8014.wav, 8345026 B, from 539000 ms
+  581500 28 reference tone
+  582800 28 LFO1->filter depth 16, FMMOD 0x0010
+  584300 28 LFO1->filter depth 32, FMMOD 0x0020
+  585800 28 LFO1->filter depth 48, FMMOD 0x0030
+  587300 28 LFO1->filter depth 64, FMMOD 0x0040
+  588800 28 LFO1->filter depth 80, FMMOD 0x0050
+  590300 28 LFO1->filter depth 96, FMMOD 0x0060
+  591800 28 LFO1->filter depth 112, FMMOD 0x0070
+  593300 29 ---- GM drum kit from wave ROM (MIDI ch 10)
+  593300 29 ---- planned 593300 ms, real 614775 ms
+  593300 29 MINUTE 480
+  597300 29 reference tone
+  598600 29 MINUTE 540
+  599200 29 control: melodic ch 1, preset 0, note 60
+  599900 29 control: melodic ch 1, preset 0, note 67
+  600600 29 drum probe A (no bank select), note 36
+  601300 29 drum probe A (no bank select), note 38
+  602000 29 drum probe A (no bank select), note 42
+  602700 29 drum probe B (bank select 0), note 36
+  603400 29 drum probe B (bank select 0), note 38
+  604100 29 drum probe B (bank select 0), note 42
+  604800 29 drum note 35, velocity 40
+  605500 29 drum note 35, velocity 120
+  606200 29 drum note 36, velocity 40
+  606900 29 drum note 36, velocity 120
+  607600 29 drum note 37, velocity 40
+  608300 29 drum note 37, velocity 120
+  609000 29 drum note 38, velocity 40
+  609700 29 drum note 38, velocity 120
+  610400 29 drum note 39, velocity 40
+  611100 29 drum note 39, velocity 120
+  611800 29 drum note 40, velocity 40
+  612500 29 drum note 40, velocity 120
+  613200 29 drum note 41, velocity 40
+  613900 29 drum note 41, velocity 120
+  614600 29 drum note 42, velocity 40
+  615300 29 drum note 42, velocity 120
+  616000 29 drum note 43, velocity 40
+  616700 29 drum note 43, velocity 120
+  617400 29 drum note 44, velocity 40
+  618100 29 drum note 44, velocity 120
+  618800 29 drum note 45, velocity 40
+  619500 29 drum note 45, velocity 120
+  620200 29 drum note 46, velocity 40
+  620900 29 reference tone
+  622600 -- FILE d:/test8015.wav, 8230866 B, from 581100 ms
+  623000 29 reference tone
+  624300 29 drum note 46, velocity 120
+  625000 29 drum note 47, velocity 40
+  625700 29 drum note 47, velocity 120
+  626400 29 drum note 48, velocity 40
+  627100 29 drum note 48, velocity 120
+  627800 29 drum note 49, velocity 40
+  628500 29 drum note 49, velocity 120
+  629200 29 drum note 50, velocity 40
+  629900 29 drum note 50, velocity 120
+  630600 29 drum note 51, velocity 40
+  631300 29 drum note 51, velocity 120
+  632000 29 drum note 52, velocity 40
+  632700 29 drum note 52, velocity 120
+  633400 29 drum note 53, velocity 40
+  634100 29 drum note 53, velocity 120
+  634800 29 drum note 54, velocity 40
+  635500 29 drum note 54, velocity 120
+  636200 29 drum note 55, velocity 40
+  636900 29 drum note 55, velocity 120
+  637600 29 drum note 56, velocity 40
+  638300 29 drum note 56, velocity 120
+  639000 29 drum note 57, velocity 40
+  639700 29 drum note 57, velocity 120
+  640400 29 drum note 58, velocity 40
+  641100 29 drum note 58, velocity 120
+  641800 29 drum note 59, velocity 40
+  642500 29 drum note 59, velocity 120
+  643200 29 drum note 60, velocity 40
+  643900 29 drum note 60, velocity 120
+  644600 29 drum note 61, velocity 40
+  645300 29 drum note 61, velocity 120
+  646000 29 drum note 62, velocity 40
+  646700 29 drum note 62, velocity 120
+  647400 29 drum note 63, velocity 40
+  648100 29 drum note 63, velocity 120
+  648800 29 drum note 64, velocity 40
+  649500 29 drum note 64, velocity 120
+  650200 29 drum note 65, velocity 40
+  650900 29 drum note 65, velocity 120
+  651600 29 drum note 66, velocity 40
+  652300 29 drum note 66, velocity 120
+  653000 29 drum note 67, velocity 40
+  653700 29 drum note 67, velocity 120
+  654400 29 drum note 68, velocity 40
+  655100 29 drum note 68, velocity 120
+  655800 29 drum note 69, velocity 40
+  656500 29 drum note 69, velocity 120
+  657200 29 drum note 70, velocity 40
+  657900 29 drum note 70, velocity 120
+  658600 29 drum note 71, velocity 40
+  659300 29 drum note 71, velocity 120
+  660000 29 drum note 72, velocity 40
+  660700 29 drum note 72, velocity 120
+  661400 29 drum note 73, velocity 40
+  662100 29 reference tone
+  663800 -- FILE d:/test8016.wav, 8197130 B, from 622600 ms
+  664200 29 reference tone
+  665500 29 drum note 73, velocity 120
+  666200 29 drum note 74, velocity 40
+  666900 29 drum note 74, velocity 120
+  667600 29 drum note 75, velocity 40
+  668300 29 drum note 75, velocity 120
+  669000 29 drum note 76, velocity 40
+  669700 29 drum note 76, velocity 120
+  670400 29 drum note 77, velocity 40
+  671100 29 drum note 77, velocity 120
+  671800 29 drum note 78, velocity 40
+  672500 29 drum note 78, velocity 120
+  673200 29 drum note 79, velocity 40
+  673900 29 drum note 79, velocity 120
+  674600 29 drum note 80, velocity 40
+  675300 29 drum note 80, velocity 120
+  676000 29 drum note 81, velocity 40
+  676700 29 drum note 81, velocity 120
+  677400 30 ---- modulation envelope: attack and decay
+  677400 30 ---- planned 677400 ms, real 701831 ms
+  677400 30 MINUTE 600
+  681500 30 reference tone
+  682800 30 MINUTE 660
+  683400 30 mod attack 0x7F
+  686000 30 mod attack 0x74
+  688600 30 mod attack 0x6C
+  691200 30 mod attack 0x64
+  693800 30 mod attack 0x5C
+  696400 30 mod attack 0x54
+  699000 30 mod attack 0x4C
+  701600 30 mod attack 0x44
+  704200 30 reference tone
+  705900 -- FILE d:/test8017.wav, 8388608 B, from 663800 ms
+  706300 30 reference tone
+  707600 30 mod decay 0x7F, mod sustain 0x20
+  710200 30 mod decay 0x74, mod sustain 0x20
+  712800 30 mod decay 0x6C, mod sustain 0x20
+  715400 30 mod decay 0x64, mod sustain 0x20
+  718000 30 mod decay 0x5C, mod sustain 0x20
+  720600 30 mod decay 0x54, mod sustain 0x20
+  723200 30 mod decay 0x4C, mod sustain 0x20
+  725800 30 mod decay 0x44, mod sustain 0x20
+  728400 31 ---- note off during attack, decay and sustain
+  728400 31 ---- planned 728400 ms, real 754339 ms
+  728400 31 MINUTE 720
+  732600 31 reference tone
+  733900 31 note off after 40 ms
+  735540 31 note off after 80 ms
+  737220 31 note off after 160 ms
+  738980 31 note off after 320 ms
+  740900 31 note off after 640 ms
+  743140 31 note off after 1000 ms
+  745740 31 reference tone
+  747440 -- FILE d:/test8018.wav, 8223934 B, from 705900 ms
+  747840 31 reference tone
+  749140 31 note off after 1500 ms
+  752240 31 note off after 2200 ms
+  756040 32 ---- pitch changed while the note sounds
+  756040 32 ---- planned 756040 ms, real 783450 ms
+  759740 32 reference tone
+  761040 32 glide +1 octave, 16 IP units per write
+  762825 32 glide +1 octave, 64 IP units per write
+  764820 32 glide +1 octave, 256 IP units per write
+  766901 32 glide +1 octave, 1024 IP units per write
+  769276 33 ---- filter cutoff changed while the note sounds
+  769276 33 ---- planned 769276 ms, real 796742 ms
+  773076 33 reference tone
+  774376 33 cutoff 0..255, 1 units per write
+  776156 33 cutoff 0..255, 4 units per write
+  778128 33 cutoff 0..255, 16 units per write
+  780116 33 cutoff 0..255, 64 units per write
+  782116 34 ---- PTRX pitch target, without and with a pitch envelope
+  782116 34 ---- planned 782116 ms, real 809594 ms
+  782116 34 MINUTE 780
+  786616 34 reference tone
+  787916 34 PTRX target 0x0000, no pitch envelope
+  789516 34 reference tone
+  791216 -- FILE d:/test8019.wav, 8388608 B, from 747440 ms
+  791616 34 reference tone
+  792916 34 PTRX target 0x1000, no pitch envelope
+  794516 34 PTRX target 0x2000, no pitch envelope
+  796116 34 PTRX target 0x3000, no pitch envelope
+  797716 34 PTRX target 0x4000, no pitch envelope
+  799316 34 PTRX target 0x5000, no pitch envelope
+  800916 34 PTRX target 0x6000, no pitch envelope
+  802516 34 PTRX target 0x7000, no pitch envelope
+  804116 34 PTRX target 0x0000, pitch envelope on
+  806316 34 PTRX target 0x1000, pitch envelope on
+  808516 34 PTRX target 0x2000, pitch envelope on
+  810716 34 PTRX target 0x3000, pitch envelope on
+  812916 34 PTRX target 0x4000, pitch envelope on
+  815116 34 PTRX target 0x5000, pitch envelope on
+  817316 34 PTRX target 0x6000, pitch envelope on
+  819516 34 PTRX target 0x7000, pitch envelope on
+  821716 35 ---- reference tone
+  821716 35 ---- planned 821716 ms, real 850623 ms
+  825716 35 reference tone
+  827016 35 reference sine, IP 57344, atten 0
+  831016 35 reference tone
+  832716 -- FILE d:/test8020.wav, 8199442 B, from 791216 ms
+  832716 -- END

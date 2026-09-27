@@ -1,0 +1,12 @@
+* text=auto
+*.flac binary
+*.wav binary
+*.bin binary
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+*.sh text eol=lf
+
+# byte-exact copies of 86Box (verify_upstream.py checks SHA-256) and the patch
+ref86box/upstream/** -text
+ref86box/86box-patch/** -text
