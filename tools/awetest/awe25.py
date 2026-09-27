@@ -1,14 +1,18 @@
 # -*- coding: utf-8 -*-
-"""Pristup k nahravkam AWETST25 od testera (2026-09-12) po notach.
+"""Note-level access to the AWETST25 recordings of the tester (2026-09-12).
 
-Beh `reca` ma bloky 1..11, beh `recc` bloky 11..39 (oba vnitrni zaznam,
-jen levy kanal - pravy kanal karty nevychazi ani na linkovy vystup).
-Kazdy radek logu ma razitko `cap <soubor od ms>:<ramec>` z okamziku nastupu,
-takze se noty nehledaji v mrizce, ale berou se primo.
+Run `reca` has blocks 1..11, run `recc` blocks 11..39 (both internal capture,
+left channel only - the card's right channel does not come out even on the
+line output). Every log line carries the stamp `cap <file from ms>:<frame>`
+of the onset moment, so notes are not searched for in a grid but taken
+directly.
+
+The recordings are in the `sources` branch of the repository
+(recordings/2026-09-12); point AWE32EMU_TESTER25 at that folder.
 
     from awe25 import events, seg, env_db
     for ev in events(10, 'decay'):
-        x = seg(ev, -0.05, 3.0)          # vzorky od 50 ms pred notou
+        x = seg(ev, -0.05, 3.0)          # samples from 50 ms before the note
 """
 import os
 import sys
@@ -20,10 +24,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from awelog import parse  # noqa: E402
 
-BASE = r'C:\prenos\AWE32EmuData\tester\2026-09-12'
+BASE = os.environ.get('AWE32EMU_TESTER25', os.path.join('recordings', '2026-09-12'))
 SR = 44100
-# Zpozdeni mezi razitkem (tesne pred zapisem, ktery notu spousti) a nastupem
-# ve WAV. Zmeri se v bloku 1 (latency()) a pak se odecita.
+# Delay between the stamp (right before the write that starts the note) and
+# the onset in the WAV. Measured in block 1 (latency()) and then subtracted.
 LATENCY = 0.0
 
 _logs = {}
@@ -69,13 +73,13 @@ def audio(path):
         x, sr = sf.read(path, dtype='float32')
         assert sr == SR
         _audio[path] = x[:, 0] if x.ndim > 1 else x
-        if len(_audio) > 24:                      # recc ma 195 souboru
+        if len(_audio) > 24:                      # recc has 195 files
             _audio.pop(next(iter(_audio)))
     return _audio[path]
 
 
 def seg(ev, t0, t1):
-    """Levy kanal od ev.t+t0 do ev.t+t1 (sekundy), orezane na soubor."""
+    """Left channel from ev.t+t0 to ev.t+t1 (seconds), clipped to the file."""
     x = audio(ev.path)
     a = int(round((ev.t - LATENCY + t0) * SR))
     b = int(round((ev.t - LATENCY + t1) * SR))
@@ -91,7 +95,7 @@ def env_db(x, hop=0.005):
 
 
 def onset(x, hop=0.002, rise_db=12.0):
-    """Cas prvniho vzestupu o rise_db nad dno (s od zacatku x), nebo None."""
+    """Time of the first rise by rise_db above the floor (s from the start of x), or None."""
     e = env_db(x, hop)
     if len(e) < 10:
         return None
@@ -101,7 +105,7 @@ def onset(x, hop=0.002, rise_db=12.0):
 
 
 def freq_zc(x, sr=SR):
-    """Kmitocet z pruchodu nulou s linearni interpolaci (sinus, bez sumu)."""
+    """Frequency from zero crossings with linear interpolation (sine, no noise)."""
     s = np.signbit(x)
     i = np.nonzero(s[1:] != s[:-1])[0]
     if len(i) < 4:

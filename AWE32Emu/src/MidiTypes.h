@@ -24,9 +24,9 @@ struct MidiEvent
 {
     uint32_t absoluteTick = 0;
     MidiEventType type = MidiEventType::NoteOn;
-    uint8_t channel = 0;   // 0-15, nevyuzito u TempoChange/EndOfTrack
+    uint8_t channel = 0;   // 0-15, unused for TempoChange/EndOfTrack
     uint8_t data1 = 0;     // note / controller / program
-    uint8_t data2 = 0;     // velocity / hodnota controlleru
+    uint8_t data2 = 0;     // velocity / controller value
     uint32_t tempoUsPerQuarter = 500000; // valid for TempoChange only
 };
 
@@ -34,7 +34,7 @@ struct MidiEvent
 // played by the Sequencer.
 struct ParsedSequence
 {
-    std::vector<MidiEvent> events;   // serazeno podle absoluteTick
+    std::vector<MidiEvent> events;   // sorted by absoluteTick
     uint16_t ticksPerQuarterNote = 480;
     bool valid = false;
     std::string errorMessage;

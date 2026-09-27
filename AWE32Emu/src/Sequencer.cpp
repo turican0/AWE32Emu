@@ -52,7 +52,7 @@ void Sequencer::DispatchEvent(Synth& synth, const MidiEvent& ev)
     case MidiEventType::PolyPressure:
     case MidiEventType::EndOfTrack:
     default:
-        // TODO: PolyPressure/ChannelPressure zatim synth nevyuziva (viz Synth.h TODO)
+        // TODO: PolyPressure is not used by the synth yet
         break;
     }
 }

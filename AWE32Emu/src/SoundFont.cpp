@@ -57,11 +57,11 @@ namespace
     }
 
     // -------------------------------------------------------------------
-    // prevody jednotek
+    // unit conversions
     // -------------------------------------------------------------------
 
-    // Delitel v 7bitovem "plovoucim" kodovani rychlosti obalek EMU8000.
-    // Viz docs/re-notes/emu8000_register_map.md, sekce 5.
+    // Divisor in the 7-bit "floating" encoding of the EMU8000 envelope rates.
+    // See docs/re-notes/emu8000_register_map.md, section 5.
     int RateDivisor(int index)
     {
         const int group = (index >> 4) & 7;
@@ -119,23 +119,23 @@ namespace
         const int steps = static_cast<int>(ms / (Emu8000::kHoldSecPerStep * 1000.0));
         return std::clamp(127 - steps, 0, 127);
     }
-    // 1:1 prepis vetve `C119C116` z `SBAWE.VXD` (objekt na 0xC1196C74).
-    // Skokova tabulka prevodni rutiny na ni posila prave ctyri generatory
-    // prodlevy: delayModLFO (21), delayVibLFO (23), delayModEnv (25)
-    // a delayVolEnv (33) - odecteno z tabulky indexu na 0xC119C362
-    // a tabulky adres na 0xC119C2FA.
+    // 1:1 transcription of the branch `C119C116` of `SBAWE.VXD` (object at
+    // 0xC1196C74). The jump table of the conversion routine sends exactly
+    // four delay generators there: delayModLFO (21), delayVibLFO (23),
+    // delayModEnv (25) and delayVolEnv (33) - read from the index table at
+    // 0xC119C362 and the address table at 0xC119C2FA.
     //
-    //     cmp eax, 0xFFFFD120      ; <= -12000 -> 0x8000, bez prodlevy
+    //     cmp eax, 0xFFFFD120      ; <= -12000 -> 0x8000, no delay
     //     cmp eax, 0x156C          ; >= 5484   -> 0
     //     add eax, 0x30E4          ; + 12516
-    //     shl eax, 0x10 / idiv 1200    ; x v 16.16, deleni **k nule**
-    //     and edi, 0xFFFF / add edi, 0x10000   ; 1 + frakce
+    //     shl eax, 0x10 / idiv 1200    ; x in 16.16, division **towards zero**
+    //     and edi, 0xFFFF / add edi, 0x10000   ; 1 + fraction
     //     sar eax, 16 / sub cl, al / sar edi, cl
-    //     sub esi, edi             ; 0x8000 - vysledek
+    //     sub esi, edi             ; 0x8000 - result
     //
-    // Pozor: `2^x` tu **neni exponenciala**, ale linearni nahrada uvnitr
-    // oktavy - `(1 + frakce) << cela cast`. Uprostred oktavy nadhodnocuje
-    // az o 6 %.
+    // Note: `2^x` here is **not an exponential** but a linear substitute
+    // within the octave - `(1 + fraction) << integer part`. In the middle of
+    // the octave it overestimates by up to 6 %.
     int DelayFromTimecents(int timecents)
     {
         if (timecents <= -12000)
@@ -174,11 +174,12 @@ namespace
         return std::clamp(static_cast<int>(Emu8000::kDelayNone) - steps, 0, 0x8000);
     }
 
-    // Prepis `sub_192E` z `SBAWE.VXD` (obj 1, 0x192E) - centy -> registr IP:
+    // Transcription of `sub_192E` from `SBAWE.VXD` (obj 1, 0x192E) - cents ->
+    // IP register:
     //
-    //     esi = centy + 0x41A0        ; 16800, aby bylo vse kladne
-    //     edi = esi / 0x4B0           ; 1200 -> oktava, orez na 15
-    //     edx = esi % 0x4B0           ; zbytek v centech
+    //     esi = cents + 0x41A0        ; 16800, so that everything is positive
+    //     edi = esi / 0x4B0           ; 1200 -> octave, clipped to 15
+    //     edx = esi % 0x4B0           ; remainder in cents
     //     IP  = (edi << 12) | (edx*3 + (edx*31)/75)
     //
     // `3 + 31/75` is exactly `4096/1200`, so the formula itself has no
@@ -198,7 +199,7 @@ namespace
 
     double TimecentsToMs(int tc) { return std::pow(2.0, tc / 1200.0) * 1000.0; }
 
-    // Absolutni centy (SF2) -> jednotky IFATN (ctvrt pultonu od 125 Hz).
+    // Absolute cents (SF2) -> IFATN units (quarter semitones from 125 Hz).
     int FilterFcFromAbsCents(int cents)
     {
         // Must give the same register as the SF1 path, otherwise the same bank
@@ -244,7 +245,7 @@ void GenSet::OverrideFrom(const GenSet& other)
 }
 
 // ===========================================================================
-// nacteni banky
+// loading a bank
 // ===========================================================================
 
 // ===========================================================================
@@ -502,13 +503,13 @@ Bank Load(const std::string& path)
         int unmapped = 0;
         if (!BuildSbkFromMdi(buf, riff, bank.errorMessage, unmapped)) return bank;
         if (unmapped)
-            std::fprintf(stderr, "Varovani: %s: %d hodnot MDI bez presneho protejsku v SF1\n",
+            std::fprintf(stderr, "Warning: %s: %d MDI values without an exact SF1 counterpart\n",
                          path.c_str(), unmapped);
         buf.swap(riff);
     }
     if (buf.size() < 12 || std::memcmp(buf.data(), "RIFF", 4) != 0)
     {
-        bank.errorMessage = "Chybi RIFF hlavicka";
+        bank.errorMessage = "Missing RIFF header";
         return bank;
     }
 
@@ -530,20 +531,20 @@ Bank Load(const std::string& path)
     if (const Chunk* n = need("INAM")) bank.name = CStr(&buf[n->offset], n->size);
     if (const Chunk* r = need("irom")) bank.romName = CStr(&buf[r->offset], r->size);
 
-    // ---- vzorkova data ----
+    // ---- sample data ----
     if (const Chunk* smpl = need("smpl"))
     {
         bank.sampleData.resize(smpl->size / 2);
         std::memcpy(bank.sampleData.data(), &buf[smpl->offset], bank.sampleData.size() * 2);
     }
 
-    // ---- hlavicky vzorku ----
+    // ---- sample headers ----
     const Chunk* shdr = need("shdr");
     if (!shdr) { bank.errorMessage = "Chybi chunk shdr"; return bank; }
 
     if (bank.version == Version::Sf1)
     {
-        // SF1: 16 B na zaznam, jmena v samostatnem chunku snam (20 B).
+        // SF1: 16 B per record, names in a separate chunk snam (20 B).
         const Chunk* snam = need("snam");
         const uint32_t count = shdr->size / 16;
         bank.samples.reserve(count);
@@ -587,7 +588,7 @@ Bank Load(const std::string& path)
             // note - the EMU8000 runs natively at 44100 Hz and the root note
             // comes from the generators (OverridingRootKey /
             // Sf1RootPitchCents).
-            s.sampleRate = 44100;   // EMU8000 nativni takt
+            s.sampleRate = 44100;   // EMU8000 native clock
             s.originalKey = 60;
             bank.samples.push_back(std::move(s));
         }
@@ -617,13 +618,13 @@ Bank Load(const std::string& path)
             bank.samples.pop_back();
     }
 
-    // ---- bag / gen / instrumenty / presety ----
+    // ---- bag / gen / instruments / presets ----
     const Chunk* pbag = need("pbag"); const Chunk* pgen = need("pgen");
     const Chunk* inst = need("inst"); const Chunk* ibag = need("ibag");
     const Chunk* igen = need("igen"); const Chunk* phdr = need("phdr");
     if (!pbag || !pgen || !inst || !ibag || !igen || !phdr)
     {
-        bank.errorMessage = "Chybi nektery z chunku phdr/pbag/pgen/inst/ibag/igen";
+        bank.errorMessage = "One of the chunks phdr/pbag/pgen/inst/ibag/igen is missing";
         return bank;
     }
 
@@ -638,7 +639,7 @@ Bank Load(const std::string& path)
         return RdU16(&buf[ch->offset + i * 4]);
     };
 
-    // Rozdeli zony bagu na "globalni" (bez terminatoru) a normalni.
+    // Splits the zones of a bag into "global" (without terminator) and normal.
     auto readZones = [&](const Chunk* bagCh, const Chunk* genCh,
                           uint32_t bagFirst, uint32_t bagLast,
                           int terminator, GenSet& global, std::vector<Zone>& zones)
@@ -672,7 +673,7 @@ Bank Load(const std::string& path)
                 }
                 z.gen.Set(op, val);
             }
-            // Zona bez terminatoru na prvnim miste = globalni zona.
+            // A zone without terminator in the first place = the global zone.
             if (!hasTerminator)
             {
                 if (b == bagFirst) global = z.gen;
@@ -682,7 +683,7 @@ Bank Load(const std::string& path)
         }
     };
 
-    // instrumenty
+    // instruments
     const uint32_t nInst = inst->size / 22;
     for (uint32_t i = 0; i + 1 < nInst; ++i)
     {
@@ -695,7 +696,7 @@ Bank Load(const std::string& path)
         bank.instruments.push_back(std::move(in));
     }
 
-    // presety
+    // presets
     const uint32_t nPreset = phdr->size / 38;
     for (uint32_t i = 0; i + 1 < nPreset; ++i)
     {
@@ -715,7 +716,7 @@ Bank Load(const std::string& path)
 }
 
 // ===========================================================================
-// vyber zon
+// zone selection
 // ===========================================================================
 
 const Preset* Bank::FindPreset(int bankNum, int program) const
@@ -751,9 +752,9 @@ std::vector<Region> Bank::Select(int bankNum, int program, int key, int velocity
             Region r;
             r.sample = &samples[iz.sampleId];
 
-            // Poradi skladani podle specifikace: globalni zona instrumentu,
-            // pak zona instrumentu (obe absolutni), a nakonec preset zony
-            // jako offsety.
+            // Combining order per the specification: the global instrument
+            // zone, then the instrument zone (both absolute), and finally the
+            // preset zones as offsets.
             r.gen = in.global;
             r.gen.OverrideFrom(iz.gen);
             GenSet presetGen = preset->global;
@@ -804,7 +805,7 @@ std::vector<Region> Bank::Select(int bankNum, int program, int key, int velocity
 }
 
 // ===========================================================================
-// prevod na registry
+// conversion to registers
 // ===========================================================================
 
 VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
@@ -847,8 +848,8 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     }
     else
     {
-        // SF2 uklada indexy; korekce -1/-2/-3 odpovida tomu, jak tytez
-        // vzorky adresuje Creative ve vlastni SF1 bance (viz docs/re-notes).
+        // SF2 stores indices; the correction -1/-2/-3 matches how Creative
+        // addresses the same samples in its own SF1 bank (see docs/re-notes).
         start     = base + s.start + g.Get(Gen::StartAddrsOffset, 0)
                     + 32768u * g.Get(Gen::StartAddrsCoarseOffset, 0) - 1;
         loopStart = base + s.loopStart + g.Get(Gen::StartloopAddrsOffset, 0)
@@ -885,7 +886,7 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         loopEnd   = end + 8;
     }
 
-    // ---- Q + adresa -> CCCA ---------------------------------------------
+    // ---- Q + address -> CCCA --------------------------------------------
     int q;
     // SF1 has `initialFilterQ` 0..127, the register 0..15. Measured on
     // Georgia against `SBAWE.VXD` (3331 notes, three different values in
@@ -922,7 +923,7 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     if (sf1)
         vp.patchPan = g.Get(Gen::Pan, 64);
     else
-        // SF2: -500 = zcela vlevo, +500 = zcela vpravo; EMU8000 je opacne.
+        // SF2: -500 = fully left, +500 = fully right; the EMU8000 is reversed.
         vp.patchPan = std::clamp(64 + static_cast<int>(
             std::lround(g.Get(Gen::Pan, 0) * 127.0 / 1000.0)), 0, 127);
     const int pan = 0x17F - 2 * (vp.patchPan + 64);
@@ -948,7 +949,7 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.reverbSend = ClampU8(sf1 ? g.Get(Gen::ReverbEffectsSend, 28)
                                 : static_cast<int>(std::lround(g.Get(Gen::ReverbEffectsSend, 0) * 255.0 / 1000.0)));
 
-    // ---- vyska tonu -> IP ------------------------------------------------
+    // ---- pitch -> IP -----------------------------------------------------
     int rootKey = g.Get(Gen::OverridingRootKey, -1);
     if (rootKey < 0) rootKey = s.originalKey;
     double cents = 0.0;
@@ -1006,19 +1007,20 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     }
     else
     {
-        // SF2: centibely (0.1 dB) -> jednotky po 0.375 dB.
+        // SF2: centibels (0.1 dB) -> units of 0.375 dB.
         vp.patchAttenUnits = static_cast<uint8_t>(std::clamp(
             static_cast<int>(std::lround(g.Get(Gen::InitialAttenuation, 0)
                                          / 10.0 / kAttenDbPerStep)), 0, 255));
     }
 
-    // SF1 uklada initialFilterFc jako 0..127, registr IFATN ma cutoff
-    // 8bitovy. Prevod je **prosty dvojnasobek**, chybi-li generator, plati
-    // vychozi 255 z tabulky v ovladaci (MDI 0x16AD, VXD 0x6D60).
+    // SF1 stores initialFilterFc as 0..127, the IFATN register has an
+    // 8-bit cutoff. The conversion is **plain doubling**; if the generator is
+    // missing, the default 255 from the driver table applies (MDI 0x16AD,
+    // VXD 0x6D60).
     //
-    // Zmereno na Georgii proti `SBAWE.VXD`:
+    // Measured on Georgia against `SBAWE.VXD`:
     //
-    //     SF1 52 -> 104,  SF1 97 -> 194,  SF1 127 -> 254,  chybi -> 255
+    //     SF1 52 -> 104,  SF1 97 -> 194,  SF1 127 -> 254,  missing -> 255
     //
     // Formerly `v * 255 / 127` was computed here, so that 127 gave 255. That
     // fix was grafted onto a wrong measurement: preset 52 'Choir Aahs' of
@@ -1059,9 +1061,10 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
                    : ClampS8(static_cast<int>(std::lround(g.value[op] / sf2Scale)));
     };
 
-    // SF2 udava hloubky v centech; EMU8000 ma +-1 oktavu na +-127,
-    // tj. 1200 centu / 127 kroku = 9.45 centu na krok. Filtr ma +-6 oktav
-    // (PEFE) resp. +-3 oktavy (FMMOD), tj. 56.7 resp. 28.3 centu na krok.
+    // SF2 gives the depths in cents; the EMU8000 has +-1 octave at +-127,
+    // i.e. 1200 cents / 127 steps = 9.45 cents per step. The filter has +-6
+    // octaves (PEFE) or +-3 octaves (FMMOD), i.e. 56.7 or 28.3 cents per
+    // step.
     const double kPitchCentsPerStep  = 1200.0 * kPefePitchOctaves / 127.0;
     const double kPefeFcCentsPerStep = 1200.0 * kPefeFilterOctaves / 127.0;
     const double kFmmodFcCentsPerStep = 1200.0 * kFmmodFilterOctaves / 127.0;
@@ -1082,9 +1085,9 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
                              : std::clamp<int>(static_cast<int>(std::lround(
                                    8.176 * std::pow(2.0, g.Get(Gen::FreqModLFO, 0) / 1200.0)
                                    / kLfoHzPerStep)), 0, 255);
-    // Pozor: ovladac vysledek **nechava pretect bajtem**, neoreze ho.
-    // Zmereno na RELAXu: `freqVibLFO 132` -> 264 -> zapsano 0x08, my jsme
-    // davali 0xFF.
+    // Note: the driver **lets the result overflow the byte**, it does not
+    // clip it. Measured on RELAX: `freqVibLFO 132` -> 264 -> written 0x08,
+    // we had given 0xFF.
     const int lfo2Freq = sf1 ? (g.Has(Gen::FreqVibLFO)
                                     ? ((g.value[Gen::FreqVibLFO] * 2) & 0xFF)
                                     : 0)
@@ -1100,7 +1103,7 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.fm2frq2 = static_cast<uint16_t>(
         (static_cast<uint8_t>(modAmount(Gen::VibLfoToPitch, kPitchCentsPerStep)) << 8) | lfo2Freq);
 
-    // ---- obalky ----------------------------------------------------------
+    // ---- envelopes -------------------------------------------------------
     auto timeMs = [&](int op, double defaultMs) -> double
     {
         if (!g.Has(op)) return defaultMs;
@@ -1132,7 +1135,7 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         // in the bank and the driver wrote 0x7F, while we sent 0x63
         // (= 99 raw).
         if (sf1) return std::clamp<int>(g.value[op] * 4 / 3, 0, 0x7F);
-        // SF2: centibely utlumu, 0 = plna uroven
+        // SF2: centibels of attenuation, 0 = full level
         return std::clamp(127 - static_cast<int>(std::lround(
             g.value[op] / 10.0 / kSustainDbPerStep)), 0, 127);
     };

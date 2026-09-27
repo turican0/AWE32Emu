@@ -15,8 +15,8 @@ public:
     // (voices still decaying are not counted - the caller takes care of the "tail", see main.cpp).
     bool HasMoreEvents() const;
 
-    // Vyrenderuje numFrames stereo snimku, po ceste vola Synth pro udalosti,
-    // ktere v prubehu bloku nastanou.
+    // Renders numFrames stereo frames, calling Synth on the way for the
+    // events that fall within the block.
     void RenderBlock(Synth& synth, int16_t* out, uint32_t numFrames, uint32_t sampleRate);
 
     // Magic Carpet 2 registers an AIL trigger callback (NETHERW sub_8E0D0,
@@ -35,6 +35,6 @@ private:
     ParsedSequence m_sequence;
     size_t m_nextEventIndex = 0;
     double m_currentTick = 0.0;
-    uint32_t m_currentTempoUs = 500000; // 120 BPM, prepsano prvni TempoChange udalosti
+    uint32_t m_currentTempoUs = 500000; // 120 BPM, overwritten by the first TempoChange event
     bool m_triggerMute = false;
 };

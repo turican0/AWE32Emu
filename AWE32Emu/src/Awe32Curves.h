@@ -4,7 +4,7 @@
 #include "Awe32Driver.h"
 
 // ---------------------------------------------------------------------------
-// Prevodni krivky MIDI -> utlum, presne podle ovladacu Creative.
+// Conversion curves MIDI -> attenuation, exactly as in the Creative drivers.
 //
 // Three consecutive tables of 128 bytes. Verified in THREE independent
 // binaries:
@@ -55,7 +55,7 @@ namespace Awe32Curves
           3,   2,   2,   2,   2,   1,   1,   1,   1,   1,   0,   0,   0,   0,   0,   0,
     };
 
-    // MDI 0x14AD / DRV ds:0692 - hlasitost kanalu (CC7)
+    // MDI 0x14AD / DRV ds:0692 - channel volume (CC7)
     inline constexpr uint8_t kChannelVolumeDb[128] = {
          99,  99,  99,  99,  99,  99,  99,  99,  99,  99,  99,  43,  41,  40,  39,  38,
          37,  36,  35,  34,  33,  32,  31,  30,  30,  29,  28,  27,  27,  26,  25,  25,
@@ -92,7 +92,7 @@ namespace Awe32Curves
         return kVelocityDb[velocity];
     }
 
-    // Vzorec z `SBAWE32.MDI` offset 0x2102 (rodina Dos).
+    // Formula from `SBAWE32.MDI` offset 0x2102 (Dos family).
     inline int ComputeAttenuationMdi(int cc7, int velocity, int expression,
                                      int patchAttenUnits)
     {
@@ -107,10 +107,10 @@ namespace Awe32Curves
         return std::clamp(atten, 0, 255);
     }
 
-    // Vzorec z `SBAWE.VXD` objekt 1, 0x1C54..0x1CC1 (rodina Win95).
+    // Formula from `SBAWE.VXD` object 1, 0x1C54..0x1CC1 (Win95 family).
     //
-    //   soucet = volDb[CC7] + velDb[velocity] + (X + 12) / 24
-    //   atten  = globalniUtlum + soucet * 8 / 3          , oriznuto na 255
+    //   sum    = volDb[CC7] + velDb[velocity] + (X + 12) / 24
+    //   atten  = globalAtten + sum * 8 / 3               , clipped to 255
     //   if (expression < 127)
     //       atten += (256 - atten) * exprDb[expression] / 128
     //
@@ -183,14 +183,14 @@ namespace Awe32Curves
             ? ComputeAttenuationVxd(cc7, velocity, expression, patchAttenUnits)
             : ComputeAttenuationMdi(cc7, velocity, expression, patchAttenUnits);
     }
-    // ---- utlum -> linearni amplituda (cilovy objem hlasu) ----------------
+    // ---- attenuation -> linear amplitude (target volume of the voice) ---
     //
     // `SBAWE.VXD` obj 1, 0x21BF:
     //
-    //     mov si, word [edx*2 + 0x409010]   ; tabulka[utlum & 15]
+    //     mov si, word [edx*2 + 0x409010]   ; table[atten & 15]
     //     ...
-    //     sar eax, 4                        ; utlum >> 4
-    //     shr si, cl                        ; mantisa >> (utlum >> 4)
+    //     sar eax, 4                        ; atten >> 4
+    //     shr si, cl                        ; mantissa >> (atten >> 4)
     //
     // So 6 dB per shift and 16 steps in between, which makes 0.3763 dB per
     // unit. It was found by back-computing the bounds of each of the 16
@@ -221,12 +221,12 @@ namespace Awe32Curves
         1542, 1286, 1285, 1028, 1028, 772, 771, 515, 514, 258, 257, 257, 0, 0, 0
     };
 
-    // Prepis `SBAWE.VXD` obj 1, 0xC0FFB36B..0xC0FFB398 za behu:
+    // Transcription of `SBAWE.VXD` obj 1, 0xC0FFB36B..0xC0FFB398 at run time:
     //
-    //     movsx eax, word [ebx+0x26]   ; utlum, **se znamenkem**
-    //     cdq / xor / sub / and 0xF / xor / sub   ; index = utlum % 16 k nule
-    //     mov si, word [edx*2 + tabulka]
-    //     cdq / and edx,0xF / add / sar eax,4     ; posun = utlum / 16 k nule
+    //     movsx eax, word [ebx+0x26]   ; atten, **signed**
+    //     cdq / xor / sub / and 0xF / xor / sub   ; index = atten % 16 towards zero
+    //     mov si, word [edx*2 + table]
+    //     cdq / and edx,0xF / add / sar eax,4     ; shift = atten / 16 towards zero
     //     mov cl, al / shr si, cl
     //
     // Both divisions truncate **towards zero**, not down - hence `%` and `/`

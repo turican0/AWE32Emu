@@ -56,4 +56,8 @@ if(AWE32EMU_WITH_86BOX)
     target_compile_definitions(AWE32Emu PRIVATE AWE32EMU_WITH_86BOX)
 endif()
 
+if(UNIX)
+    target_link_libraries(AWE32Emu PRIVATE m)
+endif()
+
 install(TARGETS AWE32Emu RUNTIME DESTINATION .)

@@ -1,8 +1,8 @@
-/* Prazdna varianta stopy instrukci z 86Boxu - viz snd_emu8k_trace.h.
+/* Empty variant of the 86Box instruction trace - see snd_emu8k_trace.h.
  *
- * Ve stromu 86Boxu je `awe32_trace.c` sonda, ktera k zapisum do registru
- * pripisuje kontext z CPU (odkud ovladac zapisuje). Bez bezici VM nema co
- * hlasit, takze v nasem renderu nedela nic.
+ * In the 86Box tree, `awe32_trace.c` is a probe that annotates register
+ * writes with CPU context (where the driver writes from). Without a running
+ * VM it has nothing to report, so in our render it does nothing.
  */
 #ifndef AWE32_TRACE_H
 #define AWE32_TRACE_H

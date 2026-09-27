@@ -109,10 +109,10 @@ namespace Awe32Init
         0x1342, 0xD3E6, 0x3EC7, 0x337F, 0x0000, 0x8365, 0x1420, 0x9570,
     };
 
-    // Osm hodnot, ve kterych se windowsovy SBAWE32.DRV (a shodne s nim ALSA)
-    // lisi od AWEUTILu. Index je pozice v kInit3 resp. kInit4.
-    // Zmereno ve vyslednem stavu registru, ne v poradi zapisu - SBAWE32 nektere
-    // hodnoty prepisuje az dodatecne.
+    // The eight values in which the Windows SBAWE32.DRV (and ALSA, which
+    // matches it) differ from AWEUTIL. The index is the position in kInit3 or
+    // kInit4. Measured in the resulting register state, not in the write
+    // order - SBAWE32 overwrites some values only later.
     struct AltInit { int index; uint16_t value; };
 
     inline constexpr AltInit kAltInit3Sbawe[8] = {
@@ -125,6 +125,6 @@ namespace Awe32Init
         { 113, 0xC308 }, { 115, 0x32FF }, { 121, 0xD36E }, { 123, 0x33FF },
     };
 
-    // Poradi, v jakem ovladac pole posila (ALSA init_arrays()).
+    // The order in which the driver sends the arrays (ALSA init_arrays()).
     inline constexpr const uint16_t* kSendOrder[4] = { kInit1, kInit2, kInit3, kInit4 };
 }

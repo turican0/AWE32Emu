@@ -1,4 +1,4 @@
-# Visual Studio / MSVC build vystupy
+# Visual Studio / MSVC build outputs
 [Bb]in/
 [Oo]bj/
 [Dd]ebug/
@@ -16,7 +16,7 @@ x86/
 *.log
 *.tlog
 
-# Visual Studio uzivatelska a docasna nastaveni
+# Visual Studio user and temporary settings
 .vs/
 *.suo
 *.user
@@ -25,30 +25,30 @@ x86/
 *.VC.db
 *.VC.VC.opendb
 
-# CMake (pokud se projekt jednou doplni o CMakeLists.txt vedle .sln)
+# CMake
 CMakeFiles/
 CMakeCache.txt
 cmake_install.cmake
 build/
 
-# Ostatni
+# Other
 *.tmp
 *~
 __pycache__/
 *.pyc
 
-# Zaznamy portovych zapisu a obrazy DRAM pro ref86box (velke, generovane)
+# Port write traces and DRAM images for the reference player (large, generated)
 *.trace
 *.trace.dram.raw
 
 # ---------------------------------------------------------------------------
-# V repozitari je jen zdrojak emulatoru a dokumentace. Vzorky, banky, ROM,
-# nahravky, obrazy virtualnich stroju, zdrojak 86Boxu i nase merici a
-# testovaci nastroje lezi v sousednim C:/prenos/AWE32EmuData.
-# Mapa a prikazy s aktualnimi cestami jsou v docs/DATA.md.
+# The main branch holds only the emulator source and the documentation.
+# Samples, banks, the ROM, VM images and the 86Box tree stay outside the
+# repository; the tester's recordings and our measuring tools live in the
+# `sources` branch (see docs/DATA.md).
 #
-# Nasledujici radky jsou tu jen pro pripad, ze by si nekdo neco nakopiroval
-# zpatky do stromu projektu - at se to omylem nepridá do commitu.
+# The following lines are here only in case someone copies something back
+# into the project tree - so it does not get committed by mistake.
 # ---------------------------------------------------------------------------
 /SAMPLES/
 /SAMPLES2/

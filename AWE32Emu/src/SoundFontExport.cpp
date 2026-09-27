@@ -12,7 +12,7 @@ namespace
 {
     using namespace SoundFont;
 
-    // ---- drobne pomucky pro RIFF ------------------------------------------
+    // ---- small RIFF helpers ----------------------------------------------
     struct Buf
     {
         std::vector<uint8_t> d;
@@ -26,7 +26,7 @@ namespace
             const uint8_t* b = static_cast<const uint8_t*>(p);
             d.insert(d.end(), b, b + n);
         }
-        // Jmena v SF2 maji pevnych 20 B a musi koncit nulou.
+        // Names in SF2 have a fixed 20 B and must end with a zero.
         void name20(const std::string& s)
         {
             char t[20] = {0};
@@ -41,7 +41,7 @@ namespace
         out.tag(tag);
         out.u32(static_cast<uint32_t>(body.size()));
         out.raw(body.d.data(), body.d.size());
-        if (body.size() & 1) out.u8(0);        // RIFF: liche chunky se zarovnavaji
+        if (body.size() & 1) out.u8(0);        // RIFF: odd chunks are padded
     }
 
     // ---- SF1 -> SF2 conversions -------------------------------------------
@@ -49,7 +49,7 @@ namespace
     // conversions are measured against the real driver, so here we only
     // reverse the direction.
 
-    // SF1 ma casy rovnou v milisekundach, SF2 chce timecents.
+    // SF1 has times directly in milliseconds, SF2 wants timecents.
     int16_t MsToTimecents(double ms)
     {
         if (ms <= 0.0) return -12000;          // SF2: "hned"
@@ -58,8 +58,8 @@ namespace
             std::lround(1200.0 * std::log2(sec)), -12000L, 8000L));
     }
 
-    // SF1 cutoff 0..127 -> registr 0..255 (nasobek dvema, viz SoundFont.cpp),
-    // a registr -> absolutni centy toutez radou, kterou pouziva cteni SF2.
+    // SF1 cutoff 0..127 -> register 0..255 (times two, see SoundFont.cpp),
+    // and register -> absolute cents with the same series the SF2 reader uses.
     int16_t Sf1CutoffToAbsCents(int v)
     {
         const int reg = std::clamp(v * 2, 0, 255);
@@ -67,7 +67,7 @@ namespace
             Emu8000::kCutoffBaseCents + reg * Emu8000::kCutoffCentsStep));
     }
 
-    // SF1 Q 0..127 -> registr 0..15 -> centibely rezonance pro SF2.
+    // SF1 Q 0..127 -> register 0..15 -> resonance centibels for SF2.
     int16_t Sf1QToCentibels(int v)
     {
         const int q = std::clamp(v >> 3, 0, Emu8000::kCccaQMax);
@@ -83,7 +83,7 @@ namespace
         return static_cast<int16_t>(std::lround(units * Emu8000::kAttenDbPerStep * 10.0));
     }
 
-    // SF1 sustain -> centibely poklesu.
+    // SF1 sustain -> centibels of drop.
     //
     // Note, it is **not** `0x7F - v`. The driver does `register = v * 4 / 3`
     // (clipped to 0x7F), and that is measured on a bank we have in both
@@ -107,7 +107,7 @@ namespace
         return static_cast<int16_t>(std::lround(steps * Emu8000::kSustainDbPerStep * 10.0));
     }
 
-    // SF1 zpozdeni je v jednotkach po 725 us.
+    // SF1 delay is in units of 725 us.
     int16_t Sf1DelayToTimecents(int v)
     {
         return MsToTimecents(v * Emu8000::kDelaySecPerStep * 1000.0);
@@ -154,17 +154,17 @@ namespace
             out = (v == 1) ? 50 : 100;
             return true;
         case Gen::Pan:
-            // SF1 0..127 se stredem 64, SF2 -500..+500.
+            // SF1 0..127 with centre 64, SF2 -500..+500.
             out = static_cast<int16_t>(std::lround((v - 64) * 1000.0 / 127.0));
             return true;
         case Gen::ReverbEffectsSend:
         case Gen::ChorusEffectsSend:
-            // SF1 0..255 -> SF2 promile.
+            // SF1 0..255 -> SF2 per mille.
             out = static_cast<int16_t>(std::clamp(
                 std::lround(std::clamp<int>(v, 0, 255) * 1000.0 / 255.0), 0L, 1000L));
             return true;
         case Gen::Sf1RootPitchCents:
-            return false;      // resi se pres overridingRootKey, viz nize
+            return false;      // handled through overridingRootKey, see below
         default:
             if (IsTimeGen(op)) { out = MsToTimecents(v); return true; }
             out = v;
@@ -197,7 +197,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     // ---- 2. collect the instruments and samples those presets really use -
     struct SampleRef { const Bank* bank; const Sample* smp; };
     std::vector<SampleRef> outSamples;
-    std::map<std::pair<const Bank*, int>, int> sampleIndex;   // (banka, id) -> novy index
+    std::map<std::pair<const Bank*, int>, int> sampleIndex;   // (bank, id) -> new index
     std::vector<std::pair<const Bank*, const Instrument*>> outInstr;
     std::map<std::pair<const Bank*, int>, int> instrIndex;
 
@@ -266,10 +266,10 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         const uint32_t le = (s.loopEnd   >= s.start) ? (s.loopEnd   - s.start) : 0;
         outPos[i].loopStart = base + std::min<uint32_t>(ls, static_cast<uint32_t>(avail));
         outPos[i].loopEnd   = base + std::min<uint32_t>(le, static_cast<uint32_t>(avail));
-        smpl.insert(smpl.end(), 46, 0);        // povinna vypln podle SF2
+        smpl.insert(smpl.end(), 46, 0);        // mandatory padding per SF2
     }
 
-    // ---- 4. chunky pdta ---------------------------------------------------
+    // ---- 4. pdta chunks ---------------------------------------------------
     Buf phdr, pbag, pmod, pgen, inst, ibag, imod, igen, shdr;
 
     auto writeZoneGens = [&](Buf& gens, const Bank* b, const Zone& z,
@@ -319,7 +319,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         }
     };
 
-    // presety
+    // presets
     for (auto& kv : chosen)
     {
         const Bank* b = kv.second.bank;
@@ -345,7 +345,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     pgen.u16(0); pgen.u16(0);                        // terminator
     pmod.u16(0); pmod.u16(0); pmod.u16(0); pmod.u16(0); pmod.u16(0);
 
-    // nastroje
+    // instruments
     for (auto& pr : outInstr)
     {
         const Bank* b = pr.first;
@@ -366,7 +366,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     igen.u16(0); igen.u16(0);
     imod.u16(0); imod.u16(0); imod.u16(0); imod.u16(0); imod.u16(0);
 
-    // vzorky
+    // samples
     //
     // The +1/+2/+3 offset is not cosmetic. SF1 stores chip addresses
     // directly (already with the interpolator correction), while SF2 stores
@@ -414,7 +414,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     shdr.u32(0); shdr.u32(0); shdr.u32(0); shdr.u32(0); shdr.u32(0);
     shdr.u8(0); shdr.u8(0); shdr.u16(0); shdr.u16(0);
 
-    // ---- 5. slozit soubor -------------------------------------------------
+    // ---- 5. assemble the file ---------------------------------------------
     Buf info;
     info.tag("ifil"); info.u32(4); info.u16(2); info.u16(1);   // SF 2.01
     Buf isng; isng.raw("EMU8000", 8);

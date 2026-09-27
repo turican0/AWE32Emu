@@ -1,62 +1,66 @@
 # Wave ROM: `awe32.raw` vs `1mgm.sf2`
 
-Porovnano 13.8.2026. Oba soubory lezi v `rom/` a **nejsou v repozitari**
-(viz `.gitignore`) - jde o originalni data Creative/E-mu.
+Compared on 2026-08-13. Neither file is in the repository — they are
+original Creative/E-mu data (see [USAGE.md](../USAGE.md) for where to get
+`awe32.raw`).
 
-## Zaver
+## Conclusion
 
-Jsou to **titiz vzorky ve dvou formatech**.
+They are **the same samples in two formats**.
 
 | | `awe32.raw` | `1mgm.sf2` |
 |---|---|---|
-| velikost | 1 048 576 B (presne 1 MB) | 1 090 280 B |
-| obsah | hlavicka ROM + vzorkovy fond | RIFF sfbk: INFO + sdta/smpl + pdta |
-| vzorky | od offsetu `0x3DE` | chunk `smpl` od offsetu `0x8E` |
+| size | 1 048 576 B (exactly 1 MB) | 1 090 280 B |
+| contents | ROM header + sample pool | RIFF sfbk: INFO + sdta/smpl + pdta |
+| samples | from offset `0x3DE` | chunk `smpl` from offset `0x8E` |
 
-Prekryv 1 047 586 bajtu (523 793 vzorku) je **bajt po bajtu shodny**,
-MD5 obou useku `8ff0680989bfa4924fbccd4527302f03`.
+The overlap of 1 047 586 bytes (523 793 samples) is **byte for byte
+identical**, MD5 of both ranges `8ff0680989bfa4924fbccd4527302f03`.
 
-Rozdily:
+Differences:
 
-- `.sf2` ma na konci `smpl` o 2 bajty (`FFFF`) vic, nez se do 1 MB ROM vejde
-  - jde o zakonceni chunku, ne o zvukova data
-- `.raw` ma navic hlavicku ROM na `0x000..0x3DE`
-- `.sf2` ma navic strukturu banky (`phdr`, `pbag`, `pgen`, `inst`, `ibag`,
-  `igen`, `shdr`), kterou `.raw` obsahuje jen v proprietarnim formatu Creative
+- the `.sf2` has 2 more bytes (`FFFF`) at the end of `smpl` than fit into the
+  1 MB ROM — a chunk terminator, not sound data
+- the `.raw` additionally has the ROM header at `0x000..0x3DE`
+- the `.sf2` additionally has the bank structure (`phdr`, `pbag`, `pgen`,
+  `inst`, `ibag`, `igen`, `shdr`), which the `.raw` holds only in Creative's
+  proprietary format
 
-## Hlavicka ROM
+## ROM header
 
-Text v hlavicce je ulozeny po 16bitovych slovech, takze pri cteni po bajtech
-vypada prehozene (`iNhgitgnla e` = `Nightingale`). Po prohozeni bajtu:
+The text in the header is stored in 16-bit words, so read byte by byte it
+looks swapped (`iNhgitgnla e` = `Nightingale`). After swapping the bytes:
 
 ```
 2.81MGM ... Nightingale     General MIDI    Copyright 1993 E-mu Systems,I...
 ```
 
-**Vzorkova data prohozena nejsou** - jsou to 16bitove hodnoty v little-endian
-a ctou se primo. Prohozeni se tyka jen ASCII retezcu v hlavicce.
+**The sample data are not swapped** — they are 16-bit little-endian values
+and are read directly. The swap concerns only the ASCII strings in the
+header.
 
-## Jak to pouzit v emulaci
+## How the emulation uses it
 
-Pouziva se **`awe32.raw`**, protoze to je presne to, co vidi cip:
+**`awe32.raw`** is used, because it is exactly what the chip sees:
 
-- ROM se mapuje na adresy zvukove pameti 0 .. 0x7FFFF (adresy jsou ve
-  vzorcich, ne v bajtech; 1 MB = 524 288 slov)
-- uzivatelska DRAM zacina az na `Emu8000::kDramOffset` = 0x200000
+- the ROM is mapped to sound memory addresses 0 .. 0x7FFFF (addresses are in
+  samples, not bytes; 1 MB = 524 288 words)
+- the user DRAM starts only at `Emu8000::kDramOffset` = 0x200000
 
-Struktura banky se cte z `1mgm.sf2`, protoze je v dokumentovanem formatu.
-Prevod indexu je trivialni a diky prokazane shode dat presny:
+The bank structure can be read from `1mgm.sf2`, because it is in a
+documented format. The index conversion is trivial and, thanks to the proven
+match of the data, exact:
 
 ```
-adresa v EMU8000 = 0x1EF + index_vzorku_z_sf2_shdr
+EMU8000 address = 0x1EF + sample index from the sf2 shdr
 ```
 
-kde `0x1EF` = 495 slov = offset `0x3DE` v ROM.
+where `0x1EF` = 495 words = offset `0x3DE` in the ROM.
 
 ## Update 2026-09-14: dump from a real card
 
-A dump from the tester's AWE32 (AWEDUMP, `AWE32EmuData/rom/awe32rom.bin`,
-md5 `1d8f7f3842f6fb19cfcb2247e9f45870`) starts with `0032` and equals
+A dump from the tester's AWE32 (AWEDUMP, md5
+`1d8f7f3842f6fb19cfcb2247e9f45870`) starts with `0032` and equals
 `awe32.raw` **shifted by one word** (0 of 524 287 words differ). `awe32.raw`
 has an extra `0x1234` word in front, which 86Box already drops in
 `emu8k_init`. On the card, sample index `i` of `1mgm.sf2` is therefore at
@@ -65,5 +69,6 @@ the extra word too, so both files load identically; the register values
 (`kRomPoolBase` = 495 with the -1/-2/-3 correction, SF1 addresses) are
 unchanged because they match what the drivers write.
 
-Reverzovat vlastni preset tabulky z `.raw` by znamenalo dalsi RE
-proprietarniho formatu bez jakekoli vyhody - vzorky by z toho vysly stejne.
+Reverse engineering the preset tables inside the `.raw` would mean more RE of
+a proprietary format without any benefit — the samples would come out the
+same.

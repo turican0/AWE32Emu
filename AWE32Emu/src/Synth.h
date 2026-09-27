@@ -7,7 +7,7 @@
 #include "Emu8000.h"
 #include "SoundFont.h"
 
-// MIDI/MPU-401 interpretacni vrstva nad register-level jadrem Emu8000Core.
+// MIDI/MPU-401 interpretation layer over the register-level core Emu8000Core.
 //
 // The Synth holds no sound state - it translates a MIDI event into exactly
 // the EMU8000 register writes the driver on a real card would make (write
@@ -28,7 +28,7 @@ class Synth
 public:
     explicit Synth(uint32_t sampleRate);
 
-    // Wave ROM = surovy dump, 16bit little-endian vzorky.
+    // Wave ROM = a raw dump, 16-bit little-endian samples.
     bool LoadWaveRom(const std::string& path, std::string& error);
 
     // Loads a bank (.SBK or .SF2). samplesInRom = the bank only describes
@@ -44,7 +44,7 @@ public:
     size_t BankCount() const { return m_banks.size(); }
     const SoundFont::Bank& BankAt(size_t i) const { return *m_banks[i].bank; }
 
-    // Vypise prvnich N spustenych hlasu i s vyslednymi registry.
+    // Prints the first N started voices with their resulting registers.
     void SetVoiceDebug(int count) { m_debugVoices = count; }
 
     // Record of intermediate values at note-on, named after the **voice
@@ -54,8 +54,8 @@ public:
     bool OpenNoteDump(const std::string& path);
     void CloseNoteDump();
 
-    // Bitova maska povolenych MIDI kanalu (bit 0 = kanal 1). Slouzi
-    // k izolaci jednotlivych stop pri ladeni.
+    // Bit mask of enabled MIDI channels (bit 0 = channel 1). Used to
+    // isolate single tracks while debugging.
     void SetChannelMask(uint16_t mask) { m_channelMask = mask; }
 
     // Master volume of the AIL sequencer (`AIL_set_XMIDI_master_volume`).
@@ -94,7 +94,7 @@ private:
         uint8_t releaseRate = 0x40;
         uint8_t releaseModRate = 0;
         uint32_t age = 0;
-        int      basePitch = 0;   // IP bez pitch bendu
+        int      basePitch = 0;   // IP without pitch bend
 
         // SBAWE32.MDI voice block (0x0BC6 + voice * 0x14), family `dos`.
         // State: 0xFFFF free, 0xFFFE reserved while a note is set up,
@@ -130,7 +130,7 @@ private:
     struct ChannelState
     {
         uint8_t program = 0;
-        uint8_t modWheel = 0;   // CC1, viz Synth::NoteOn
+        uint8_t modWheel = 0;   // CC1, see Synth::NoteOn
         uint8_t bankMsb = 0;         // CC0
         uint8_t bankLsb = 0;         // CC32
         uint8_t volume = 100;        // CC7
@@ -233,7 +233,7 @@ private:
     {
         return (m_core.DriverVariant() == Awe32::Driver::Win95) ? kVxdVoices : kUsableVoices;
     }
-    // Zvukovy fond wave ROM zacina na tomto slove (viz docs/re-notes).
+    // The sound data of the wave ROM starts at this word (see docs/re-notes).
     static constexpr uint32_t kRomPoolBase = 495;
     // Drum bank number per the GM/SoundFont convention.
     static constexpr int kDrumBank = 128;

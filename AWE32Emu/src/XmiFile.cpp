@@ -94,7 +94,7 @@ namespace XmiFile
         pos += 4;
         size_t evntEnd = pos + evntLen;
         if (evntEnd > buffer.size())
-            evntEnd = buffer.size(); // tolerantni k mirne poskozenym/orezanym souborum
+            evntEnd = buffer.size(); // tolerant of slightly damaged/truncated files
 
         std::vector<uint8_t> data(buffer.begin() + pos, buffer.begin() + evntEnd);
 
@@ -157,8 +157,9 @@ namespace XmiFile
             }
             else if (hiNibble == 0x90)
             {
-                // XMI Note On nese navic delku noty (interval encoding) - z toho
-                // odvodime explicitni Note Off, ktery SMF/Sequencer ocekava.
+                // An XMI Note On also carries the note length (interval
+                // encoding) - from it we derive the explicit Note Off the
+                // SMF/Sequencer expects.
                 if (p + 2 > data.size()) break;
                 uint8_t note = data[p++];
                 uint8_t velocity = data[p++];
@@ -219,7 +220,7 @@ namespace XmiFile
             }
             else
             {
-                break; // neznamy status - ukoncit parsovani
+                break; // unknown status - stop parsing
             }
         }
 

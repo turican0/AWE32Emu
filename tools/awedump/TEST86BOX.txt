@@ -1,18 +1,19 @@
-AWEDUMP - overeni v 86Boxu (2026-09-13)
-=======================================
+AWEDUMP - verification in 86Box (2026-09-13)
+============================================
 
-Stav: FUNGUJE. Zdrojak (awedump.asm) a AWEDUMP.COM odpovidaji: tabulky
-init1..init4 lezi v COM na offsetu 2649, delka souboru presne sedi na konec
-32kB bufferu, vsechny texty jsou uvnitr. Opravovat nebylo potreba.
+Status: WORKS. The source (awedump.asm) and AWEDUMP.COM match: the tables
+init1..init4 lie in the COM at offset 2649, the file length ends exactly at
+the end of the 32 kB buffer, all texts are inside. Nothing needed fixing.
 
-Beh
+Run
 ---
-VM ref86box\vmdos (MS-DOS 6.22, sbawe32), AUTOEXEC:
+A DOS VM in 86Box (MS-DOS 6.22, SBAWE32 drivers), AUTOEXEC:
 
     C:\AWEDUMP.COM 620 < C:\KEY.TXT > C:\DUMPLOG.TXT
 
-(KEY.TXT = "Y" + CRLF misto stisku klavesy; vystup do DUMPLOG.TXT, proto na
-obrazovce VM zustane jen "File not found" z DEL.) Za 60 s:
+(KEY.TXT = "Y" + CRLF instead of a key press; the output goes to
+DUMPLOG.TXT, so only "File not found" from DEL stays on the VM screen.)
+After 60 s:
 
     AWEDUMP - EMU8000 ROM dumper.  Base port: 0x0620
     EMU8000-like chip responded at this base.
@@ -20,34 +21,35 @@ obrazovce VM zustane jen "File not found" z DEL.) Za 60 s:
     Dumping 1 MB ................................
     Done: AWE32ROM.BIN written (1,048,576 bytes).
 
-Vysledek
---------
-AWE32ROM.BIN (md5 4109fb079dcb1a09c258675c2de0466d) je bajt po bajtu shodny
-s ROM, jak ji ma 86Box V PAMETI. Proti souboru awe32.raw (md5
-30b76c45ca0712418239d2b15c65881a) je posunuty o jedno slovo - to NENI chyba
-dumperu:
+Result
+------
+AWE32ROM.BIN (md5 4109fb079dcb1a09c258675c2de0466d) is byte for byte the
+same as the ROM as 86Box holds it IN MEMORY. Against the file awe32.raw (md5
+30b76c45ca0712418239d2b15c65881a) it is shifted by one word - that is NOT a
+dumper error:
 
     86Box emu8k_init(): "AWE-DUMP creates ROM images offset by 2 bytes, so if
-    we detect this then correct it" - kdyz rom[3]==0x314D a rom[4]==0x474D,
-    posune ROM o slovo dolu a posledni slovo vynuluje.
+    we detect this then correct it" - when rom[3]==0x314D and rom[4]==0x474D,
+    it shifts the ROM down by a word and clears the last word.
 
-awe32.raw zacina 1234 0032 2E38 314D 474D, takze 86Box ji posune a na adrese
-0 ma 0032. AWEDUMP (zahodi prvni cteni SMLD, jako ALSA size_dram) precte
-presne to.
+awe32.raw starts with 1234 0032 2E38 314D 474D, so 86Box shifts it and has
+0032 at address 0. AWEDUMP (drops the first SMLD read, like ALSA size_dram)
+reads exactly that.
 
-Co z toho plyne pro dump ze skutecne karty: spravny dump zacina slovem 0032
-(bez uvodniho 1234). Kdyby zacinal 1234 0032, cte dumper o slovo drive a je
-treba to hlasit.
+What follows for a dump from a real card: a correct dump starts with the
+word 0032 (without the leading 1234). If it started with 1234 0032, the
+dumper reads one word early and it should be reported.
 
-Porovnani:  python romcompare.py AWE32ROM.BIN [reference.raw]
-            (pozna shodu, posun o N slov, prohozene bajty, kazde druhe slovo,
-            opakovane bloky)
+Comparison: python romcompare.py AWE32ROM.BIN [reference.raw]
+            (detects a match, a shift by N words, swapped bytes, every second
+            word, repeated blocks)
 
-Drobnosti ve zdrojaku (na 86Boxu se neprojevily)
-----------------------------------------------
-- Zapis do souboru (int 21h/40h) nekontroluje chybu ani pocet zapsanych
-  bajtu: pri plnem disku vypise "Done" s neuplnym souborem. Po behu proto
-  vzdy zkontrolovat velikost 1 048 576 B.
-- Ceka na klavesu (int 21h/01h); pro davku staci presmerovat vstup.
-- Parametr je jen hex cislo (620), ne "E620".
-- Prestavba potrebuje NASM (tady neni nainstalovany).
+Small issues in the source (they did not show in 86Box)
+------------------------------------------------------
+- The file write (int 21h/40h) checks neither the error nor the number of
+  bytes written: on a full disk it prints "Done" with an incomplete file. So
+  always check the size of 1 048 576 B after the run.
+- It waits for a key (int 21h/01h); for a batch run redirecting the input is
+  enough.
+- The parameter is only a hex number (620), not "E620".
+- Rebuilding needs NASM.

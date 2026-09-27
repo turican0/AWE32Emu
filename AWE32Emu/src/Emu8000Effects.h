@@ -27,7 +27,7 @@
 
 namespace Emu8000Fx
 {
-    // Modulovana zpozdovaci linka - jeden hlas chorusu.
+    // Modulated delay line - one chorus voice.
     class ChorusVoice
     {
     public:
@@ -52,7 +52,7 @@ namespace Emu8000Fx
             if (m_phase > 2.0 * 3.14159265358979323846)
                 m_phase -= 2.0 * 3.14159265358979323846;
 
-            // linearni interpolace v zpozdovaci lince
+            // linear interpolation in the delay line
             const double read = static_cast<double>(m_pos) - delay;
             const double wrapped = read < 0 ? read + m_line.size() : read;
             const size_t i0 = static_cast<size_t>(wrapped) % m_line.size();
@@ -72,7 +72,7 @@ namespace Emu8000Fx
         double m_base = 0.0, m_depth = 0.0, m_rate = 0.0, m_phase = 0.0;
     };
 
-    // Hrebenovy filtr s tlumenim vysokych kmitoctu.
+    // Comb filter with high-frequency damping.
     class Comb
     {
     public:
@@ -127,17 +127,17 @@ namespace Emu8000Fx
     // ----------------------------------------------------------------------
     struct ChorusPreset
     {
-        uint16_t feedback;      // spodni bajt = uroven zpetne vazby
-        uint16_t delaySamples;  // zpozdeni ve vzorcich pri 44100 Hz
-        uint16_t depth;         // spodni bajt = hloubka modulace
-        uint32_t lfoFreq;       // jednotka ~0.0073 Hz
+        uint16_t feedback;      // low byte = feedback level
+        uint16_t delaySamples;  // delay in samples at 44100 Hz
+        uint16_t depth;         // low byte = modulation depth
+        uint32_t lfoFreq;       // unit ~0.0073 Hz
     };
 
-    // Presne hodnoty z ds:0x19A2 v SBAWE32.DRV.
+    // Exact values from ds:0x19A2 in SBAWE32.DRV.
     inline constexpr ChorusPreset kChorusPresets[8] = {
         { 0xE600, 0x03F6, 0xBC2C, 0x006D },   // 0 Chorus 1
         { 0xE608, 0x031A, 0xBC6E, 0x017C },   // 1 Chorus 2
-        { 0xE610, 0x031A, 0xBC84, 0x0083 },   // 2 Chorus 3  (vychozi)
+        { 0xE610, 0x031A, 0xBC84, 0x0083 },   // 2 Chorus 3  (default)
         { 0xE620, 0x0269, 0xBC6E, 0x017C },   // 3 Chorus 4
         { 0xE680, 0x04D3, 0xBCA6, 0x005B },   // 4 Feedback
         { 0xE6E0, 0x044E, 0xBC37, 0x0026 },   // 5 Flanger
@@ -145,7 +145,7 @@ namespace Emu8000Fx
         { 0xE6C0, 0x0B06, 0xBC00, 0x0083 },   // 7 Short Delay + FB
     };
     inline constexpr int kChorusDefault = 2;
-    inline constexpr int kReverbDefault = 4;   // Hall 2, viz SBAWE32.DRV 0x612D
+    inline constexpr int kReverbDefault = 4;   // Hall 2, see SBAWE32.DRV 0x612D
 
     // ----------------------------------------------------------------------
     // Recognising the preset from the register state. The chip has no preset
@@ -232,7 +232,7 @@ namespace Emu8000Fx
             const ChorusPreset& p = kChorusPresets[std::clamp(preset, 0, 7)];
 
             const double delayMs = p.delaySamples * 1000.0 / 44100.0;
-            const double depthMs = (p.depth & 0xFF) / 255.0 * 6.0;   // [?] rozsah
+            const double depthMs = (p.depth & 0xFF) / 255.0 * 6.0;   // [?] range
             const double rateHz = p.lfoFreq * 0.0073;
             m_feedback = (p.feedback & 0xFF) / 255.0f;
 
@@ -313,7 +313,7 @@ namespace Emu8000Fx
             outR = acc[1] * m_outGain;
         }
 
-        // roomSize 0..1 (delka dozvuku), damp 0..1 (tlumeni vysokych)
+        // roomSize 0..1 (reverb length), damp 0..1 (high damping)
         void SetRoom(float roomSize, float damp)
         {
             m_feedback = 0.7f + std::clamp(roomSize, 0.0f, 1.0f) * 0.28f;
@@ -365,7 +365,7 @@ namespace Emu8000Fx
         AllPass m_ap[2][4];
         float m_feedback = 0.84f;
         float m_damp = 0.35f;
-        float m_inputGain = 0.16f;   // = 1 - m_feedback, viz Process()
+        float m_inputGain = 0.16f;   // = 1 - m_feedback, see Process()
         float m_outGain = 1.49f;     // preset 4 until SetPreset is called
         std::vector<float> m_pre;    // pre-delay ring buffer
         size_t m_prePos = 0;
@@ -432,8 +432,9 @@ namespace Emu8000Fx
         return reg == table || swapped == table;
     }
 
-    // Z hodnot deseti slotu urci polohu bass a treble. Co nesedi na zadnou
-    // radek tabulky (napr. pred inicializaci), necha puvodni hodnotu.
+    // Determines the bass and treble position from the values of the ten
+    // slots. What matches no table row (e.g. before initialisation) keeps its
+    // previous value.
     inline void EqIndexFromInit(const uint16_t* v, int& bass, int& treble)
     {
         for (int i = 0; i < 12; ++i)

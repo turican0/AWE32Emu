@@ -687,7 +687,7 @@ void Emu8000Core::PowerOnInit()
         Write(Reg::Unk0080, v, 0);
     }
 
-    // krok 7 (sub_1288C): SMALR/SMARR/SMALW + init pole.
+    // step 7 (sub_1288C): SMALR/SMARR/SMALW + init arrays.
     //
     // The init arrays INIT1..INIT4 are coefficients of the internal DSP. Our
     // emulation does not use them - they are only stored in the register

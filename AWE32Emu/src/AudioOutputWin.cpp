@@ -50,7 +50,7 @@ bool AudioOutputWin::Open(uint32_t sampleRate, uint32_t framesPerBuffer)
 void AudioOutputWin::Write(const int16_t* interleavedStereo, uint32_t numFrames)
 {
     if (!m_hWaveOut || numFrames != m_framesPerBuffer)
-        return; // TODO: podpora promenlive velikosti bloku, pokud bude potreba
+        return; // TODO: support a variable block size if ever needed
 
     auto* headers = reinterpret_cast<WAVEHDR*>(m_headers);
     WAVEHDR& hdr = headers[m_currentIndex];

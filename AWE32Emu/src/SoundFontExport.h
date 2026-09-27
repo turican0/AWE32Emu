@@ -40,7 +40,7 @@ namespace SoundFont
         //   - raise the CC91/CC93 sensitivity to 40 % (SF2 defaults to 20 %).
         bool awe32Modulators = true;
 
-        // Jmeno banky zapsane do INFO/INAM.
+        // Bank name written to INFO/INAM.
         std::string name;
     };
 

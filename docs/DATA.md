@@ -1,179 +1,71 @@
-# Kde je co
+# Data: what is where
 
-V repozitari je **jen zdrojak emulatoru a dokumentace**. Vsechno ostatni -
-vzorky, banky, ROM, referencni nahravky, obrazy virtualnich stroju, zdrojak
-86Boxu, ale i nase testovaci a merici nastroje - lezi vedle:
+The `main` branch holds only the emulator source, the tools that run on the
+real card (`tools/`) and the documentation. Everything measured and every
+research tool is in the **`sources` branch**:
 
+```bash
+git clone --branch sources --single-branch https://github.com/turican0/AWE32Emu.git AWE32Emu-sources
 ```
-C:\prenos\AWE32Emu\        projekt (to, co se commituje)
-C:\prenos\AWE32EmuData\    vsechno ostatni (mimo git)
-```
 
-Prikazy se pisou **z korene projektu**, takze maji prefix `../AWE32EmuData/`.
+It is an orphan branch (no shared history with `main`), about 1 GB, mostly
+FLAC recordings.
 
-> **Pozor:** nastroje v `../AWE32EmuData/tests/` a `../AWE32EmuData/ref86box/`
-> uz **nejsou pod verzi**. Je to nas vlastni kod - 23 python nastroju,
-> `harness.c`, merici skripty - takze jeho zaloha je na tobe.
+## Layout of the `sources` branch
 
----
-
-## Co je v projektu
-
-| cesta | co |
+| path | contents |
 |---|---|
-| `AWE32Emu/src/` | zdrojak emulace EMU8000 |
-| `AWE32Emu.sln` | reseni pro Visual Studio 2022 |
-| `docs/` | dokumentace a nalezy z reverzovani (`re-notes/`) |
-| `README.md`, `awe32-emulace-todo.md`, `aweutil_register_access_notes.md` | |
-| `bin/`, `obj/`, `.vs/` | vystupy prekladu, v `.gitignore` |
+| `recordings/` | the tester's recordings from a real Sound Blaster AWE32, with the AWETEST logs |
+| `demos/` | short Magic Carpet 2 excerpts: the real card against our render |
+| `tests/` | our Python measuring and comparison tools (trace diffs, the test matrix, disassemblers for the NE/LE/MDI drivers, FAT16 image tool, …) |
+| `ref86box/` | the reference renderer `emu8k_ref` (harness + stub headers), the instrumentation patch for 86Box, build and VM control scripts |
+| `analysis/` | the analysis scripts of the AWETEST rounds (alignment, per-block analysis, fits of reverb/chorus/filter/interpolation, chip checks) |
 
-## Co je v datovem adresari
+### `recordings/`
 
-| cesta | MB | co to je |
+All recordings are from the tester's card: Sound Blaster AWE32, DSP 4.13,
+8 MB DRAM. WAV files are converted to FLAC (lossless); files over 100 MB are
+split into parts. The dry right channel of this card is dead — the right line
+output carries only the effect returns.
+
+| folder | program | what |
 |---|---|---|
-| `tests/` | 3258 | **23 nasich python nastroju** + `out/` s vygenerovanymi WAVy a stopami |
-| `ref86box/` | 1183 | **nas harness a merici skripty** + obrazy VM, buildy 86Boxu, prevzate zdrojaky |
-| `cdrom/` | 460 | rozbalene instalacni CD Creative (`SYNTHGM.SBK`, ovladace) |
-| `SAMPLES2/` | 134 | demo CD Creative - bezztratove FLAC + odpovidajici MID |
-| `ogg/` | 80 | referencni nahravky k `midi/` (ztratove) |
-| `docs/86box-src/` | 63 | klon 86Boxu vcetne nasi instrumentace |
-| `SAMPLES/` | 35 | dalsi vzorky a 121 MIDI od Creative |
-| `SoundBlaster AWE32/` | 7 | ovladace Creative vcetne `traced-drivers/` |
-| `docs/next docs/` | 5 | SDK, Programmer's Guide, vytazene texty |
-| `rom/` | 2 | `awe32.raw` (wave ROM karty), `1mgm.sf2` |
-| `midi/` | 1 | skladby Magic Carpet 2 ve ctyrech variantach |
-| `sbk/` | 1 | `BULLFROG.SBK`, `SBAWE32.MDI` |
-| `analyze/` | 0,1 | analyza die shotu EMU8000, patch proti 86Boxu, `envelope_sim.py` |
+| `2026-09-06/`, `2026-09-07/` | early AWETEST | the first recordings (`ver3`; `test4`, `end4` with the log) — **partly invalid**: the test tone played on voice 31, which the driver reserves for the DRAM refresh, and `test4` is overdriven (see `hardware_tests.md`) |
+| `2026-09-08/` | AWETEST v05 (run5) | internal capture, blocks 1-15 and 22-35 |
+| `2026-09-12/` | AWETEST v25 | internal capture (`reca` blocks 1-11, `recb` 11-13, `recc` 11-39) with logs, and the external line recording `awetst25` |
+| `2026-09-12/mc2/`, `2026-09-14/mc2/` | Magic Carpet 2 | the game recorded from the card: menu music, level 1, intro |
+| `2026-09-23/39-41/` | AWETEST v26 | blocks 39-41, line + internal |
+| `2026-09-26/22-23-42/` | AWETEST v27 | blocks 22, 23, 42 (reverb, chorus, chorus loop), line + internal |
+| `2026-09-27/28/` | AWETEST v28 | blocks 43-46 (headroom, interpolation, reverb and chorus with noise), line + internal |
 
-Podrobny popis obsahu ma `../AWE32EmuData/README.md`.
+Recorder clipping: the line recordings of v26 and v27 are clipped at the
+loudest places; v28 was recorded at a lower level and is clean. Levels of the
+internal capture are not linear. See `docs/re-notes/emu8000_tuning.md`
+before drawing conclusions.
 
-### Uvnitr `../AWE32EmuData/ref86box/`
+Some rounds arrived without the tester's `AWETEST.LOG`; for those the log of
+the same program run in our DOS VM gives the note times (the VM trace and log
+are reproducible from `tools/awetest`).
 
-| cesta | puvod |
-|---|---|
-| `harness.c`, `include/86box/*.h` (osm stubu) | **nas kod** |
-| `run_trace.ps1`, `run_vm.bat`, `build.bat`, `build_86box.sh`, `screenshot.ps1` | **nase skripty** |
-| `verify_upstream.py` | **nas** - kontrola otisku prevzatych zdrojaku |
-| `86box-patch/` | **nase** instrumentace 86Boxu: patch, ctyri nove zdrojaky, hash commitu |
-| `noslirp/` | **nas** stub za `net_slirp.c`, aby build nepotreboval glib |
-| `upstream/snd_emu8k.c`, `upstream/snd_emu8k.h` | 86Box, **bajt po bajtu** |
-| `include/86box/snd_emu8k.h` | tataz hlavicka jeste jednou, aby ji nasel `#include <86box/...>` |
-| `vm/`, `vmdos/` | virtualni stroje (Windows 95 / DOS + Magic Carpet 2) |
-| `build86box/`, `build86box_int/`, `build/` | prelozene binarky |
+## What is not published anywhere
 
-Pozor na jednu vec, ktera se lehko prehledne: `include/86box/snd_emu8k.h`
-**neni stub**, ale bajt po bajtu skutecna hlavicka 86Boxu (799 radku, totozna
-s `upstream/snd_emu8k.h`) - jen se jmenuje jako osm stubu vedle ni. Ty maji
-4 az 22 radku a napsali jsme si je sami.
+- the wave ROM `awe32.raw` — see [USAGE.md](USAGE.md) for where to get it
+- Creative's drivers, SoundFont banks (`SYNTHGM.SBK`, game banks), the AWE32
+  SDK, the demo CDs
+- game music (MIDI/XMI) apart from the short excerpts in `demos/`
+- the virtual machine images (they contain Windows 95, DOS and games)
+- the 86Box source tree (it is upstream 86Box plus the patch in
+  `ref86box/86box-patch/`)
 
----
+Older commits of `main` contained some of these files; they are no longer in
+the current tree.
 
-## Jak si skripty hledaji cesty
+## Local layout used during development
 
-Vsechny merici a testovaci skripty uz **lezi v datovem adresari**, takze si
-cesty odvozuji od sve vlastni polohy - nic se jim predavat nemusi:
-
-| skript | co si odvodi |
-|---|---|
-| `tests/regress.py` | data = o adresar vys; prelozeny prehravac hleda v `../AWE32Emu` (prebiji promenna `AWE32EMU_PROJECT`) |
-| `ref86box/verify_upstream.py` | prevzate zdrojaky vedle sebe |
-| `ref86box/build.bat` | `include/`, `upstream/`, `harness.c` vedle sebe, vystup do `build/` |
-| `ref86box/build_86box.sh` | zdrojak 86Boxu v `../docs/86box-src/master-full` |
-| `ref86box/run_trace.ps1`, `run_vm.bat` | `vm/`, `vmdos/`, `build86box/` vedle sebe |
-
----
-
-## Prikazy s aktualnimi cestami
-
-Spousti se z korene projektu (`C:\prenos\AWE32Emu`).
-
-Prelozeni:
-
-```bash
-"/c/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" AWE32Emu.sln -p:Configuration=Release -p:Platform=x64 -v:minimal -nologo
-```
-
-Regresni sada:
-
-```bash
-python ../AWE32EmuData/tests/regress.py
-```
-
-Prehrani RELAXu vcetne zpevu (uzivatelska banka patri do MIDI banky 1):
-
-```bash
-./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/SAMPLES2/RELAX_VX.MID --rom ../AWE32EmuData/rom/awe32.raw --sf "../AWE32EmuData/cdrom/2/WIN95/DRIVERS/SYNTHGM.SBK" --sf "../AWE32EmuData/SAMPLES2/RELAX.SBK@1" --wav ../AWE32EmuData/tests/out/relax_vx.wav
-```
-
-Srovnani se skutecnou nahravkou:
-
-```bash
-python ../AWE32EmuData/tests/cmp_real.py ../AWE32EmuData/tests/out/relax_vx.wav "../AWE32EmuData/SAMPLES2/3 - Relax.flac"
-```
-
-Reprodukce dosoveho mereni (hra ma hlavni hlasitost AIL kolem 100/127):
-
-```bash
-./bin/x64/Release/AWE32Emu.exe ../AWE32EmuData/midi/004_C2INTRO_w.xmi --rom ../AWE32EmuData/rom/awe32.raw --sf ../AWE32EmuData/sbk/BULLFROG.SBK --wav ../AWE32EmuData/tests/out/mc_intro.wav --trace ../AWE32EmuData/tests/out/mc_intro.trace --driver dos --master-volume 100
-```
-
-Srovnani registru proti ovladacum:
-
-```bash
-python ../AWE32EmuData/tests/notes_diff.py ../AWE32EmuData/tests/out/ours_win95.trace ../AWE32EmuData/tests/out/win95.trace
-```
-
-```bash
-python ../AWE32EmuData/tests/notes_diff.py ../AWE32EmuData/tests/out/mc_intro.trace ../AWE32EmuData/tests/out/dos_mdi.trace --pair --dframes 0:6000000
-```
-
-Referencni renderer 86Boxu a spektralni srovnani:
-
-```bash
-../AWE32EmuData/ref86box/build/emu8k_ref.exe --rom ../AWE32EmuData/rom/awe32.raw --trace ../AWE32EmuData/tests/out/ours_win95.trace --dram ../AWE32EmuData/tests/out/ours_win95.trace.dram.raw --ram 8192 --wav ../AWE32EmuData/tests/out/minuet_86box.wav
-```
-
-```bash
-python ../AWE32EmuData/tests/cmp86box.py ../AWE32EmuData/tests/out/minuet_ours.wav ../AWE32EmuData/tests/out/minuet_86box.wav
-```
-
-Kontrola, ze prevzate zdrojaky 86Boxu jsou beze zmeny:
-
-```bash
-python ../AWE32EmuData/ref86box/verify_upstream.py --online
-```
-
-Disassemblery:
-
-```bash
-python ../AWE32EmuData/tests/mdi_disasm.py ../AWE32EmuData/sbk/SBAWE32.MDI --at 0x1e76 --count 60
-```
-
-```bash
-python ../AWE32EmuData/tests/le_disasm.py "../AWE32EmuData/SoundBlaster AWE32/traced-drivers/SBAWE.VXD" --obj 1 --at 0x1ec0 --count 20
-```
-
-Prelozeni harnessu a instrumentovaneho 86Boxu:
-
-```bash
-cmd /c call C:\prenos\AWE32EmuData\ref86box\build.bat
-```
-
-```bash
-C:\msys64\usr\bin\bash.exe -lc "MSYSTEM=MINGW64 AWE32_DYNAREC=OFF AWE32_BUILDDIR=/c/prenos/AWE32EmuData/ref86box/build86box_int /c/prenos/AWE32EmuData/ref86box/build_86box.sh"
-```
-
----
-
-## Obnova 86Boxu s nasi instrumentaci
-
-Kdyby se `../AWE32EmuData/docs/86box-src` ztratil:
-
-```bash
-git clone https://github.com/86Box/86Box ../AWE32EmuData/docs/86box-src/master-full
-```
-
-Pak v tom klonu prepnout na commit z
-`../AWE32EmuData/ref86box/86box-patch/86box-commit.txt`, nakopirovat do stromu
-`../AWE32EmuData/ref86box/86box-patch/src/` a aplikovat
-`instrumentace.patch` (4 zmenene soubory, 35 radku).
+The tools assume the layout they were written in: the repository at
+`C:\prenos\AWE32Emu` and a data directory `C:\prenos\AWE32EmuData` next to it
+(`rom/`, `sbk/`, `midi/`, `tests/`, `ref86box/`, `tester/`, the VM images,
+`docs/86box-src/master-full` with the patched 86Box). Scripts derive most
+paths from their own location or from `AWE32EMU_PROJECT` /
+`AWE32EMU_TESTER25`; some analysis scripts have absolute paths and need
+editing.

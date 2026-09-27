@@ -6,7 +6,7 @@
 #include <vector>
 
 // ---------------------------------------------------------------------------
-// Obecny loader SoundFont banky - zvlada SoundFont 1.0 (`.SBK`) i SF2 (`.sf2`).
+// Generic SoundFont bank loader - handles SoundFont 1.0 (`.SBK`) and SF2 (`.sf2`).
 //
 // On purpose NOT tailored to any particular bank. The differences of the
 // two versions (see docs/re-notes/soundfont1_sbk.md):
@@ -61,8 +61,8 @@ namespace SoundFont
         };
     }
 
-    // Sada generatoru s priznakem "bylo nastaveno" (kvuli spravnemu
-    // skladani zon a defaultum).
+    // A set of generators with a "was set" flag (for correct combining of
+    // zones and defaults).
     struct GenSet
     {
         std::array<int16_t, Gen::Count> value{};
@@ -74,7 +74,7 @@ namespace SoundFont
         }
         bool Has(int op) const { return op >= 0 && op < Gen::Count && present[op]; }
         int Get(int op, int fallback) const { return Has(op) ? value[op] : fallback; }
-        // Slozeni preset zony (offsety) nad instrument zonou (absolutni).
+        // Combining a preset zone (offsets) over an instrument zone (absolute).
         void AddFrom(const GenSet& other);
         void OverrideFrom(const GenSet& other);
         // Fills in only what is missing - the instrument's value wins.
@@ -96,8 +96,8 @@ namespace SoundFont
         GenSet gen;
         int keyLo = 0, keyHi = 127;
         int velLo = 0, velHi = 127;
-        int sampleId = -1;     // zona instrumentu
-        int instrument = -1;   // zona presetu
+        int sampleId = -1;     // instrument zone
+        int instrument = -1;   // preset zone
     };
 
     struct Instrument
@@ -133,7 +133,7 @@ namespace SoundFont
         std::string errorMessage;
         Version version = Version::Sf2;
         std::string name;
-        std::string romName;            // INFO/irom - jakou ROM banka ceka
+        std::string romName;            // INFO/irom - which ROM the bank expects
         // True = the samples of this bank are not in its smpl chunk but in
         // the card's wave ROM. That is how the description of a GM bank (e.g.
         // 1mgm.sf2) is used to play the contents of the real ROM (awe32.raw).
@@ -154,7 +154,7 @@ namespace SoundFont
     Bank Load(const std::string& path);
 
     // -----------------------------------------------------------------------
-    // Prevod jedne vrstvy na registry EMU8000.
+    // Conversion of one layer to EMU8000 registers.
     //
     // dramBase = address (in samples) where this bank's `smpl` chunk was loaded.
     // romPoolBase = address of the start of the sound pool in the wave ROM.
@@ -165,17 +165,17 @@ namespace SoundFont
 
     struct VoiceParams
     {
-        uint32_t ccca = 0;        // Q + control + pocatecni adresa
-        uint32_t sampleStart = 0; // surova adresa vzorku (bez posunu)
-        int      patchPan = 64;   // pan patche v jednotkach ovladace (64 = stred)
+        uint32_t ccca = 0;        // Q + control + start address
+        uint32_t sampleStart = 0; // raw sample address (without offset)
+        int      patchPan = 64;   // patch pan in driver units (64 = centre)
         uint32_t psst = 0;        // pan + loop start
         uint32_t csl = 0;         // chorus send + loop end
-        uint16_t ip = 0;          // vyska pro konkretni notu
+        uint16_t ip = 0;          // pitch for the specific note
         // The same pitch in cents, before the conversion to IP - useful when
         // analysing differences against the driver.
         int      ipCents = 0;
-        uint16_t ifatn = 0xFF00;     // horni bajt = cutoff; spodni doplni Synth
-        uint8_t  patchAttenUnits = 0;// utlum patche v jednotkach 0.375 dB
+        uint16_t ifatn = 0xFF00;     // high byte = cutoff; Synth fills in the low one
+        uint8_t  patchAttenUnits = 0;// patch attenuation in 0.375 dB units
         uint16_t pefe = 0, fmmod = 0, tremfrq = 0, fm2frq2 = 0;
         uint16_t envvol = 0x8000, atkhldv = 0x7F7F, dcysusv = 0x7F00;
         uint16_t envval = 0x8000, atkhld = 0x7F7F, dcysus = 0x7F00;

@@ -1,2 +1,17 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# DOS batch files and texts for the DOS tools keep CRLF in every checkout
+*.CMD text eol=crlf
+*.cmd text eol=crlf
+*.BAT text eol=crlf
+*.bat text eol=crlf
+tools/**/*.TXT text eol=crlf
+
+# Binaries
+*.COM binary
+*.EXE binary
+*.exe binary
+*.flac binary
+*.wav binary
+*.ogg binary

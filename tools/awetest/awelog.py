@@ -1,24 +1,24 @@
 # -*- coding: utf-8 -*-
-"""Cteni AWETEST.LOG od v25 (razitka u not).
+"""Reading AWETEST.LOG from v25 on (stamps on notes).
 
-Radek udalosti:
+Event line:
     '  403300 10 decay 0x04, sustain 0x60\t@rt 1234567:40000 cap 368800:1834567'
 
-  ms     planovany cas (g_ms) - jen orientacne
-  block  cislo bloku
-  text   popis
-  rt     skutecny cas nastupu: tik BIOSu a faze PITu (1193182 cyklu za s,
-         65536 na tik) -> sekundy = (tik * 65536 + faze) / 1193182
-  cap    soubor zaznamu ("from ms" z radku FILE) a ramec v nem - PRESNY
-         okamzik nastupu v nahravce, az na konstantni zpozdeni ADC
+  ms     planned time (g_ms) - only a guide
+  block  block number
+  text   description
+  rt     real onset time: BIOS tick and PIT phase (1193182 cycles per s,
+         65536 per tick) -> seconds = (tick * 65536 + phase) / 1193182
+  cap    capture file ("from ms" of its FILE line) and the frame in it - the
+         EXACT onset moment in the recording, up to a constant ADC delay
 
-Starsi logy (bez razitka) se ctou taky, jen rt/cap jsou None.
+Older logs (without stamps) are read too, only rt/cap are None.
 
     from awelog import parse
     log = parse('AWETEST.LOG')
     for ev in log.events:
         if ev.block == 10 and ev.file:
-            t = ev.frame / 44100.0          # sekundy v ev.file
+            t = ev.frame / 44100.0          # seconds in ev.file
 """
 import re
 from collections import namedtuple
@@ -43,12 +43,12 @@ def rt_seconds(tick, phase):
 class Log(object):
     def __init__(self):
         self.version = None
-        self.header = []          # radky '# ...' bez mrizky
+        self.header = []          # lines '# ...' without the hash
         self.events = []
         self.files = []
 
     def section(self, prefix):
-        """Radky hlavicky se zadanym prefixem, napr. 'CARD', 'CHIP', 'LEVEL'."""
+        """Header lines with the given prefix, e.g. 'CARD', 'CHIP', 'LEVEL'."""
         return [h[len(prefix):].strip() for h in self.header if h.startswith(prefix)]
 
     def block(self, n, startswith=None):
@@ -56,7 +56,7 @@ class Log(object):
                 and (startswith is None or e.text.startswith(startswith))]
 
     def capture_rates(self):
-        """Skutecna vzorkovaci frekvence kazdeho souboru z radku QUALITY."""
+        """Real sample rate of every file from its QUALITY line."""
         out = []
         for f in self.files:
             if not f.quality:
@@ -107,7 +107,7 @@ def parse(path):
 if __name__ == '__main__':
     import sys
     lg = parse(sys.argv[1])
-    print('verze', lg.version, '- udalosti', len(lg.events), '- souboru', len(lg.files))
+    print('version', lg.version, '- events', len(lg.events), '- files', len(lg.files))
     for h in lg.header:
         if h.split(' ', 1)[0] in ('CARD', 'CHIP', 'LEVEL', 'STEREO', 'CAPTURE'):
             print('#', h)

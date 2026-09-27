@@ -8,7 +8,7 @@ namespace
     uint32_t ReadBE32(const uint8_t* p) { return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]; }
     uint16_t ReadBE16(const uint8_t* p) { return (p[0] << 8) | p[1]; }
 
-    // Variable-length quantity dle SMF specifikace (7 bitu na byte, MSB = "pokracuje")
+    // Variable-length quantity per the SMF specification (7 bits per byte, MSB = "continues")
     uint32_t ReadVLQ(const std::vector<uint8_t>& data, size_t& pos)
     {
         uint32_t value = 0;
@@ -86,14 +86,14 @@ namespace
             }
             else if (statusByte == 0xF0 || statusByte == 0xF7)
             {
-                // SysEx - preskocit obsah (TODO: zpracovat AWE/GS/GM reset zpravy, viz sekce 1.1 v TODO)
+                // SysEx - skip the contents (TODO: handle AWE/GS/GM reset messages, see docs/TODO.md section 1.1)
                 uint32_t len = ReadVLQ(data, pos);
                 pos += len;
             }
             else if (hiNibble == 0x80 || hiNibble == 0x90 || hiNibble == 0xA0 ||
                      hiNibble == 0xB0 || hiNibble == 0xE0)
             {
-                // 2-bytove zpravy: Note Off/On, Poly Pressure, Control Change, Pitch Bend
+                // 2-byte messages: Note Off/On, Poly Pressure, Control Change, Pitch Bend
                 if (pos + 2 > data.size()) break;
                 uint8_t d1 = data[pos++];
                 uint8_t d2 = data[pos++];
@@ -116,7 +116,7 @@ namespace
             }
             else if (hiNibble == 0xC0 || hiNibble == 0xD0)
             {
-                // 1-bytove zpravy: Program Change, Channel Pressure
+                // 1-byte messages: Program Change, Channel Pressure
                 if (pos + 1 > data.size()) break;
                 uint8_t d1 = data[pos++];
 
@@ -129,8 +129,8 @@ namespace
             }
             else
             {
-                // Neznama/nepodporovana status byte - ukoncit parsovani teto stopy,
-                // radeji nez pokracovat s desynchronizovanym streamem
+                // Unknown/unsupported status byte - stop parsing this track
+                // rather than continue with a desynchronised stream
                 break;
             }
         }
@@ -184,7 +184,7 @@ namespace MidiFile
         {
             if (std::memcmp(&buffer[pos], "MTrk", 4) != 0)
             {
-                seq.errorMessage = "Ocekavan MTrk chunk, nenalezen (stopa " + std::to_string(t) + ")";
+                seq.errorMessage = "Expected MTrk chunk not found (track " + std::to_string(t) + ")";
                 return seq;
             }
             uint32_t trackLen = ReadBE32(&buffer[pos + 4]);
@@ -192,7 +192,7 @@ namespace MidiFile
             size_t trackEnd = trackStart + trackLen;
             if (trackEnd > buffer.size())
             {
-                seq.errorMessage = "Poskozena delka stopy " + std::to_string(t);
+                seq.errorMessage = "Damaged track length " + std::to_string(t);
                 return seq;
             }
 

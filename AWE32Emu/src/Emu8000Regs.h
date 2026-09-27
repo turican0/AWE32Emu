@@ -2,7 +2,7 @@
 #include <cstdint>
 
 // ---------------------------------------------------------------------------
-// Registrova mapa EMU8000 (Sound Blaster AWE32)
+// EMU8000 register map (Sound Blaster AWE32)
 //
 // EVERYTHING in this file is derived from the disassembly of the AWEUTIL.COM
 // driver, see docs/re-notes/emu8000_register_map.md. There each item says
@@ -34,7 +34,7 @@ namespace Emu8000
         Data0   = 0,   // 0x620
         Data0Hi = 1,   // 0x622
         Data1   = 2,   // 0xA20
-        Data1Hi = 3,   // 0xA22  (v dokumentaci "Data2")
+        Data1Hi = 3,   // 0xA22  ("Data2" in the documentation)
         Data3   = 4,   // 0xE20
         Count   = 5
     };

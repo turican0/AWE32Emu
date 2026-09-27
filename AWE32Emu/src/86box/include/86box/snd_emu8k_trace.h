@@ -1,14 +1,14 @@
-/* Prazdna varianta stopovacich hacku z 86Boxu.
+/* Empty variant of the 86Box tracing hooks.
  *
- * `snd_emu8k.c` v nasem stromu 86Boxu ma dopsane volani `emu8k_trace_*`,
- * kterymi se z bezici VM dostavaji stopy ven. Nas render je nepotrebuje -
- * stopu si delá sam o patro vys, ve `Synth` - ale prekladame **tentyz
- * soubor**, aby byl cip v obou projektech doslova stejny kod. Proto tady
- * jsou ta volani jako prazdne funkce, ktere prekladac zahodi.
+ * `snd_emu8k.c` in our 86Box tree has added `emu8k_trace_*` calls through
+ * which traces get out of the running VM. Our render does not need them -
+ * it traces one level up, in `Synth` - but we compile **the same file**, so
+ * that the chip is literally the same code in both projects. That is why
+ * the calls are empty functions here, which the compiler drops.
  *
- * Kdyby se sem nekdy dopsalo skutecne telo, plati jedno: nesmi sahat na
- * stav cipu. Jakmile by stopovani zvuk ovlivnilo, prestane platit, ze
- * nas render a 86Box pocitaji totez.
+ * Should a real body ever be written here, one rule holds: it must not
+ * touch the chip state. Once tracing affected the sound, it would no longer
+ * hold that our render and 86Box compute the same thing.
  */
 #ifndef SND_EMU8K_TRACE_H
 #define SND_EMU8K_TRACE_H

@@ -1,20 +1,19 @@
 name: release
 
-# Sestavi binarky pro Windows a Linux pokazde, kdyz se pushne znacka
-# zacinajici "v" (napr. v0.3, v1.0.2), a povesi je na vydani na GitHubu.
+# Builds the Windows and Linux binaries whenever a tag starting with "v" is
+# pushed (e.g. v0.3, v1.0.2) and attaches them to a GitHub release.
 #
-# Sestavuje se pres CMakeLists.txt v korenu, ne pres .sln - resenim Visual
-# Studia by Linux neprosel. Jadro cipu z 86Boxu (`--chip 86box`) se **nepribaluje**:
-# `snd_emu8k.c` lezi v datovem adresari mimo repozitar, takze v techhle binarkach
-# ohlasi, ze v nich neni. Nase vlastni jadro je uplne.
+# The build goes through CMakeLists.txt in the repository root, not the .sln,
+# so that Linux builds too. Both chip cores are included: our own core and
+# the 86Box one (`--chip 86box`, AWE32Emu/src/86box).
 on:
   push:
     tags:
       - 'v*'
-  workflow_dispatch:        # da se spustit i rucne, na zkousku
+  workflow_dispatch:        # can also be started by hand, as a dry run
 
 permissions:
-  contents: write           # potreba na vytvoreni vydani
+  contents: write           # needed to create the release
 
 jobs:
   build:
@@ -34,37 +33,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Konfigurace
+      - name: Configure
         run: cmake -B build -DCMAKE_BUILD_TYPE=Release
 
-      - name: Sestaveni
+      - name: Build
         run: cmake --build build --config Release --parallel
 
-      # MSVC dava binarku do build/Release/, jednokonfiguracni generatory
-      # rovnou do build/. Sesbirame obe moznosti do jedne slozky.
-      - name: Sesbirani
+      # MSVC puts the binary into build/Release/, single-configuration
+      # generators straight into build/. Collect either into one folder.
+      - name: Collect
         shell: bash
         run: |
-          mkdir -p dist
+          mkdir -p dist/docs
           if [ -f "build/Release/${{ matrix.exe }}" ]; then
             cp "build/Release/${{ matrix.exe }}" dist/
           else
             cp "build/${{ matrix.exe }}" dist/
           fi
           cp README.md dist/
-          cp docs/POUZITI.md dist/
+          cp docs/USAGE.md docs/TESTING.md dist/docs/
+          cp AWE32Emu/src/86box/README.md dist/docs/86box-core.md
 
-      - name: Rychla zkouska
+      - name: Smoke test
         shell: bash
         run: ./dist/${{ matrix.exe }} --help
 
       - uses: actions/upload-artifact@v4
         with:
-          name: AWE32Emu-${{ matrix.name }}
+          name: AWE32Emu-${{ github.ref_name }}-${{ matrix.name }}
           path: dist/
 
   release:
-    name: vydani
+    name: release
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
@@ -73,16 +73,25 @@ jobs:
         with:
           path: artifacts
 
-      - name: Zabaleni
+      # Artifacts lose the executable bit on the way, so it is set again
+      # before packing. Linux gets a .tar.gz, which keeps it for the user.
+      - name: Pack
         run: |
           cd artifacts
           for d in */; do
             n="${d%/}"
-            (cd "$n" && zip -r "../$n.zip" .)
+            if [ -f "$n/AWE32Emu" ]; then
+              chmod +x "$n/AWE32Emu"
+              tar -czf "$n.tar.gz" -C "$n" .
+            else
+              (cd "$n" && zip -r "../$n.zip" .)
+            fi
           done
           ls -la
 
       - uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/*.zip
+          files: |
+            artifacts/*.zip
+            artifacts/*.tar.gz
           generate_release_notes: true

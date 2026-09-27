@@ -63,8 +63,9 @@ namespace
             "                      (format as emu8k_ref; no MIDI file is given then)\n"
             "  --driver dos|win95|sdk  Creative driver variant; default win95\n"
             "                      (sdk = the AWE32 DOS SDK as DOSMid uses it)\n"
-            "  --chip nas|86box    Chip core: 86box = snd_emu8k.c from 86Box\n"
-            "                      (default when --rom is given), nas = the older own core\n"
+            "  --chip ours|86box   Chip core: 86box = snd_emu8k.c from 86Box with the\n"
+            "                      measured corrections (default when --rom is given),\n"
+            "                      ours = the older own core (default without --rom)\n"
             "  --ram <KB>          DRAM of the 86box chip in KB (onboard_ram), default 8192\n"
             "  --conf <file>       Initial state of the MIDI channels, as a game sends it\n"
             "  --dump-notes <csv>  Intermediate values at note-on, columns following the\n"
@@ -72,8 +73,9 @@ namespace
             "  --master-volume N   Master volume of the AIL sequencer 0..127 (default 127)\n"
             "  --sf <file>@<N>     Load the bank into MIDI bank N (selected by CC0);\n"
             "                      user banks have bank 0 in their phdr\n"
-            "  --tracks 1,2,3      Only these MIDI channels (1..16); --tracks -8,-9 = all but these\n\n"
-            "Options for the old own core only (--chip nas):\n"
+            "  --tracks 1,2,3      Only these MIDI channels (1..16); --tracks -8,-9 = all but these\n"
+            "  --export-sf2 <file> Write the loaded banks (ROM included) as one .sf2\n\n"
+            "Options for the old own core only (--chip ours):\n"
             "  --interp linear|cubic|3point|3pointc|sinc   Interpolation (default sinc;\n"
             "                      the 86box chip uses its measured interpolation)\n"
             "  --reverb 0..7  --chorus 0..7   Effect preset\n"
@@ -94,7 +96,6 @@ namespace
             "  --pan linear|power  Pan law (linear = a multiplier, as in the chip)\n"
             "  --loop-wrap on|off  Wrap the interpolation samples into the loop (default on)\n"
             "  --eq on|off         The card's equaliser from INIT3/INIT4 (default on; own core only)\n"
-            "  --export-sf2 <file> Write the loaded banks (ROM included) as one .sf2\n"
             "  --filter-poles 1|2|4  Filter slope 6/12/24 dB per octave (default 2)\n\n"
             "Banks can be given several times and are layered - later ones override earlier ones.\n"
             "Typical use:\n"
@@ -449,6 +450,7 @@ int main(int argc, char** argv)
         else if (arg == "--chip" && i + 1 < argc)
         {
             chip = argv[++i];
+            if (chip == "nas") chip = "ours";   // the old (Czech) name still works
         }
         else if (arg == "--ram" && i + 1 < argc)
         {
@@ -549,11 +551,11 @@ int main(int argc, char** argv)
     // The 86Box chip has to be switched on before the first port write -
     // that is, before SetDriver/PowerOnInit below.
     // The chip is snd_emu8k.c from 86Box (with the measured corrections).
-    // Our older core stays available as --chip nas and is used when no wave
+    // Our older core stays available as --chip ours and is used when no wave
     // ROM is given.
     const bool chipDefault = chip.empty();
     if (chipDefault)
-        chip = romPath.empty() ? "nas" : "86box";
+        chip = romPath.empty() ? "ours" : "86box";
     if (chip == "86box")
     {
         std::string err;
@@ -566,9 +568,9 @@ int main(int argc, char** argv)
         std::cout << "Chip core: snd_emu8k.c from 86Box (latency "
                   << synth.Core().ChipLatencyFrames() << " frames).\n";
     }
-    else if (!chip.empty() && chip != "nas")
+    else if (!chip.empty() && chip != "ours")
     {
-        std::cerr << "Unknown --chip '" << chip << "'; known are nas and 86box.\n";
+        std::cerr << "Unknown --chip '" << chip << "'; known are ours and 86box.\n";
         return 1;
     }
 

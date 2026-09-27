@@ -3,7 +3,7 @@
 #include <fstream>
 #include <string>
 
-// Jednoduchy zapis 16bit stereo PCM do .wav.
+// Simple writer of 16-bit stereo PCM to .wav.
 //
 // Used for the offline render (--wav) - without it the emulation could only
 // be checked by listening in real time, which is of no use for regression
@@ -17,7 +17,7 @@ public:
         if (!m_file) return false;
         m_sampleRate = sampleRate;
         m_dataBytes = 0;
-        WriteHeader(0);   // provizorni hlavicka, prepise se v Close()
+        WriteHeader(0);   // provisional header, rewritten in Close()
         return true;
     }
 

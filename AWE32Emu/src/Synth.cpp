@@ -107,13 +107,13 @@ void Synth::BuildDefaultWaveform()
 }
 
 // ---------------------------------------------------------------------------
-// Nacitani zvukovych dat
+// Loading sound data
 // ---------------------------------------------------------------------------
 
 bool Synth::LoadWaveRom(const std::string& path, std::string& error)
 {
     std::ifstream f(path, std::ios::binary);
-    if (!f) { error = "Nelze otevrit ROM: " + path; return false; }
+    if (!f) { error = "Cannot open ROM: " + path; return false; }
 
     std::vector<uint8_t> raw((std::istreambuf_iterator<char>(f)),
                               std::istreambuf_iterator<char>());
@@ -238,7 +238,7 @@ bool Synth::LoadBank(const std::string& path, std::string& error, bool samplesIn
 }
 
 // ---------------------------------------------------------------------------
-// Sprava hlasu
+// Voice management
 // ---------------------------------------------------------------------------
 
 int Synth::AllocateVoice()
@@ -274,11 +274,11 @@ void Synth::ReleaseVoice(int voice)
     }
     m_core.Write(Reg::DCYSUSV, voice,
                  Emu8000::kDcysusvRelease | (m_alloc[voice].releaseRate & 0x7F));
-    // `SBAWE.VXD` uvolnuje **obe** obalky - hned za DCYSUSV posila DCYSUS
-    // s vlastni rychlosti (ReleaseModEnv). Zmereno v georg_win95.trace,
-    // kde dvojice DCYSUSV 8029 / DCYSUS 8027 stoji u kazdeho note-offu;
-    // odtud i dvojnasobny pocet zapisu do DCYSUS v census u trace_diff.
-    // `SBAWE32.MDI` to nedela.
+    // `SBAWE.VXD` releases **both** envelopes - right after DCYSUSV it sends
+    // DCYSUS with its own rate (ReleaseModEnv). Measured in a win95 trace,
+    // where the pair DCYSUSV 8029 / DCYSUS 8027 stands at every note-off;
+    // hence also the doubled count of DCYSUS writes in the trace_diff census.
+    // `SBAWE32.MDI` does not do it.
     if (m_core.DriverVariant() == Awe32::Driver::Win95)
     {
         m_core.Write(Reg::DCYSUS, voice,
@@ -953,7 +953,7 @@ int Synth::PitchBendOffset(uint8_t channel) const
 }
 
 // ---------------------------------------------------------------------------
-// Spusteni hlasu
+// Starting a voice
 // ---------------------------------------------------------------------------
 
 void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocity,
@@ -962,8 +962,9 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
 {
     const ChannelState& ch = m_channels[channel];
 
-    // Utlum: presny prepis vzorce z note-on rutiny SBAWE32.MDI (0x2102),
-    // vcetne prevodnich tabulek pro CC7, velocity a CC11. Viz Awe32Curves.h.
+    // Attenuation: an exact transcription of the formula from the note-on
+    // routine of SBAWE32.MDI (0x2102), including the conversion tables for
+    // CC7, velocity and CC11. See Awe32Curves.h.
     const Awe32::Driver drv = m_core.DriverVariant();
     int atten = Awe32Curves::ComputeAttenuation(
         EffectiveChannelVolume(ch.volume), velocity, ch.expression,
@@ -994,10 +995,10 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
                         || drv == Awe32::Driver::Sdk))
         atten = std::min(atten + 16, 255);
 
-    // Velocity ovlivnuje i mezni kmitocet filtru - tisi noty jsou tmavsi.
-    // Prepis z SBAWE32.DRV, offset 0x021E:
+    // Velocity affects the filter cutoff too - quieter notes are darker.
+    // Transcribed from SBAWE32.DRV, offset 0x021E:
     //
-    //     if (kanal != 9 && attackRate < 0x7D)
+    //     if (channel != 9 && attackRate < 0x7D)
     //         cutoff = (cutoff * max(velocity, 0x46) + 0x40) / 0x7F;
     //
     // Drums (channel 9) have their own branch and the filter is not adjusted
@@ -1132,7 +1133,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         const uint32_t increment = PitchIncrement(static_cast<uint16_t>(pitch));
         const uint32_t filterTarget = static_cast<uint32_t>(cutoff) << 8;
 
-        // Umlceni: ovladac pise 0x00FF, ne 0x0080. VTFT jde dvakrat.
+        // Silencing: the driver writes 0x00FF, not 0x0080. VTFT goes twice.
         m_core.Write(Reg::DCYSUSV, voice, 0x00FFu);
         m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
         m_core.Write(Reg::VTFT,    voice, 0x0000FFFFu);
@@ -1269,7 +1270,7 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         m_core.Write(Reg::CCCA, voice, ccca);
     }
 
-    m_core.Write(Reg::DCYSUSV, voice, vp.dcysusv);   // spousti notu
+    m_core.Write(Reg::DCYSUSV, voice, vp.dcysusv);   // starts the note
 
     VoiceAlloc& a = m_alloc[voice];
     a = VoiceAlloc{};
@@ -1353,17 +1354,17 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         --m_debugVoices;
         const bool rom = bank && region && region->sample
                       && (region->sample->inRom || bank->samplesInRom);
-        std::cout << "  hlas " << voice
+        std::cout << "  voice " << voice
                   << " ch" << static_cast<int>(channel)
                   << " prog" << static_cast<int>(m_channels[channel].program)
-                  << " nota " << static_cast<int>(note)
+                  << " note " << static_cast<int>(note)
                   << " vel " << static_cast<int>(velocity)
                   << " | " << (region && region->sample ? region->sample->name
-                                                        : std::string("(nahradni sinus)"))
+                                                        : std::string("(substitute sine)"))
                   << (rom ? " [ROM]" : "")
                   << std::hex
-                  << " | adr " << (ccca & Emu8000::kCccaAddressMask)
-                  << " smycka " << (vp.psst & Emu8000::kLoopAddressMask)
+                  << " | addr " << (ccca & Emu8000::kCccaAddressMask)
+                  << " loop " << (vp.psst & Emu8000::kLoopAddressMask)
                   << ".." << (vp.csl & Emu8000::kLoopAddressMask)
                   << " IP " << vp.ip << " IFATN " << ifatn
                   << " ATKHLDV " << vp.atkhldv << " DCYSUSV " << vp.dcysusv
@@ -1395,7 +1396,7 @@ void Synth::StartFallbackVoice(int voice, uint8_t channel, uint8_t note, uint8_t
 }
 
 // ---------------------------------------------------------------------------
-// MIDI rozhrani
+// MIDI interface
 // ---------------------------------------------------------------------------
 
 void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
@@ -1427,7 +1428,7 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
     int chainLen = 0;
     chain[chainLen++] = bankNum;
     const bool drums = (bankNum == kDrumBank);
-    if (drums) chain[chainLen++] = -1;          // znacka pro (128, program 0)
+    if (drums) chain[chainLen++] = -1;          // marker for (128, program 0)
     if (bankNum != 0 && !drums) chain[chainLen++] = 0;
 
     for (int pass = 0; pass < chainLen; ++pass)

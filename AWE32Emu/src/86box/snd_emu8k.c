@@ -31,27 +31,28 @@
 #endif
 #endif
 
-/* AWE32Emu: RESAMPLER_POINT3 je od 2026-09-09 vychozi.
+/* AWE32Emu: RESAMPLER_POINT3 was the default from 2026-09-09.
  *
- * Do te doby tu byl sinc s oduvodnenim, ze vyhrava na Hi-Octane. Beh
- * tests/tune.py na 29 dvojicich to obraci - na Hi-Octane je sinc NEJHORSI
- * ze vsech peti variant (ho-tr1 3,421 / ho-tr3 4,290 / ho-tr5 2,989 proti
- * 3,418 / 4,273 / 2,988 u point3). Jediny doklad pro sinc tim padl; na
- * hudbe jsou si vsechny varianty rovny na 0,6 %.
+ * Before that sinc was here, justified by winning on Hi-Octane. A run of
+ * tests/tune.py on 29 pairs reversed that - on Hi-Octane sinc is the WORST
+ * of all five variants (ho-tr1 3.421 / ho-tr3 4.290 / ho-tr5 2.989 against
+ * 3.418 / 4.273 / 2.988 for point3). The only evidence for sinc fell with
+ * it; on music all variants are equal within 0.6 %.
  *
- * Rozhoduje proto blok 5 AWETESTu - sum preladeny pres 59 pultonu, tedy
- * zkouska stavena primo na interpolaci. Vzdalenost tretinooktavoveho
- * spektra karty od renderu, kazdemu kandidatovi odectena jeho vlastni
- * primka v dB proti log f (nahravaci cesta ma naklon ~2,6 dB/okt, ktery
- * s interpolaci nesouvisi a lezi prave u Nyquista):
+ * So block 5 of AWETEST decided - noise retuned over 59 semitones, a test
+ * built directly for the interpolation. Distance of the card's third-octave
+ * spectrum from the render, each candidate with its own line in dB against
+ * log f subtracted (the recording path has a tilt of ~2.6 dB/oct, which has
+ * nothing to do with the interpolation and lies right at Nyquist):
  *
- *     point3  2,791 dB      nad 4 kHz  1,898 dB
- *     cubic   2,862 dB                 1,946 dB
- *     sinc    4,162 dB                 2,537 dB
+ *     point3  2.791 dB      above 4 kHz  1.898 dB
+ *     cubic   2.862 dB                   1.946 dB
+ *     sinc    4.162 dB                   2.537 dB
  *
- * Protisignal: "barva" v tune.py drzi sinc o 1 % napred (2,1131 proti
- * 2,1358). Proti 49 % na zkousce, ktera je na tuhle otazku postavena, to
- * neobstoji. Ostatni zustavaji dostupne prepnutim definice. */
+ * Counter-signal: the "colour" metric in tune.py keeps sinc 1 % ahead
+ * (2.1131 against 2.1358). Against 49 % on the test built for exactly this
+ * question it does not hold. The others stay available by switching the
+ * define. */
 /* AWE32Emu 2026-09-27: RESAMPLER_BSPLINE4 is the default, measured on the
  * card's line out (see EMU8K_READ_INTERP_BSPLINE4); the choice of POINT3
  * above rested on the internal capture, which is not linear. */
@@ -809,14 +810,14 @@ EMU8K_READ_INTERP_LINEAR(emu8k_t *emu8k, uint32_t int_addr, uint16_t fract)
 }
 #endif
 
-/* AWE32Emu: local addition, not upstream. Kvadraticka (Lagrangeova)
- * interpolace pres tri body - to, co dokumentace k AWE32 popisuje jako
- * "3 Point sample interpolation" (Vu, Un-official AWE32 Programming
- * Guide, 1995). Zmereno proti 20 dvojicim nahravka/MIDI ze skutecneho
- * hardwaru (AWE32Emu tests/tune.py): prumerne skore 5,937 proti 6,025
- * u kubicke (Catmull-Rom) interpolace vyse - proto je ted vychozi.
- * Body 1, 2, 3 (ne 0, 1, 2) kvuli stejnemu posunu interpolatoru jako
- * u LINEAR a CUBIC vyse ("actual audio location is the point 1 word
+/* AWE32Emu: local addition, not upstream. Quadratic (Lagrange)
+ * interpolation over three points - what the AWE32 documentation describes
+ * as "3 Point sample interpolation" (Vu, Un-official AWE32 Programming
+ * Guide, 1995). Measured against 20 recording/MIDI pairs from real hardware
+ * (AWE32Emu tests/tune.py): average score 5.937 against 6.025 for the cubic
+ * (Catmull-Rom) interpolation above.
+ * Points 1, 2, 3 (not 0, 1, 2) because of the same interpolator offset as
+ * in LINEAR and CUBIC above ("actual audio location is the point 1 word
  * higher due to interpolation offset"). */
 static inline int32_t
 EMU8K_READ_INTERP_POINT3(emu8k_t *emu8k, uint32_t int_addr, uint16_t fract)
@@ -831,12 +832,12 @@ EMU8K_READ_INTERP_POINT3(emu8k_t *emu8k, uint32_t int_addr, uint16_t fract)
     return (int32_t) (a0 * l0 + a1 * l1 + a2 * l2);
 }
 
-/* AWE32Emu: local addition, not upstream. Osmibodovy windowed-sinc
- * (Blackmanovo okno) - tentyz vzorec jako Interp::Sinc v AWE32Emu/src/
- * Emu8000.cpp, aby obe jadra pouzivala doslova stejnou matematiku.
- * Hrane misto lezi mezi tapy 1 a 2 (posun interpolatoru o jedno slovo,
- * viz poznamka "actual audio location is the point 1 word higher"), takze
- * se bere osm vzorku soumerne kolem nej: -2 az 5. */
+/* AWE32Emu: local addition, not upstream. Eight-point windowed sinc
+ * (Blackman window) - the same formula as Interp::Sinc in AWE32Emu/src/
+ * Emu8000.cpp, so both cores use literally the same maths.
+ * The playing position lies between taps 1 and 2 (interpolator offset of
+ * one word, see the note "actual audio location is the point 1 word
+ * higher"), so eight samples are taken symmetrically around it: -2 to 5. */
 static inline int32_t
 EMU8K_READ_INTERP_SINC(emu8k_t *emu8k, uint32_t int_addr, uint16_t fract)
 {
@@ -852,7 +853,7 @@ EMU8K_READ_INTERP_SINC(emu8k_t *emu8k, uint32_t int_addr, uint16_t fract)
             w = 1.0;
         } else {
             const double pd = M_PI * d;
-            const double t  = (d + 3.5) / 7.0;    /* 0..1 pres celou sirku jadra */
+            const double t  = (d + 3.5) / 7.0;    /* 0..1 over the whole kernel width */
             const double bw = 0.42 - 0.5 * cos(2.0 * M_PI * t)
                             + 0.08 * cos(4.0 * M_PI * t);
             w = sin(pd) / pd * bw;
@@ -3036,19 +3037,19 @@ emu8k_init(emu8k_t *emu8k, uint16_t emu_addr, int onboard_ram)
     /* One more position to accept max value being 65536. */
     env_mod_hertz_to_octave[0x10000] = 65536;
 
-    /* AWE32Emu: nahrazeno vzorcem odvozenym z **prevodni tabulky ve
-     * skutecnem ovladaci Creative** (SBAWE32.DRV, tabulka attack casu na
-     * ds:1552, 127 polozek v ms). Overeno proti te tabulce bajt po bajtu,
-     * 0 odchylek.
+    /* AWE32Emu: replaced by a formula derived from the **conversion table
+     * in the real Creative driver** (SBAWE32.DRV, attack time table at
+     * ds:1552, 127 entries in ms). Verified against that table byte by byte,
+     * 0 deviations.
      *
-     * Puvodni vzorec pochazel z awe32p10 (Vince Vu / Judge Dredd), coz je
-     * neoficialni popis, a od tabulky ovladace se lisi: do rate 31 sedi
-     * presne, od 32 vys je vedle az o 3,1 %. Rozhoduje ovladac - ten psalo
-     * Creative stejne jako cip.
+     * The original formula came from awe32p10 (Vince Vu / Judge Dredd), an
+     * unofficial description, and it differs from the driver table: up to
+     * rate 31 it is exact, from 32 up it is off by up to 3.1 %. The driver
+     * decides - Creative wrote it as well as the chip.
      *
-     * Kodovani je 7bitove "plovouci": prvnich 16 hodnot delitel 1..16,
-     * dalsich 16 delitel 17..32, a s kazdou dalsi skupinou po 16 se krok
-     * zdvojnasobuje.  cas = 11878 ms / delitel. */
+     * The encoding is a 7-bit "float": the first 16 values divisor 1..16,
+     * the next 16 divisor 17..32, and with every further group of 16 the
+     * step doubles.  time = 11878 ms / divisor. */
     float millis;
     for (c = 0; c < 128; c++) {
         if (c == 0) {

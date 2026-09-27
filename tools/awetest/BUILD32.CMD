@@ -27,9 +27,10 @@ echo === compiling (32-bit flat) ===
 wcc386 -bt=dos -oilms -DSBKLIB -i=%AWESDK%\LIB\SBKLIB\INCLUDE -fo=awetest.obj AWETEST.C
 if errorlevel 1 goto done
 
-rem Cislo verze se cte z AWETEST_VER v AWETEST.C. Rucne se nikde
-rem neopisuje - drive to tak bylo a zdroj se s nazvem binarky rozesel.
-rem Jmeno musi zustat v 8.3, takze AWETSTnn.EXE, ne AWETESTnn.EXE.
+rem The version number is read from AWETEST_VER in AWETEST.C. It is not
+rem copied by hand anywhere - it used to be, and the source and the binary
+rem name drifted apart. The name must stay 8.3, so AWETSTnn.EXE, not
+rem AWETESTnn.EXE.
 for /f "tokens=3 delims= " %%v in ('findstr /b /c:"#define AWETEST_VER" AWETEST.C') do set AWEVER=%%~v
 if "%AWEVER%"=="" echo *** AWETEST_VER not found in AWETEST.C & goto done
 echo === linking, extender bound in as the stub ===
