@@ -10,16 +10,17 @@
 // code from its own copy in the 86Box tree; chipcheck.py (against
 // emu8k_ref.exe, built from that tree) shows whether the two still agree.
 //
-// Casovani. 86Box zene cip po blocich `WTBUFLEN` = 980 snimku: nejdriv se
-// aplikuji vsechny zapisy, kazdy na svem offsetu v bloku, pak se jednim
-// volanim `emu8k_update()` doreje cely blok. Nas sekvencer naproti tomu
-// renderuje po jednom snimku. Krokovat cip po vzorcich nejde - efekty se
-// pousti jen kdyz `num_active > 0`, coz se vyhodnocuje jednou za volani, takze
-// by se chorus rozesel (viz ref86box/README.md).
+// Timing. 86Box drives the chip in blocks of `WTBUFLEN` = 980 frames: all
+// writes are applied first, each at its own offset in the block, then one
+// call of `emu8k_update()` renders the whole block. Our sequencer renders
+// frame by frame instead. Stepping the chip sample by sample does not work -
+// upstream ran the effects only when `num_active > 0`, evaluated once per
+// call, so the chorus would drift apart.
 //
-// Reseni je **zpozdeni o jeden blok**: zapisy se sbiraji do fronty a zvuk se
-// vydava az z minuleho, uz hotoveho bloku. Latence je presne 980 snimku
-// (kLatencyFrames) a je konstantni - staci ji na vystupu odriznout.
+// The solution is a **delay of one block**: writes are queued and the sound
+// comes from the previous, already finished block. The latency is exactly
+// 980 frames (kLatencyFrames) and constant - it is simply cut off at the
+// output.
 // ---------------------------------------------------------------------------
 class Emu8000Box
 {
@@ -32,13 +33,13 @@ public:
     Emu8000Box(const Emu8000Box&) = delete;
     Emu8000Box& operator=(const Emu8000Box&) = delete;
 
-    // romPath musi ukazovat na 1 MB surovy dump wave ROM (awe32.raw) - cip si
-    // ho nacte sam pres rom_fopen, presne jako v 86Boxu.
+    // romPath has to point to the 1 MB raw dump of the wave ROM (awe32.raw) -
+    // the chip loads it itself through rom_fopen, exactly as in 86Box.
     bool Init(const std::string& romPath, uint16_t basePort, int ramKb, std::string& err);
     bool Ready() const { return m_ready; }
 
-    // Zvukova DRAM cipu. Vzorky banky se do ni nahravaji memcpy, stejne jako
-    // u naseho jadra - viz Synth::LoadBank.
+    // Sound DRAM of the chip. The bank samples are loaded into it with
+    // memcpy, as with our own core - see Synth::LoadBank.
     int16_t* Ram();
     size_t   RamWords() const;
 
@@ -50,7 +51,7 @@ public:
     // emu8k_update, and a driver always writes the pointer before a read).
     uint16_t PortRead(uint16_t port);
 
-    // Jeden snimek na 44100 Hz. Prvnich kLatencyFrames volani vrati ticho.
+    // One frame at 44100 Hz. The first kLatencyFrames calls return silence.
     void RenderFrame(int32_t& l, int32_t& r);
 
 private:

@@ -32,7 +32,7 @@ namespace
 
     struct Chunk { size_t offset = 0; uint32_t size = 0; bool found = false; };
 
-    // Projde RIFF strom a posbira vsechny listove chunky podle jmena.
+    // Walks the RIFF tree and collects all leaf chunks by name.
     void WalkChunks(const std::vector<uint8_t>& buf, size_t pos, size_t end,
                     std::map<std::string, Chunk>& out)
     {
@@ -69,21 +69,23 @@ namespace
         return (group == 0) ? (m + 1) : ((m + 17) << (group - 1));
     }
 
-    // Inverze tabulek z ovladace: najdi nejmensi rate, jehoz cas je <=
-    // pozadovanemu. Stejna logika jako sub_2BC0 / sub_2BF0 v SBAWE32.DRV.
-    // Tabulka casu attacku je v `SBAWE.VXD` na offsetu **0x09118** - 128
-    // polozek po 16 bitech, v celych ms. `11878 / RateDivisor(r-1)` ji po
-    // zaokrouhleni reprodukuje **na vsech 127 polozkach**, takze ji sem nemusi
-    // opisovat; jen se z ni musi vybirat tak, jak to dela ovladac:
+    // Inversion of the driver tables: find the smallest rate whose time is
+    // <= the requested one. The same logic as sub_2BC0 / sub_2BF0 in
+    // SBAWE32.DRV. The attack time table is in `SBAWE.VXD` at offset
+    // **0x09118** - 128 entries of 16 bits, in whole ms.
+    // `11878 / RateDivisor(r-1)` reproduces it after rounding **on all 127
+    // entries**, so it need not be copied here; it only has to be searched
+    // the way the driver does:
     //
-    //   prvni polozka, ktera je **kratsi** nez zadany cas (ostre)
-    //   nulovy cas -> 0x7F, propadnuti cyklem -> 0x7E
+    //   the first entry that is **shorter** than the given time (strictly)
+    //   zero time -> 0x7F, falling through the loop -> 0x7E
     //
-    // Overeno na ctyrech bodech ze dvou skladeb: 0 ms -> 0x7F,
-    // 6 ms -> 0x7E (Georgia), 20 ms -> 100 a 1270 ms -> 10 (JUMP, presety
-    // `polysynth` a `spolysynth`). Drive se vracelo `r-1` proti **presnym**
-    // casum misto `r` proti zaokrouhlenym, coz na Georgii nevadilo - ta
-    // doprostred tabulky vubec nesahne - ale na JUMPu delalo 1008 hlasu.
+    // Verified on four points from two songs: 0 ms -> 0x7F, 6 ms -> 0x7E
+    // (Georgia), 20 ms -> 100 and 1270 ms -> 10 (JUMP, presets `polysynth`
+    // and `spolysynth`). Formerly `r-1` was returned against the **exact**
+    // times instead of `r` against the rounded ones, which did not matter on
+    // Georgia - it never reaches the middle of the table - but on JUMP it
+    // made 1008 voices differ.
     int AttackRateFromMs(double ms)
     {
         if (ms <= 0.0) return 0x7F;
@@ -92,14 +94,16 @@ namespace
                 return r;
         return 0x7E;
     }
-    // Kdyz generator v bance neni, plati vychozi hodnota z tabulky ovladace,
-    // ktera vychazi na 0x7D. Overeno na 242 notach MINUETu a na presetech
-    // `organ3`, `jazzgtr`, `fretlessbs` a `piano2` v Georgii.
+    // When the generator is not in the bank, the default value from the
+    // driver's table applies, which comes to 0x7D. Verified on 242 notes of
+    // MINUET and on the presets `organ3`, `jazzgtr`, `fretlessbs` and
+    // `piano2` in Georgia.
     constexpr int kAttackDefaultRate = 0x7D;
-    // Ovladac vybira polozku, jejiz cas je **delsi nebo roven** zadanemu,
-    // ne prvni kratsi. Zmereno instrukcni stopou: decay 12600 ms, keynum
-    // skalovani 183 a nota 69 dava 12600 - 9*183 = 10953 ms, a ovladac
-    // zapsal rate 4 (tabulka 11878 ms), ne 5 (9502 ms).
+    // The driver picks the entry whose time is **longer than or equal to**
+    // the given one, not the first shorter one. Measured with an instruction
+    // trace: decay 12600 ms, keynum scaling 183 and note 69 give
+    // 12600 - 9*183 = 10953 ms, and the driver wrote rate 4 (table 11878 ms),
+    // not 5 (9502 ms).
     int DecayRateFromMs(double ms)
     {
         if (ms <= 0.0) return 0x7F;
@@ -109,9 +113,9 @@ namespace
     }
     int HoldFromMs(double ms)
     {
-        // Ovladac deli celociselne pres `idiv`, ktery **utina** k nule
-        // (SBAWE32.DRV: `idiv -92; add 0x7F`), takze se nesmi zaokrouhlovat.
-        // Priklad: hold 630 ms -> 630/92 = 6 -> 121 (0x79), ne 120.
+        // The driver divides as integers with `idiv`, which **truncates**
+        // towards zero (SBAWE32.DRV: `idiv -92; add 0x7F`), so no rounding.
+        // Example: hold 630 ms -> 630/92 = 6 -> 121 (0x79), not 120.
         const int steps = static_cast<int>(ms / (Emu8000::kHoldSecPerStep * 1000.0));
         return std::clamp(127 - steps, 0, 127);
     }
@@ -146,23 +150,24 @@ namespace
         return (reg >= 0) ? reg : 0;
     }
 
-    // Krok registru prodlevy je **725 mikrosekund**. Neni to odhad ani
-    // prolozeni - `SFTYPE.H` z AWE32 SDK to u vsech ctyr poli prodlevy
-    // pise primo:
+    // The delay register step is **725 microseconds**. Neither an estimate
+    // nor a fit - `SFTYPE.H` of the AWE32 SDK says it directly for all four
+    // delay fields:
     //
     //     short delayLfo1;   /* delay 0x8000-n*(725us) */
     //     short delayEnv1;   /* delay 0x8000 - n(725us) */
     //
-    // SF1 (.SBK) ma casy rovnou v milisekundach, takze `n = ms / 0,725`.
-    // Sedi na vsech trech hodnotach namerenych ve stopach ovladace:
-    // 20 ms -> 27 kroku, 140 ms -> 193, 440 ms -> 606.
+    // SF1 (.SBK) has the times directly in milliseconds, so `n = ms / 0.725`.
+    // It fits all three values measured in the driver traces:
+    // 20 ms -> 27 steps, 140 ms -> 193, 440 ms -> 606.
     //
-    // Pozor na slepou ulicku, do ktere jsme uz jednou zabocili: ovladac
-    // **ma** i exponencialni prevod pres timecents (`DelayFromTimecents`
-    // nize), jenze ten je pro **SF2**. U SF1 se nevola vubec - overeno
-    // instrukcni stopou, 3 171 895 instrukci v objektu ovladace a v jeho
-    // rozsahu nula. Obe cesty daji temer totez (1000/725 = 1,37931 proti
-    // 2^(12516/1200)/1000 = 1,37957), lisi se az v zaokrouhleni.
+    // Beware of a dead end we already took once: the driver **does** have
+    // an exponential conversion through timecents (`DelayFromTimecents`
+    // below), but that one is for **SF2**. For SF1 it is not called at all -
+    // verified with an instruction trace, 3 171 895 instructions in the
+    // driver object and zero in its range. Both paths give almost the same
+    // (1000/725 = 1.37931 against 2^(12516/1200)/1000 = 1.37957), they differ
+    // only in rounding.
     int DelayFromMs(double ms)
     {
         const int steps = static_cast<int>(ms * 1000.0 / 725.0);
@@ -176,10 +181,11 @@ namespace
     //     edx = esi % 0x4B0           ; zbytek v centech
     //     IP  = (edi << 12) | (edx*3 + (edx*31)/75)
     //
-    // `3 + 31/75` je presne `4096/1200`, takze vzorec sam o sobe zkresleni
-    // nema. Rozdil proti nasemu drivejsimu `kPitchUnity + log2(...)*4096`
-    // delalo **celociselne deleni**: ovladac pocita v celych centech a utina,
-    // my jsme cely retez vedli v doublech. Na Georgii to bylo +-1 u 67 not.
+    // `3 + 31/75` is exactly `4096/1200`, so the formula itself has no
+    // distortion. The difference against our earlier
+    // `kPitchUnity + log2(...)*4096` came from **integer division**: the
+    // driver computes in whole cents and truncates, while we carried the
+    // whole chain in doubles. On Georgia that was +-1 on 67 notes.
     int PitchFromCents(double cents)
     {
         int v = static_cast<int>(std::lround(cents)) + 0x41A0;
@@ -195,12 +201,13 @@ namespace
     // Absolutni centy (SF2) -> jednotky IFATN (ctvrt pultonu od 125 Hz).
     int FilterFcFromAbsCents(int cents)
     {
-        // Musi davat tentyz registr jako cesta pres SF1, jinak tataz banka
-        // ve dvou formatech zni jinak. Presne to se nam stalo: `SYNTHGM.SBK`
-        // davalo u klaviru IFATN `dc30` (cutoff 220) a `SYNTHGM.SF2` `f542`
-        // (cutoff 245), protoze tady byl krok 25 centu misto 29,3843
-        // a zaklad 125 Hz misto 101,81 Hz. Spravna je hodnota z SF1 - ta
-        // sedi proti skutecnemu ovladaci na 242 notach.
+        // Must give the same register as the SF1 path, otherwise the same bank
+        // sounds different in the two formats. Exactly that happened to us:
+        // `SYNTHGM.SBK` gave IFATN `dc30` (cutoff 220) for the piano and
+        // `SYNTHGM.SF2` `f542` (cutoff 245), because the step here was 25
+        // cents instead of 29.3843 and the base 125 Hz instead of 101.81 Hz.
+        // The SF1 value is the right one - it matches the real driver on 242
+        // notes.
         return std::clamp(static_cast<int>(std::lround(
             (cents - Emu8000::kCutoffBaseCents) / Emu8000::kCutoffCentsStep)), 0, 255);
     }
@@ -485,7 +492,7 @@ Bank Load(const std::string& path)
     Bank bank;
 
     std::ifstream file(path, std::ios::binary);
-    if (!file) { bank.errorMessage = "Nelze otevrit soubor: " + path; return bank; }
+    if (!file) { bank.errorMessage = "Cannot open file: " + path; return bank; }
 
     std::vector<uint8_t> buf((std::istreambuf_iterator<char>(file)),
                               std::istreambuf_iterator<char>());
@@ -541,19 +548,20 @@ Bank Load(const std::string& path)
         const uint32_t count = shdr->size / 16;
         bank.samples.reserve(count);
 
-        // Ktere vzorky lezi ve wave ROM. SF1 hlavicka vzorku zadny priznak
-        // nema. Hvezdicka ve jmenu (`*BellTree`) je jen zvyk bank ulozenych
-        // pres SFSTORE.DLL (BULLFROG.SBK) - Creative sve banky tak neznaci:
-        // SYNTHGS.SBK a SYNTHMT.SBK maji na zacatku 153 vzorku ROM bez
-        // hvezdicky (presne tabulka ROM ze SYNTHGM.SBK, adresy start i smycek
-        // sedi) a 71 z nich ma adresu mensi nez delka `smpl`, takze se nedaji
-        // poznat ani podle adresy. Drive se proto hraly z DRAM na nesmyslnych
-        // adresach.
+        // Which samples lie in the wave ROM. The SF1 sample header has no
+        // flag for it. An asterisk in the name (`*BellTree`) is only a habit
+        // of banks saved through SFSTORE.DLL (BULLFROG.SBK) - Creative does
+        // not mark its banks that way: SYNTHGS.SBK and SYNTHMT.SBK start with
+        // 153 ROM samples without an asterisk (exactly the ROM table of
+        // SYNTHGM.SBK, start and loop addresses match) and 71 of them have an
+        // address smaller than the length of `smpl`, so they cannot be told
+        // by the address either. Formerly they were therefore played from
+        // DRAM at nonsense addresses.
         //
-        // Plati ale stavba: vzorky ROM jsou vzdy na zacatku a vlastni vzorky
-        // banky za nimi zacinaji adresou 0. Overeno na vsech 44 SBK, ktere
-        // mame (2026-09-13). Kdyby zadny vzorek na 0 nezacinal, zustava
-        // pravidlo s hvezdickou.
+        // The layout does hold, though: the ROM samples always come first and
+        // the bank's own samples after them start at address 0. Verified on
+        // all 44 SBKs we have (2026-09-13). If no sample starts at 0, the
+        // asterisk rule stays.
         uint32_t firstOwn = count;
         for (uint32_t i = 0; i < count; ++i)
             if (RdU32(&buf[shdr->offset + i * 16]) == 0) { firstOwn = i; break; }
@@ -568,15 +576,17 @@ Bank Load(const std::string& path)
             s.loopEnd   = RdU32(p + 12);
             if (snam && (i + 1) * 20 <= snam->size)
                 s.name = CStr(&buf[snam->offset + i * 20], 20);
-            // Banka, ktera nema chunk `smpl` vubec (napr. SYNTHGM.SBK - popis
-            // GM banky od E-mu), popisuje jen obsah ROM, takze tam jsou
-            // v ROM vsechny. Jinak rozhoduje poloha pred vlastnimi vzorky.
+            // A bank without any `smpl` chunk (e.g. SYNTHGM.SBK - the E-mu
+            // description of the GM bank) describes only the ROM contents, so
+            // all its samples are in ROM. Otherwise the position before the
+            // bank's own samples decides.
             s.inRom = bank.sampleData.empty()
                    || (byPosition ? (i < firstOwn)
                                   : (!s.name.empty() && s.name[0] == '*'));
-            // SF1 hlavicka vzorku neobsahuje sample rate ani zakladni notu -
-            // EMU8000 bezi nativne na 44100 Hz a zakladni nota se bere
-            // z generatoru (OverridingRootKey / Sf1RootPitchCents).
+            // The SF1 sample header has neither a sample rate nor a root
+            // note - the EMU8000 runs natively at 44100 Hz and the root note
+            // comes from the generators (OverridingRootKey /
+            // Sf1RootPitchCents).
             s.sampleRate = 44100;   // EMU8000 nativni takt
             s.originalKey = 60;
             bank.samples.push_back(std::move(s));
@@ -719,9 +729,9 @@ std::vector<Region> Bank::Select(int bankNum, int program, int key, int velocity
 {
     std::vector<Region> out;
 
-    // Zadny fallback na banku 0 - o ten se stara volajici az potom, co se
-    // na presnou banku zeptal VSECH nactenych bank. Jinak by uzivatelska
-    // banka s presetem 0 prebila treba GM bicí v bance 128.
+    // No fallback to bank 0 - the caller takes care of that only after it
+    // asked ALL loaded banks for the exact bank. Otherwise a user bank with
+    // preset 0 would override, say, the GM drums in bank 128.
     const Preset* preset = FindPreset(bankNum, program);
     if (!preset) return out;
 
@@ -749,11 +759,12 @@ std::vector<Region> Bank::Select(int bankNum, int program, int key, int velocity
             GenSet presetGen = preset->global;
             presetGen.OverrideFrom(pz.gen);
 
-            // Utlum SF1 se musi secist az v jednotkach registru, jinak by
-            // `AddFrom` secetlo suroviny (napr. zona bicich 121 + preset 127
-            // = 248) a `127 - 248` by spadlo na nulu. Zmereno na Georgii:
-            // u bicich ma ovladac presne o `127 - atten zony` vic nez my
-            // (zona 121 -> +6, zona 112 -> +15, ...).
+            // The SF1 attenuation must be summed only in register units,
+            // otherwise `AddFrom` would add the raw values (e.g. drum zone
+            // 121 + preset 127 = 248) and `127 - 248` would drop to zero.
+            // Measured on Georgia: on drums the driver has exactly
+            // `127 - zone atten` more than we had (zone 121 -> +6, zone 112
+            // -> +15, ...).
             if (version == Version::Sf1)
             {
                 int units = 0;
@@ -765,25 +776,25 @@ std::vector<Region> Bank::Select(int bankNum, int program, int key, int velocity
                 r.sf1AttenUnits = any ? units : -1;
             }
 
-            // Presetova zona uz jen **doplnuje** to, co zona nastroje
-            // nema - nescita se. Drive jsme scitali podle specifikace
-            // SF2, jenze ovladac to tak nedela.
+            // The preset zone only **fills in** what the instrument zone
+            // lacks - it is not added. Formerly we added per the SF2
+            // specification, but the driver does not do that.
             //
-            // Zmereno na CRAZY: kanal 4 hraje program 97 (SeaShore ->
-            // Soundtrack), ktery ma `coarseTune` na obou urovnich -
-            // 1 u presetu a 3 u nastroje. Scitanim nam vyslo 4, ovladac
-            // pouziva 3 a hraje o pulton niz; nesedelo vsech 58 not
-            // toho kanalu. Poznalo se to podle toho, ze u dvou vrstev
-            // tehoz tonu byl posun -341 a -342, tedy nestejny - to je
-            // podpis posunu v **centech pred prevodem**, ne konstanty
-            // v jednotkach IP.
+            // Measured on CRAZY: channel 4 plays program 97 (SeaShore ->
+            // Soundtrack), which has `coarseTune` on both levels - 1 on the
+            // preset and 3 on the instrument. Adding gave us 4, the driver
+            // uses 3 and plays a semitone lower; all 58 notes of that
+            // channel were off. It showed because two layers of the same
+            // tone had offsets of -341 and -342, i.e. unequal - the
+            // signature of an offset in **cents before the conversion**,
+            // not of a constant in IP units.
             //
-            // Po zmene sedi CRAZY 32/32 a nic jineho se nezhorsilo:
-            // Georgia, JUMP, RELAX a MINUET zustavaji 32/32, Magic
-            // Carpet 2 24/24 - dohromady pres 22 000 not.
+            // After the change CRAZY matches 32/32 and nothing else got
+            // worse: Georgia, JUMP, RELAX and MINUET stay at 32/32, Magic
+            // Carpet 2 at 24/24 - over 22 000 notes in total.
             //
-            // Utlum je vyjimka a resi se vyse zvlast, protoze ho
-            // ovladac scita az v jednotkach registru.
+            // The attenuation is an exception, handled separately above,
+            // because the driver adds it only in register units.
             r.gen.FillFrom(presetGen);
 
             out.push_back(std::move(r));
@@ -807,22 +818,23 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     const Sample& s = *region.sample;
     const bool sf1 = (bank.version == Version::Sf1);
 
-    // ---- adresy ---------------------------------------------------------
-    // Vzorek lezi v ROM bud proto, ze ho tak oznacuje banka (hvezdicka
-    // v nazvu / priznak v shdr), nebo proto, ze cela banka popisuje ROM.
+    // ---- addresses -------------------------------------------------------
+    // A sample lies in ROM either because the bank marks it so (asterisk in
+    // the name / flag in shdr) or because the whole bank describes the ROM.
     const bool inRom = s.inRom || bank.samplesInRom;
     const uint32_t base = inRom ? romPoolBase : dramBase;
     uint32_t start, loopStart, loopEnd;
     if (sf1)
     {
-        // SF1 uklada uz hotove adresy pro cip (vcetne korekce na
-        // interpolator) - u ROM vzorku se pouzivaji primo, u vlastnich
-        // se jen posunou tam, kam se banka nahrala.
+        // SF1 stores ready-made addresses for the chip (including the
+        // interpolator correction) - ROM samples use them directly, the
+        // bank's own samples are only moved to where the bank was loaded.
         const uint32_t off = inRom ? 0 : dramBase;
-        // Offsety ze zony se musi pricist i tady. Chybelo to a projevilo se
-        // to na vzorku `organwave` v presetu Organ 3, kde ma zona
-        // `startloopAddrsOffset -1` i `endloopAddrsOffset -1`: ovladac psal
-        // PSST F146 a CSL F17D, my F147 a F17E (232 not Georgie).
+        // The zone offsets must be added here too. That was missing and it
+        // showed on the sample `organwave` in the preset Organ 3, whose zone
+        // has both `startloopAddrsOffset -1` and `endloopAddrsOffset -1`: the
+        // driver wrote PSST F146 and CSL F17D, we F147 and F17E (232 notes of
+        // Georgia).
         start     = s.start + off
                   + g.Get(Gen::StartAddrsOffset, 0)
                   + 32768u * g.Get(Gen::StartAddrsCoarseOffset, 0);
@@ -845,26 +857,28 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
                     + 32768u * g.Get(Gen::EndloopAddrsCoarseOffset, 0) - 3;
     }
 
-    // Vychozi hodnota je **0** = jednorazovy vzorek, ne smycka. Neni to
-    // odhad: oba ovladace maji tabulku vychozich hodnot generatoru, ktera se
-    // pred aplikaci banky nakopiruje do bloku parametru vrstvy, a v obou je
-    // na pozici generatoru 54 nula.
-    //   SBAWE32.MDI 0x16AD (0x43 slov, kopiruje se na 0x1CD2)
-    //   SBAWE.VXD   obj 1, 0x6D60 (tataz tabulka, stejne hodnoty)
-    // Poznat to jde na bance Magic Carpet 2: presety LOOP2 a LOOP3 zadny
-    // sampleModes nemaji a ovladac jim opravdu smycku pokladá az za vzorek.
+    // The default is **0** = a one-shot sample, not a loop. Not a guess:
+    // both drivers have a table of generator defaults which is copied into
+    // the layer's parameter block before the bank is applied, and in both
+    // there is a zero at the position of generator 54.
+    //   SBAWE32.MDI 0x16AD (0x43 words, copied to 0x1CD2)
+    //   SBAWE.VXD   obj 1, 0x6D60 (the same table, the same values)
+    // It shows on the Magic Carpet 2 bank: the presets LOOP2 and LOOP3 have
+    // no sampleModes and the driver really puts their loop past the sample.
     vp.sampleEndAddr = (sf1 && inRom) ? s.end : (base + s.end);
     vp.loopEndAddr   = loopEnd;
     const int sampleModes = g.Get(Gen::SampleModes, 0);
     vp.looping = (sampleModes & 1) != 0;
     if (!vp.looping)
     {
-        // EMU8000 umi jen smyckovat, "one-shot" rezim nema. Ovladac to resi
-        // tim, ze smycku polozi do ticha ZA vzorek - format za kazdy vzorek
-        // pripisuje 46 nulovych vzorku (v 1mgm.sf2 je mezera mezi koncem
-        // jednoho a zacatkem dalsiho presne 46).
+        // The EMU8000 can only loop, it has no "one-shot" mode. The driver
+        // solves it by putting the loop into the silence PAST the sample -
+        // the format appends 46 zero samples after every sample (in
+        // 1mgm.sf2 the gap between the end of one and the start of the next
+        // is exactly 46).
         //
-        // Konkretni offsety +4 a +8 jsou prepsane z SBAWE32.DRV (0x02E4):
+        // The specific offsets +4 and +8 are transcribed from SBAWE32.DRV
+        // (0x02E4):
         //     loopStart = end + 4;  loopEnd = end + 8;
         const uint32_t end = (sf1 && inRom) ? s.end : (base + s.end);
         loopStart = end + 4;
@@ -873,35 +887,38 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
 
     // ---- Q + adresa -> CCCA ---------------------------------------------
     int q;
-    // SF1 ma `initialFilterQ` 0..127, registr 0..15. Zmereno na Georgii proti
-    // `SBAWE.VXD` (3331 not, tri ruzne hodnoty v `SYNTHGM.SBK`):
+    // SF1 has `initialFilterQ` 0..127, the register 0..15. Measured on
+    // Georgia against `SBAWE.VXD` (3331 notes, three different values in
+    // `SYNTHGM.SBK`):
     //
     //     SF1 12 -> 1,  SF1 50 -> 6,  SF1 79 -> 9
     //
-    // Puvodni `v * 15 / 127` s utinanim davalo u 50 hodnotu 5 a rozeslo se
-    // na 669 notach (preset "Piano 2"). Posun o tri bity sedi na vsechny tri
-    // body a je to i to, co by 16bitovy ovladac nejspis delal (`shr ax, 3`).
+    // The original `v * 15 / 127` with truncation gave 5 for 50 and
+    // diverged on 669 notes (preset "Piano 2"). A shift by three bits fits
+    // all three points and is also what a 16-bit driver would most likely
+    // do (`shr ax, 3`).
     //
-    // Pozor: `lround(v * 15 / 127.0)` sedi na tytez tri body taky. Rozliseni
-    // by prinesla nota s `initialFilterQ` 6, 14 nebo 22 - u tech se obe
-    // varianty lisi. V zadne nasi stope zatim takova neni.
+    // Note: `lround(v * 15 / 127.0)` fits the same three points too. A note
+    // with `initialFilterQ` 6, 14 or 22 would tell them apart - there the
+    // two variants differ. None of our traces has one yet.
     if (sf1) q = g.Get(Gen::InitialFilterQ, 0) >> 3;
     else     q = static_cast<int>(std::lround(g.Get(Gen::InitialFilterQ, 0) / 10.0
                                               / kResonanceMaxDb * kCccaQMax));
     q = std::clamp(q, 0, kCccaQMax);
-    // Do CCCA jde pocatecni adresa zmensena o konstantu, ktera se
-    // u obou rodin ovladacu **lisi** - viz Awe32::StartAddressOffset().
-    // Surova adresa se proto veze zvlast a slozi se az v Synth.
+    // CCCA gets the start address reduced by a constant which **differs**
+    // between the two driver families - see Awe32::StartAddressOffset().
+    // The raw address is therefore carried separately and combined only in
+    // Synth.
     vp.sampleStart = start;
     vp.ccca = (static_cast<uint32_t>(q) << kCccaQShift)
             | ((start - Awe32::StartAddressOffset(Awe32::kDefaultDriver))
                & kCccaAddressMask);
 
     // ---- pan + loop start -> PSST ---------------------------------------
-    // Pan patche se drzi v jednotkach ovladace (0..127, 64 = stred, vychozi
-    // hodnota z tabulky vychozich generatoru). Do registru se prevadi az
-    // v Synth, protoze se tam scita s CC10. Registrova podoba nize slouzi
-    // jen pro nahradni hlas a pro vypis.
+    // The patch pan is kept in driver units (0..127, 64 = centre, default
+    // from the table of generator defaults). It is converted to the register
+    // only in Synth, because it is added to CC10 there. The register form
+    // below is only for the substitute voice and for the dump.
     if (sf1)
         vp.patchPan = g.Get(Gen::Pan, 64);
     else
@@ -915,19 +932,19 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     // ---- chorus send + loop end -> CSL ----------------------------------
     const int chorus = sf1 ? g.Get(Gen::ChorusEffectsSend, 0)
                            : static_cast<int>(std::lround(g.Get(Gen::ChorusEffectsSend, 0) * 255.0 / 1000.0));
-    // Ovladac pricita ke konci smycky 1 - ale **jen ve smyckove vetvi**.
-    // U jednorazoveho vzorku pokládá smycku na `konec+4 .. konec+8` a zadnou
-    // jednicku uz nepricita:
-    //   SBAWE32.MDI 0x2019 (smycka: `add ax, 1`) vs 0x208B (one-shot: `add ax, 8`)
-    //   SBAWE.VXD   obj 1, 0x1EE7 `inc eax` je take jen ve smyckove vetvi
-    // Zmereno na 52 notach bicich z Magic Carpet 2, kde nam CSL vychazelo
-    // presne o 1 vic nez ovladaci.
+    // The driver adds 1 to the loop end - but **only in the loop branch**.
+    // For a one-shot sample it puts the loop at `end+4 .. end+8` and adds no
+    // one:
+    //   SBAWE32.MDI 0x2019 (loop: `add ax, 1`) vs 0x208B (one-shot: `add ax, 8`)
+    //   SBAWE.VXD   obj 1, 0x1EE7 `inc eax` is also only in the loop branch
+    // Measured on 52 drum notes of Magic Carpet 2, where our CSL came out
+    // exactly 1 higher than the driver's.
     vp.csl = (static_cast<uint32_t>(ClampU8(chorus)) << kChorusShift)
            | ((loopEnd + (vp.looping ? 1u : 0u)) & kLoopAddressMask);
 
-    // Vychozi reverb send ovladace je 28: SYNTHGM.SBK zadny reverbEffectsSend
-    // neobsahuje a MINUET neposila CC91, presto ovladac zapisuje 0x1C do
-    // horniho bajtu spodniho slova PTRX u vsech 242 not.
+    // The driver's default reverb send is 28: SYNTHGM.SBK has no
+    // reverbEffectsSend and MINUET sends no CC91, yet the driver writes 0x1C
+    // to the high byte of the low word of PTRX on all 242 notes.
     vp.reverbSend = ClampU8(sf1 ? g.Get(Gen::ReverbEffectsSend, 28)
                                 : static_cast<int>(std::lround(g.Get(Gen::ReverbEffectsSend, 0) * 255.0 / 1000.0)));
 
@@ -941,45 +958,47 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     cents += g.Get(Gen::CoarseTune, 0) * 100.0;
     cents += g.Get(Gen::FineTune, 0);
 
-    // `scaleTuning` **neni v procentech**, jak ma SF2. Ovladac testuje jen
-    // rovnost jedne a pak cely vysledek **puli** - prepis z `SBAWE.VXD`
-    // (objekt na 0xC0FF7BE0), C0FFAF54..C0FFAF87:
+    // `scaleTuning` is **not in percent** as in SF2. The driver only tests
+    // for equality with one and then **halves** the whole result -
+    // transcribed from `SBAWE.VXD` (object at 0xC0FF7BE0),
+    // C0FFAF54..C0FFAF87:
     //
     //     ecx = keynum - rootKey + coarseTune
     //     ecx = (ecx + 60) * 100 - samplePitch + fineTune
     //     cmp word [esi+0x70], 1        ; scaleTuning
-    //     jne dal
-    //         eax = ecx; cdq; sub eax,edx; sar eax,1   ; deleni 2 k nule
+    //     jne next
+    //         eax = ecx; cdq; sub eax,edx; sar eax,1   ; divide by 2 towards zero
     //
-    // Jmena poli jsou z `SFTYPE.H` v AWE32 SDK (0x6E samplePitch,
-    // 0x70 scaleTuning, 0x74 rootKey).
+    // The field names are from `SFTYPE.H` of the AWE32 SDK (0x6E
+    // samplePitch, 0x70 scaleTuning, 0x74 rootKey).
     //
-    // Zmereno: preset 122 SeaShore v SYNTHGM.SBK ma `scaleTuning 1`
-    // a byly to posledni ctyri nesedici noty RELAXu. Pro notu 69
-    // se samplePitch 8781 vyjde (69-60+60)*100 - 8781 = -1881, pulka
-    // je -940 - presne to, co ovladac zapsal.
+    // Measured: preset 122 SeaShore in SYNTHGM.SBK has `scaleTuning 1`, and
+    // those were the last four mismatching notes of RELAX. For note 69 with
+    // samplePitch 8781 it gives (69-60+60)*100 - 8781 = -1881, half is
+    // -940 - exactly what the driver wrote.
     double pitchCents = (key - rootKey) * 100.0 + cents;
     if (g.Get(Gen::ScaleTuning, 100) == 1)
         pitchCents = static_cast<int>(pitchCents) / 2;
 
-    // Frekvence vzorku se do centu prevede zvlast - ovladac ma tuhle slozku
-    // uz zapecenou v `gen55`, my ji drzime v hlavicce vzorku.
+    // The sample rate is converted to cents separately - the driver has this
+    // component already baked into `gen55`, we keep it in the sample
+    // header.
     const double centsTotal = pitchCents
         + std::log2(s.sampleRate / static_cast<double>(44100)) * 1200.0;
     vp.ipCents = static_cast<int>(centsTotal);
     vp.ip = static_cast<uint16_t>(std::clamp(PitchFromCents(centsTotal), 0, 65535));
 
-    // ---- utlum patche a filtr -> IFATN ------------------------------------
-    // Utlum se sklada az v Synth vrstve podle vzorce prepsaneho z ovladace
-    // (viz Awe32Curves.h) - tady jen prevedeme utlum patche na jednotky
-    // registru (0.375 dB na jednotku, 0 = bez utlumu).
+    // ---- patch attenuation and filter -> IFATN ----------------------------
+    // The attenuation is assembled only in the Synth layer by the formula
+    // transcribed from the driver (see Awe32Curves.h) - here we only convert
+    // the patch attenuation to register units (0.375 dB per unit, 0 = none).
     if (sf1)
     {
-        // SF1: 0..127, kde 127 = bez utlumu. Ovladac pocita 0x7F - v
-        // a vysledek pricita rovnou v jednotkach registru.
-        // Vychozi hodnota se mezi rodinami **lisi**: v tabulce vychozich
-        // generatoru ma SBAWE32.MDI (0x16AD+0x60) 110, kdezto SBAWE.VXD
-        // (obj 1, 0x6D60+0x60) 127.
+        // SF1: 0..127, where 127 = no attenuation. The driver computes
+        // 0x7F - v and adds the result directly in register units.
+        // The default **differs** between the families: in the table of
+        // generator defaults SBAWE32.MDI (0x16AD+0x60) has 110, while
+        // SBAWE.VXD (obj 1, 0x6D60+0x60) has 127.
         const int dflt = (Awe32::IsDosLike(drv)) ? 110 : 127;
         const int units = (region.sf1AttenUnits >= 0) ? region.sf1AttenUnits
                                                       : (127 - dflt);
@@ -1001,35 +1020,38 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     //
     //     SF1 52 -> 104,  SF1 97 -> 194,  SF1 127 -> 254,  chybi -> 255
     //
-    // Drive se tu pocitalo `v * 255 / 127`, aby 127 davalo 255. Ta uprava
-    // byla naroubovana na spatne mereni: preset 52 'Choir Aahs' z Magic
-    // Carpet 2, kde ovladac zapsal cutoff 255, **zadny `initialFilterFc`
-    // nema** - slo tedy o vychozi hodnotu, ne o prevod cisla 127. Skutecna
-    // 127 se objevila az u presetu "Piano 2" na Georgii a dala 254.
+    // Formerly `v * 255 / 127` was computed here, so that 127 gave 255. That
+    // fix was grafted onto a wrong measurement: preset 52 'Choir Aahs' of
+    // Magic Carpet 2, where the driver wrote cutoff 255, **has no
+    // `initialFilterFc`** - so it was the default value, not a conversion of
+    // the number 127. A real 127 appeared only with the preset "Piano 2" on
+    // Georgia and gave 254.
     int cutoff;
     if (!g.Has(Gen::InitialFilterFc)) cutoff = 255;
     else if (sf1)                     cutoff = std::clamp<int>(
                                           g.value[Gen::InitialFilterFc] * 2, 0, 255);
     else                              cutoff = FilterFcFromAbsCents(g.value[Gen::InitialFilterFc]);
 
-    // Spodni bajt (utlum) doplni Synth podle krivek z ovladace.
+    // Synth fills in the low byte (attenuation) from the driver curves.
     vp.ifatn = static_cast<uint16_t>(cutoff << 8);
 
-    // ---- modulace --------------------------------------------------------
-    // `sf1Scale` je nasobek pro SF1: cast generatoru ma v SBK sedmibitovy
-    // rozsah, kdezto registr je osmibitovy, takze ovladac hodnotu zdvojuje.
-    // Zmereno na Georgii proti `SBAWE.VXD`, 3331 not, **bez jedine vyjimky**:
+    // ---- modulation ------------------------------------------------------
+    // `sf1Scale` is the multiplier for SF1: some generators have a 7-bit
+    // range in SBK, while the register is 8-bit, so the driver doubles the
+    // value. Measured on Georgia against `SBAWE.VXD`, 3331 notes, **without
+    // a single exception**:
     //
-    //     modEnvToFilterFc  3F -> 7E,  01 -> 02   (1410 not)
-    //     modLfoToFilterFc  08 -> 10              (478 not)
-    //     modLfoToVolume    23 -> 46              (712 not)
-    //     freqModLFO        12 -> 24              (824 not)
-    //     freqVibLFO        2C -> 58              (595 not)
+    //     modEnvToFilterFc  3F -> 7E,  01 -> 02   (1410 notes)
+    //     modLfoToFilterFc  08 -> 10              (478 notes)
+    //     modLfoToVolume    23 -> 46              (712 notes)
+    //     freqModLFO        12 -> 24              (824 notes)
+    //     freqVibLFO        2C -> 58              (595 notes)
     //
-    // Vysky (`modEnvToPitch`, `modLfoToPitch`, `vibLfoToPitch`) se naopak
-    // **nezdvojuji** - u `vibLfoToPitch` sedi 03 a FF na 595 notach a
-    // u `modLfoToPitch` hodnota 01 na 111 notach, takze tam by nasobeni
-    // shodu rozbilo. Delici cara je tedy vyska/filtr, ne SF1/SF2.
+    // Pitches (`modEnvToPitch`, `modLfoToPitch`, `vibLfoToPitch`), on the
+    // other hand, are **not doubled** - `vibLfoToPitch` matches 03 and FF on
+    // 595 notes and `modLfoToPitch` the value 01 on 111 notes, so a
+    // multiplication would break the match there. The dividing line is thus
+    // pitch/filter, not SF1/SF2.
     auto modAmount = [&](int op, double sf2Scale, int sf1Scale = 1) -> int8_t
     {
         if (!g.Has(op)) return 0;
@@ -1049,11 +1071,11 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         (static_cast<uint8_t>(modAmount(Gen::ModEnvToPitch, kPitchCentsPerStep)) << 8)
         | static_cast<uint8_t>(modAmount(Gen::ModEnvToFilterFc, kPefeFcCentsPerStep, 2)));
 
-    // Kdyz generator chybi, ovladac pouzije frekvenci LFO1 = 128. Zmereno
-    // v poli hlasu na +0x2C u vsech 242 not; SYNTHGM.SBK u piana freqModLFO
-    // nema, presto ovladac zapisuje TREMFRQ = 0x0080.
-    // Pritomna frekvence se zdvojuje stejne jako hloubky vyse; chybejici
-    // generator ale znamena rovnou registrovou hodnotu 128, ne 64x2.
+    // When the generator is missing, the driver uses LFO1 frequency = 128.
+    // Measured in the voice block at +0x2C on all 242 notes; SYNTHGM.SBK has
+    // no freqModLFO for the piano, yet the driver writes TREMFRQ = 0x0080.
+    // A present frequency is doubled like the depths above; a missing
+    // generator, however, means the register value 128 directly, not 64x2.
     const int lfo1Freq = sf1 ? (g.Has(Gen::FreqModLFO)
                                     ? ((g.value[Gen::FreqModLFO] * 2) & 0xFF)
                                     : 128)
@@ -1087,38 +1109,41 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     };
     auto sustainReg = [&](int op) -> int
     {
-        // Chybejici generator znamena sustain 0 (doznivani do ticha), ne 0x7F.
-        // Zmereno v poli hlasu na +0x4A (DCYSUSV) a +0x3A (DCYSUS) u vsech
-        // 242 not; pro klavir je doznivani spravne.
+        // A missing generator means sustain 0 (decay to silence), not 0x7F.
+        // Measured in the voice block at +0x4A (DCYSUSV) and +0x3A (DCYSUS)
+        // on all 242 notes; for the piano decaying is right.
         if (!g.Has(op)) return 0;
-        // SF1: uroven sustainu v celych decibelech nad tichem, registr ma
-        // kroky po 0.75 dB - pomer je tedy 4/3, ne 1:1.
+        // SF1: the sustain level in whole decibels above silence, the
+        // register has steps of 0.75 dB - so the ratio is 4/3, not 1:1.
         //
-        // Programmer's Guide k DCYSUSV: "bits 14-8 are the volume envelope
+        // Programmer's Guide on DCYSUSV: "bits 14-8 are the volume envelope
         // sustain level in 0.75dB increments, with 0x7f being no
-        // attenuation". Prevod overen na bance, kterou mame v obou
-        // formatech: `SYNTHGM.SBK` (SF1) a `SYNTHGM.SF2` z DOSoveho SDK
-        // popisuji tytez presety, takze z nich jde odecist SF1 -> centibely:
+        // attenuation". The conversion is verified on a bank we have in both
+        // formats: `SYNTHGM.SBK` (SF1) and `SYNTHGM.SF2` of the DOS SDK
+        // describe the same presets, so SF1 -> centibels can be read off:
         //
-        //     SF1  99 -> 0 cB    -> registr 127     (99*4/3 = 132, orez)
-        //     SF1  93 -> 23 cB   -> registr 123.9   (124.0)
-        //     SF1  92 -> 34 cB   -> registr 122.5   (122.7)
-        //     SF1  90 -> 55 cB   -> registr 119.7   (120.0)
-        //     SF1  87 -> 86 cB   -> registr 115.5   (116.0)
+        //     SF1  99 -> 0 cB    -> register 127     (99*4/3 = 132, clipped)
+        //     SF1  93 -> 23 cB   -> register 123.9   (124.0)
+        //     SF1  92 -> 34 cB   -> register 122.5   (122.7)
+        //     SF1  90 -> 55 cB   -> register 119.7   (120.0)
+        //     SF1  87 -> 86 cB   -> register 115.5   (116.0)
         //
-        // Sedi to i s merenim: u presetu 52 'Choir Aahs' ma banka sustain 99
-        // a ovladac zapsal 0x7F, kdezto my jsme posilali 0x63 (= 99 syrove).
+        // It fits the measurement too: preset 52 'Choir Aahs' has sustain 99
+        // in the bank and the driver wrote 0x7F, while we sent 0x63
+        // (= 99 raw).
         if (sf1) return std::clamp<int>(g.value[op] * 4 / 3, 0, 0x7F);
         // SF2: centibely utlumu, 0 = plna uroven
         return std::clamp(127 - static_cast<int>(std::lround(
             g.value[op] / 10.0 / kSustainDbPerStep)), 0, 127);
     };
 
-    // Zavislost obalky na cisle noty. Prepis z SBAWE32.DRV (0x0278):
-    //     hold  += (60 - key) * keynumToHold        (nezaporne)
-    //     decay -= (key - 60) * keynumToDecay       (nezaporne)
-    // U SF2 jsou generatory v timecentech na klavesu, takze se uprava dela
-    // jeste pred prevodem na milisekundy; u SF1 rovnou v ms jako v ovladaci.
+    // Dependence of the envelope on the note number. Transcribed from
+    // SBAWE32.DRV (0x0278):
+    //     hold  += (60 - key) * keynumToHold        (non-negative)
+    //     decay -= (key - 60) * keynumToDecay       (non-negative)
+    // In SF2 the generators are in timecents per key, so the adjustment is
+    // made before the conversion to milliseconds; for SF1 directly in ms as
+    // in the driver.
     auto keyScaled = [&](int timeOp, int keyOp, bool subtract) -> double
     {
         const int amount = g.Get(keyOp, 0);
@@ -1134,9 +1159,9 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
         return TimecentsToMs(adj);
     };
 
-    // SF2 ma prodlevu rovnou v timecents, takze jde primo do rutiny
-    // ovladace. SF1 ma milisekundy a **jak z nich ovladac dela timecents,
-    // zmereno nemame** - viz DelayFromMs.
+    // SF2 has the delay directly in timecents, so it goes straight into the
+    // driver routine. SF1 has milliseconds - see DelayFromMs for how they
+    // convert.
     auto delayReg = [&](int op) -> uint16_t
     {
         if (sf1)
@@ -1168,19 +1193,21 @@ VoiceParams MakeVoiceParams(const Bank& bank, const Region& region,
     vp.releaseModRate = static_cast<uint8_t>(
         DecayRateFromMs(timeMs(Gen::ReleaseModEnv, 0.0)));
 
-    // Kdyz attack vyjde na maximum (0x7F, tedy okamzity), ovladac do
-    // prislusneho delay registru zapise **0xBFFF** misto 0x8000. Na zvuk to
-    // nema vliv - bit 15 znamena "bez prodlevy" a spodnich 15 bitu se pak
-    // ignoruje (`ENVVOL_TO_EMU_SAMPLES`) - ale ve stope to je.
+    // When the attack comes out at maximum (0x7F, i.e. instant), the driver
+    // writes **0xBFFF** to the corresponding delay register instead of
+    // 0x8000. It does not affect the sound - bit 15 means "no delay" and the
+    // lower 15 bits are then ignored (`ENVVOL_TO_EMU_SAMPLES`) - but it is in
+    // the trace.
     //
-    // Zmereno na Georgii: 844 not presetu `shonkytonk` (druha vrstva
-    // Honky-Tonk, `attackVolEnv 0`) a bicich. Odpovida to vetvi na
-    // SBAWE32.DRV 0x0206, jen tam je v listingu 0xB7FF - merena hodnota je
-    // 0xBFFF a plati i mimo kanal 9.
-    // Pozn.: 0xBFFF do ENVVOL/ENVVAL se sem **nedosazuje**. Ovladac si
-    // v bloku parametru nechava spocitany delay a konstantu posle az na
-    // port (`SBAWE.VXD` 0x21AB: `push 0xBFFF`). Drzime to stejne, aby se
-    // dal blok porovnavat 1:1 - viz Synth::NoteOn a tests/patch_cmp.py.
+    // Measured on Georgia: 844 notes of the preset `shonkytonk` (second
+    // layer of Honky-Tonk, `attackVolEnv 0`) and drums. It corresponds to
+    // the branch at SBAWE32.DRV 0x0206, only the listing has 0xB7FF there -
+    // the measured value is 0xBFFF and applies outside channel 9 too.
+    // Note: 0xBFFF for ENVVOL/ENVVAL is **not** substituted here. The driver
+    // keeps the computed delay in the parameter block and sends the constant
+    // only to the port (`SBAWE.VXD` 0x21AB: `push 0xBFFF`). We keep it the
+    // same so the block can be compared 1:1 - see Synth::NoteOn and
+    // tests/patch_cmp.py.
 
     vp.lfo1val = delayReg(Gen::DelayModLFO);
     vp.lfo2val = delayReg(Gen::DelayVibLFO);

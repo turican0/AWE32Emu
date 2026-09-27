@@ -8,28 +8,28 @@
 // ---------------------------------------------------------------------------
 // Obecny loader SoundFont banky - zvlada SoundFont 1.0 (`.SBK`) i SF2 (`.sf2`).
 //
-// Zamerne NENI sity na zadnou konkretni banku. Rozdily obou verzi (viz
-// docs/re-notes/soundfont1_sbk.md):
+// On purpose NOT tailored to any particular bank. The differences of the
+// two versions (see docs/re-notes/soundfont1_sbk.md):
 //
 //   SF1.0                              SF2
 //   -----                              ---
-//   shdr 16 B (4 dwordy)               shdr 46 B vcetne jmena/sr/root key
-//   jmena vzorku v chunku `snam`       jmena uvnitr shdr
-//   generatory = primo registry        generatory normalizovane
-//     EMU8000, casy v milisekundach      (timecents, centibely, centy)
-//   adresy uz jsou hotove pro cip      adresy jsou indexy do `smpl`
+//   shdr 16 B (4 dwords)               shdr 46 B incl. name/sr/root key
+//   sample names in the `snam` chunk   names inside shdr
+//   generators = EMU8000 registers     normalised generators
+//     directly, times in milliseconds    (timecents, centibels, cents)
+//   addresses ready for the chip       addresses are indices into `smpl`
 //
-// Vzorek, jehoz jmeno zacina '*', lezi ve wave ROM karty (SF1 konvence);
-// v SF2 to same znaci priznak ROM v `sfSampleType`. Banka muze pouzivat
-// oba zdroje soucasne.
+// A sample whose name starts with '*' lies in the card's wave ROM (SF1
+// convention); in SF2 the ROM flag in `sfSampleType` means the same. A bank
+// may use both sources at once.
 // ---------------------------------------------------------------------------
 
 namespace SoundFont
 {
     enum class Version { Sf1, Sf2 };
 
-    // Cisla generatoru podle specifikace (spolecna pro obe verze; SF1 jen
-    // nektera nepouziva a jinak je interpretuje).
+    // Generator numbers per the specification (shared by both versions; SF1
+    // just leaves some unused and interprets them differently).
     namespace Gen
     {
         enum : int
@@ -53,8 +53,8 @@ namespace SoundFont
             StartloopAddrsCoarseOffset = 45, Keynum = 46, Velocity = 47,
             InitialAttenuation = 48, EndloopAddrsCoarseOffset = 50,
             CoarseTune = 51, FineTune = 52, SampleID = 53, SampleModes = 54,
-            // 55 je v SF2 nepouzity; v SF1 bankach se objevuje s hodnotou
-            // typu 6000 = zakladni nota v centech. Viz docs/re-notes.
+            // 55 is unused in SF2; in SF1 banks it appears with values like
+            // 6000 = the root key in cents. See docs/re-notes.
             Sf1RootPitchCents = 55,
             ScaleTuning = 56, ExclusiveClass = 57, OverridingRootKey = 58,
             Count = 60
@@ -77,7 +77,7 @@ namespace SoundFont
         // Slozeni preset zony (offsety) nad instrument zonou (absolutni).
         void AddFrom(const GenSet& other);
         void OverrideFrom(const GenSet& other);
-        // Doplni jen to, co jeste nemame - hodnota z nastroje vyhrava.
+        // Fills in only what is missing - the instrument's value wins.
         void FillFrom(const GenSet& other);
     };
 
@@ -115,15 +115,15 @@ namespace SoundFont
         std::vector<Zone> zones;
     };
 
-    // Jedna vrstva, ktera ma pri dane note zaznit.
+    // One layer that is to sound for a given note.
     struct Region
     {
         const Sample* sample = nullptr;
         GenSet gen;
-        // SF1: utlum se **neda** vzit ze slozeneho GenSetu. Kazda uroven
-        // (zona instrumentu, zona presetu) prispiva `127 - v` jednotkami
-        // registru a ty se scitaji; soucet surovych SF1 hodnot by dal
-        // nesmysl. -1 znamena "nepocitano" (banka je SF2).
+        // SF1: the attenuation **cannot** be taken from the combined GenSet.
+        // Each level (instrument zone, preset zone) contributes `127 - v`
+        // register units and those add up; the sum of the raw SF1 values
+        // would be nonsense. -1 means "not computed" (the bank is SF2).
         int sf1AttenUnits = -1;
     };
 
@@ -134,9 +134,9 @@ namespace SoundFont
         Version version = Version::Sf2;
         std::string name;
         std::string romName;            // INFO/irom - jakou ROM banka ceka
-        // True = vzorky teto banky nelezi v jejim chunku smpl, ale ve wave
-        // ROM karty. Tak se pouzije popis GM banky (napr. 1mgm.sf2) k tomu,
-        // aby se hral obsah skutecne ROM (awe32.raw).
+        // True = the samples of this bank are not in its smpl chunk but in
+        // the card's wave ROM. That is how the description of a GM bank (e.g.
+        // 1mgm.sf2) is used to play the contents of the real ROM (awe32.raw).
         bool samplesInRom = false;
 
         std::vector<int16_t> sampleData;  // chunk `smpl`
@@ -146,8 +146,8 @@ namespace SoundFont
 
         const Preset* FindPreset(int bank, int program) const;
 
-        // Vrati vsechny vrstvy, ktere maji pri dane note zaznit.
-        // Prazdny vysledek = preset neexistuje nebo notu nepokryva.
+        // Returns all layers that are to sound for a given note.
+        // An empty result = the preset does not exist or does not cover the note.
         std::vector<Region> Select(int bank, int program, int key, int velocity) const;
     };
 
@@ -156,11 +156,11 @@ namespace SoundFont
     // -----------------------------------------------------------------------
     // Prevod jedne vrstvy na registry EMU8000.
     //
-    // dramBase = adresa (ve vzorcich), kam se nahral chunk `smpl` teto banky.
-    // romPoolBase = adresa zacatku zvukoveho fondu ve wave ROM.
+    // dramBase = address (in samples) where this bank's `smpl` chunk was loaded.
+    // romPoolBase = address of the start of the sound pool in the wave ROM.
     // -----------------------------------------------------------------------
-    // Prevod centu na registr IP (`sub_192E` z ovladace). Potrebuje ho
-    // i Synth, kdyz pricita ohyb vysky v centech.
+    // Cents to the IP register (`sub_192E` of the driver). The Synth needs
+    // it too, when it adds a pitch bend in cents.
     int PitchToIp(int cents);
 
     struct VoiceParams
@@ -171,8 +171,8 @@ namespace SoundFont
         uint32_t psst = 0;        // pan + loop start
         uint32_t csl = 0;         // chorus send + loop end
         uint16_t ip = 0;          // vyska pro konkretni notu
-        // Tataz vyska jeste v centech, pred prevodem na IP - hodi se
-        // pri rozboru rozdilu proti ovladaci.
+        // The same pitch in cents, before the conversion to IP - useful when
+        // analysing differences against the driver.
         int      ipCents = 0;
         uint16_t ifatn = 0xFF00;     // horni bajt = cutoff; spodni doplni Synth
         uint8_t  patchAttenUnits = 0;// utlum patche v jednotkach 0.375 dB
@@ -181,8 +181,8 @@ namespace SoundFont
         uint16_t envval = 0x8000, atkhld = 0x7F7F, dcysus = 0x7F00;
         uint16_t lfo1val = 0x8000, lfo2val = 0x8000;
         uint8_t  reverbSend = 0;
-        uint8_t  releaseRate = 0; // pro DCYSUSV pri Note Off
-        uint8_t  releaseModRate = 0; // pro DCYSUS pri Note Off (jen win95)
+        uint8_t  releaseRate = 0; // for DCYSUSV at Note Off
+        uint8_t  releaseModRate = 0; // for DCYSUS at Note Off (win95 only)
         bool     looping = true;
         // Sample end and loop end addresses as the driver keeps them in its
         // patch block (SBAWE32.MDI [si+0x7A] / [si+0x82]); the note-off of the

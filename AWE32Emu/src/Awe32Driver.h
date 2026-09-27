@@ -2,48 +2,49 @@
 #include <cstring>
 
 // ---------------------------------------------------------------------------
-// Varianta ovladace Creative, kterou emulujeme.
+// The Creative driver variant we emulate.
 //
-// Pri srovnavani se skutecnymi ovladaci bezicimi v 86Boxu se ukazalo, ze
-// Creative ma dve rodiny ovladacu, ktere se v nekolika bodech **zamerne**
-// lisi. Neexistuje tedy jedna spravna odpoved a nema smysl jednu variantu
-// prepisovat druhou - proto jsou v kodu obe a prepinaji se prepinacem
+// Comparing against the real drivers running in 86Box showed that Creative
+// has two driver families which **deliberately** differ in a few points.
+// There is no single right answer, and there is no point in overwriting one
+// variant with the other - so both are in the code, selected with
 // `--driver`.
 //
-// Vsechny odchylky jsou zmerene, ne odhadnute; podrobnosti a odkazy na
-// konkretni offsety v disassembly jsou v docs/re-notes/86box_srovnani.md.
+// All differences are measured, not guessed; details and references to the
+// offsets in the disassembly are in docs/re-notes/86box_comparison.md.
 //
-//   Dos    - `AWEUTIL.COM` (inicializace) + `SBAWE32.MDI` (Miles/AIL, note-on)
-//   Win95  - `SBAWE.VXD` 86054 B, ta binarka, proti ktere je overeno
-//            vsech 24 registru pri note-on na 242 notach (sekce 11)
+//   Dos    - `AWEUTIL.COM` (initialisation) + `SBAWE32.MDI` (Miles/AIL, note-on)
+//   Win95  - `SBAWE.VXD` 86054 B, the binary against which all 24 registers
+//            at note-on are verified on 242 notes (section 11)
 //   Sdk    - Creative AWE32 DOS SDK (RAWE32L.LIB, module midieng.c), used by
 //            DOSMid and by our AWETEST. Closest relative of `Dos` (same GM
 //            table format, same layer reservation), with its own voice
 //            allocation; transcribed from the library, checked against the
 //            DOSMid trace.
 //
-// Obe varianty jsou dnes overene na **vsech registrech**: `win95` proti
-// `SBAWE.VXD` (242 not, MINUET) a `dos` proti `SBAWE32.MDI` (255 not,
-// Magic Carpet 2). Rozvrzeni bloku parametru vrstvy maji oba ovladace
-// shodne - je to prime pole generatoru SoundFontu (sekce 16.2).
+// All variants are verified on **all registers** today: `win95` against
+// `SBAWE.VXD` (242 notes, MINUET), `dos` against `SBAWE32.MDI` (255 notes,
+// Magic Carpet 2) and `sdk` against the DOSMid trace. Both drivers share the
+// layout of the layer parameter block - it is the SoundFont generator array
+// itself (section 16.2).
 //
-// Body, ve kterych se lisi:
+// Where they differ:
 //
-// | vec | Dos | Win95 | kde |
+// | what | Dos | Win95 | where |
 // |---|---|---|---|
-// | 8 hodnot v INIT3/INIT4 | AWEUTIL | ALSA == VXD | Awe32InitArrays.h, sekce 7.1 |
-// | `kVelocityDb[0]` | 50 | 99 | Awe32Curves.h, sekce 8.1 |
-// | vzorec utlumu | MDI `0x2102` | VXD `0x1C54` | Awe32Curves.h, sekce 10.2 |
-// | utlum +16 pro ROM "1MGM" | ne | ano | Synth.cpp, sekce 10.2 |
-// | posun adresy v CCCA | -46 | -4 | StartAddressOffset(), sekce 16.4 |
-// | vychozi `initialAttenuation` | 110 | 127 | SoundFont.cpp, sekce 16.3 |
-// | spodni mez panu | `< 0` | `<= 1` | Synth.cpp, sekce 16.4 |
+// | 8 values in INIT3/INIT4 | AWEUTIL | ALSA == VXD | Awe32InitArrays.h, section 7.1 |
+// | `kVelocityDb[0]` | 50 | 99 | Awe32Curves.h, section 8.1 |
+// | attenuation formula | MDI `0x2102` | VXD `0x1C54` | Awe32Curves.h, section 10.2 |
+// | attenuation +16 for ROM "1MGM" | no | yes | Synth.cpp, section 10.2 |
+// | address offset in CCCA | -46 | -4 | StartAddressOffset(), section 16.4 |
+// | default `initialAttenuation` | 110 | 127 | SoundFont.cpp, section 16.3 |
+// | lower pan limit | `< 0` | `<= 1` | Synth.cpp, section 16.4 |
 //
-// Pozor na jednu nejistotu: ze u `AWEUTIL.COM` plati tabulky a vzorec
-// utlumu z `SBAWE32.MDI`, **nevime** - jeho MIDI engine (`/EM:GM`) jsme
-// nikdy netrasovali. Seskupeni do rodiny "Dos" vychazi z toho, ze se v DOSu
-// pouzivaji spolu, a z toho, ze `SBAWE32.MDI` a starsi `SBAWE32.DRV` maji
-// tabulky bajt po bajtu shodne.
+// One uncertainty: whether the tables and attenuation formula of
+// `SBAWE32.MDI` apply to `AWEUTIL.COM` we **do not know** - its MIDI engine
+// (`/EM:GM`) was never traced. Grouping them as the "Dos" family rests on
+// their being used together in DOS, and on `SBAWE32.MDI` and the older
+// `SBAWE32.DRV` having byte-identical tables.
 // ---------------------------------------------------------------------------
 
 namespace Awe32
@@ -58,20 +59,21 @@ namespace Awe32
     // `Sdk` shares the `Dos` code path wherever the two do not differ.
     inline constexpr bool IsDosLike(Driver d) { return d == Driver::Dos || d == Driver::Sdk; }
 
-    // Vychozi je Win95 - proti nemu je overena cela note-on cesta.
+    // Win95 is the default - the whole note-on path is verified against it.
     inline constexpr Driver kDefaultDriver = Driver::Win95;
 
-    // O kolik slov pred zacatkem vzorku ovladac spusti prehravani (CCCA).
-    // Obe rodiny maji uplne stejny rozvrzeny blok parametru vrstvy - start
-    // je v obou na offsetu 0x76 - ale odecitaji jinou konstantu:
+    // How many words before the sample start the driver starts playback
+    // (CCCA). Both families have the very same layer parameter block - the
+    // start is at offset 0x76 in both - but subtract a different constant:
     //
     //   SBAWE32.MDI 0x1FF4:  ax:dx = [si+0x76];  sub ax, 0x2e   (46)
     //   SBAWE.VXD   0x1ECF:  eax   = [ebx+0x76]; sub eax, 4
     //   SDK noteOn  0x0DB4:  ax = es:[si+0x76];     sub ax, 5
     //                        (DOSMid trace: +41 words against `dos`)
     //
-    // Neni to preklep ani nase chyba mereni: proti MDI vychazi rozdil
-    // presne 42 slov u vsech not, proti VXD sedi CCCA na 242 notach.
+    // Neither a typo nor our measuring error: against the MDI the difference
+    // is exactly 42 words on every note, against the VXD CCCA matches on 242
+    // notes.
     inline constexpr int StartAddressOffset(Driver d)
     {
         return (d == Driver::Dos) ? 46 : (d == Driver::Sdk) ? 5 : 4;
@@ -82,7 +84,7 @@ namespace Awe32
         return (d == Driver::Dos) ? "dos" : (d == Driver::Sdk) ? "sdk" : "win95";
     }
 
-    // Vrati false, kdyz jmeno nesedi na zadnou variantu.
+    // Returns false when the name matches no variant.
     inline bool DriverFromName(const char* name, Driver& out)
     {
         if (name == nullptr) return false;

@@ -1,10 +1,11 @@
-// AWE32Emu - CLI pro prehravani .mid/.xmi pres emulaci EMU8000
+// AWE32Emu - command line player for .mid/.xmi through an EMU8000 emulation
 //
-// Cip je snd_emu8k.c z 86Boxu (src/86box, vlastni kopie), vrstva ovladace kopiruje ovladace
-// Creative (dos = SBAWE32.MDI, win95 = SBAWE.VXD), viz docs/re-notes.
+// The chip is snd_emu8k.c from 86Box (src/86box, a copy of its own); the
+// driver layer copies the Creative drivers (dos = SBAWE32.MDI, win95 =
+// SBAWE.VXD), see docs/re-notes.
 //
-// Pouziti:
-//   AWE32Emu.exe <soubor.mid|soubor.xmi> --rom awe32.raw --sf <banka.sbk|.sf2|.mdi> [--wav <out.wav>]
+// Usage:
+//   AWE32Emu.exe <file.mid|file.xmi> --rom awe32.raw --sf <bank.sbk|.sf2|.mdi> [--wav <out.wav>]
 //
 #include "MidiFile.h"
 #include "XmiFile.h"
@@ -47,70 +48,71 @@ namespace
     void PrintUsage()
     {
         std::cout <<
-            "AWE32Emu - prehravac .mid/.xmi pres emulaci EMU8000 (Sound Blaster AWE32)\n\n"
-            "Pouziti:\n"
-            "  AWE32Emu.exe <soubor.mid|soubor.xmi> [volby]\n\n"
-            "Volby:\n"
-            "  --rom <soubor>      Wave ROM karty (surovy dump, napr. awe32.raw)\n"
-            "  --rombank <soubor>  Banka, ktera jen POPISUJE obsah ROM (napr. 1mgm.sf2)\n"
-            "  --sf <soubor>       Banka - .sbk, .sf2 nebo .mdi\n"
-            "                      (GM presety ROM zakompilovane v ovladaci DOS)\n"
-            "  --wav <soubor>      Misto prehrani v realnem case zapise vystup do .wav\n"
-            "  --debug-voices <n>  Vypise prvnich n spustenych hlasu i s registry\n"
-            "  --trace <soubor>    Zaznam portovych zapisu (viz ref86box/README.md)\n"
-            "  --replay <stopa>    Prehraje stopu portovych zapisu jadrem a zapise --wav\n"
-            "                      (format jako emu8k_ref; MIDI soubor se pak nezadava)\n"
-            "  --driver dos|win95|sdk  Varianta ovladace Creative; vychozi je win95\n"
-            "                      (sdk = AWE32 DOS SDK, jak ho vola DOSMid; rozpracovano)\n"
-            "  --chip nas|86box    Jadro cipu: 86box = snd_emu8k.c z 86Boxu\n"
-            "                      (vychozi, kdyz je --rom), nas = starsi vlastni jadro\n"
-            "  --ram <KB>          DRAM cipu 86box v KB (onboard_ram), vychozi 8192\n"
-            "  --conf <soubor>     Pocatecni stav MIDI kanalu, jak ho posila hra\n"
-            "  --dump-notes <csv>  Mezivysledky pri note-onu, sloupce podle bloku\n"
-            "                      parametru v SBAWE.VXD (viz tests/patch_struct.py)\n"
-            "  --master-volume N   Hlavni hlasitost sekvenceru AIL 0..127 (vychozi 127)\n"
-            "  --sf <soubor>@<N>   Nacte banku do MIDI banky N (vyber pres CC0);\n"
-            "                      uzivatelske banky maji v phdr banku 0\n"
-            "  --tracks 1,2,3      Jen tyto MIDI kanaly (1..16); --tracks -8,-9 = vsechny krome\n\n"
-            "Volby jen pro stare vlastni jadro (--chip nas):\n"
-            "  --interp linear|cubic|3point|3pointc|sinc   Interpolace (vychozi sinc;\n"
-            "                      cip 86box ma pevne 3point)\n"
-            "  --reverb 0..7  --chorus 0..7   Preset efektu\n"
-            "  --rev-room --rev-damp --rev-return --cho-return   Ladeni efektu\n"
-            "  --filter-top <Hz>   Mezni kmitocet pri registru 0xFF (vychozi 8000)\n"
-            "  --cutoff-base <Hz>  Mezni kmitocet pri registru 0 (vychozi 101,81)\n"
-            "  --q-cutoff-shift <okt>  Pokles meze pri Q=15 v oktavach (vychozi 0)\n"
-            "  --q-base <x>        Zaklad rezonance filtru (1.0 vychozi, 0.7071 Butterworth)\n"
-            "  --filter-atten <x>  Sila utlumu na vstupu filtru (1 = tabulka cipu, 0 = zadny)\n"
-            "  --resonance-db <x>  Rezonance pri Q=15 v dB (vychozi 24)\n"
-            "  --resonance-curve faq|flat  Zavisi rezonance na mezi filtru? (vychozi flat)\n"
-            "  --sinc-taps <n>     Kolik bodu bere sinc (sude, 4-32; vychozi 8)\n"
+            "AWE32Emu - .mid/.xmi player through an EMU8000 emulation (Sound Blaster AWE32)\n\n"
+            "Usage:\n"
+            "  AWE32Emu.exe <file.mid|file.xmi> [options]\n\n"
+            "Options:\n"
+            "  --rom <file>        Wave ROM of the card (raw dump, e.g. awe32.raw)\n"
+            "  --rombank <file>    A bank that only DESCRIBES the ROM contents (e.g. 1mgm.sf2)\n"
+            "  --sf <file>         Bank - .sbk, .sf2 or .mdi\n"
+            "                      (.mdi = the ROM GM presets compiled into the DOS driver)\n"
+            "  --wav <file>        Write the output to a .wav instead of playing it live\n"
+            "  --debug-voices <n>  Print the first n started voices with their registers\n"
+            "  --trace <file>      Record the port writes (see docs/TESTING.md)\n"
+            "  --replay <trace>    Play a port-write trace through the chip and write --wav\n"
+            "                      (format as emu8k_ref; no MIDI file is given then)\n"
+            "  --driver dos|win95|sdk  Creative driver variant; default win95\n"
+            "                      (sdk = the AWE32 DOS SDK as DOSMid uses it)\n"
+            "  --chip nas|86box    Chip core: 86box = snd_emu8k.c from 86Box\n"
+            "                      (default when --rom is given), nas = the older own core\n"
+            "  --ram <KB>          DRAM of the 86box chip in KB (onboard_ram), default 8192\n"
+            "  --conf <file>       Initial state of the MIDI channels, as a game sends it\n"
+            "  --dump-notes <csv>  Intermediate values at note-on, columns following the\n"
+            "                      parameter block of SBAWE.VXD\n"
+            "  --master-volume N   Master volume of the AIL sequencer 0..127 (default 127)\n"
+            "  --sf <file>@<N>     Load the bank into MIDI bank N (selected by CC0);\n"
+            "                      user banks have bank 0 in their phdr\n"
+            "  --tracks 1,2,3      Only these MIDI channels (1..16); --tracks -8,-9 = all but these\n\n"
+            "Options for the old own core only (--chip nas):\n"
+            "  --interp linear|cubic|3point|3pointc|sinc   Interpolation (default sinc;\n"
+            "                      the 86box chip uses its measured interpolation)\n"
+            "  --reverb 0..7  --chorus 0..7   Effect preset\n"
+            "  --rev-room --rev-damp --rev-return --cho-return   Effect tuning\n"
+            "  --filter-top <Hz>   Cutoff frequency at register 0xFF (default 8000)\n"
+            "  --cutoff-base <Hz>  Cutoff frequency at register 0 (default 101.81)\n"
+            "  --q-cutoff-shift <oct>  Drop of the cutoff at Q=15 in octaves (default 0)\n"
+            "  --q-base <x>        Base resonance of the filter (1.0 default, 0.7071 Butterworth)\n"
+            "  --filter-atten <x>  Strength of the filter input attenuation (1 = chip table, 0 = none)\n"
+            "  --resonance-db <x>  Resonance at Q=15 in dB (default 24)\n"
+            "  --resonance-curve faq|flat  Does the resonance depend on the cutoff? (default flat)\n"
+            "  --sinc-taps <n>     Number of sinc taps (even, 4-32; default 8)\n"
             "  --hold-scale <x>  --decay-scale <x>  --attack-scale <x>\n"
-            "                      Meritka casovych konstant obalky (vychozi 1)\n"
-            "  --cutoff-map exp|lin  Prevod registru na mez filtru (lin = 100+31,25*reg Hz)\n"
-            "  --filter-mode cham|tpt|86box  Podoba filtru (vychozi cham = Chamberlin zmereny\n"
-            "                      na karte; tpt = drivejsi bilinearni; 86box = jako snd_emu8k.c)\n"
-            "  --pan linear|power  Krivka panoramy (linear = nasobicka jako v cipu)\n"
-            "  --loop-wrap on|off  Zalamovat vzorky interpolace do smycky (vychozi on)\n"
-            "  --eq on|off         Ekvalizer karty podle INIT3/INIT4 (vychozi on; jen nase jadro)\n"
-            "  --export-sf2 <soubor>  Zapise nactene banky (vcetne ROM) jako jeden .sf2\n"
-            "  --filter-poles 1|2|4  Strmost filtru 6/12/24 dB na oktavu (vychozi 2)\n\n"
-            "Banky lze zadat vicekrat a vrstvi se - pozdejsi prebiji drivejsi.\n"
-            "Typicke pouziti:\n"
+            "                      Scales of the envelope time constants (default 1)\n"
+            "  --cutoff-map exp|lin  Register to cutoff mapping (lin = 100+31.25*reg Hz)\n"
+            "  --filter-mode cham|tpt|86box  Filter structure (default cham = Chamberlin as\n"
+            "                      measured on the card; tpt = the earlier bilinear; 86box = upstream)\n"
+            "  --pan linear|power  Pan law (linear = a multiplier, as in the chip)\n"
+            "  --loop-wrap on|off  Wrap the interpolation samples into the loop (default on)\n"
+            "  --eq on|off         The card's equaliser from INIT3/INIT4 (default on; own core only)\n"
+            "  --export-sf2 <file> Write the loaded banks (ROM included) as one .sf2\n"
+            "  --filter-poles 1|2|4  Filter slope 6/12/24 dB per octave (default 2)\n\n"
+            "Banks can be given several times and are layered - later ones override earlier ones.\n"
+            "Typical use:\n"
             "  --rom rom/awe32.raw --sf SBAWE32.MDI --sf sbk/BULLFROG.SBK --driver dos\n"
-            "\nPodrobny popis vsech voleb i s priklady je v docs/POUZITI.md.\n";
+            "\nAll options are described with examples in docs/USAGE.md.\n";
     }
 }
 
-// Pocatecni stav MIDI kanalu ze souboru `--conf`.
+// Initial state of the MIDI channels from the `--conf` file.
 //
-// Hry casto pred prvni notou nastavi vsech sestnact kanalu na sve
-// hodnoty a bez toho nas render zacina jinde nez hra. Magic Carpet 2
-// napriklad posila CC7 127 (my mame vychozich 100) a CC91 40 (my 0).
+// Games often set all sixteen channels to their own values before the first
+// note; without that our render starts somewhere else than the game does.
+// Magic Carpet 2 for example sends CC7 127 (our default is 100) and CC91 40
+// (ours 0).
 //
-// Zprávy se posilaji **normalni cestou** pres Synth::ControlChange
-// a spol., ne obchazenim - jinak by se lisilo chovani RPN a stopa by
-// neodpovidala tomu, co dela ovladac.
+// The messages go the **normal way** through Synth::ControlChange and
+// friends, not around it - otherwise RPNs would behave differently and the
+// trace would not match what the driver does.
 namespace {
 
 struct ConfMessage
@@ -120,14 +122,14 @@ struct ConfMessage
     int b = 0;
 };
 
-// `master` zustane -1, kdyz soubor hlavni hlasitost neuvadi.
+// `master` stays -1 when the file gives no master volume.
 bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
               int& master, bool& triggerMute, std::string& err)
 {
     std::ifstream f(path);
     if (!f)
     {
-        err = "nelze otevrit '" + path + "'";
+        err = "cannot open '" + path + "'";
         return false;
     }
 
@@ -152,7 +154,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             if (!(is >> m.a >> m.b))
             {
                 err = path + ":" + std::to_string(lineNo)
-                    + ": `cc` chce cislo ridici zpravy a hodnotu";
+                    + ": `cc` wants a controller number and a value";
                 return false;
             }
         }
@@ -162,7 +164,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             if (!(is >> m.a))
             {
                 err = path + ":" + std::to_string(lineNo)
-                    + ": `program` chce cislo programu";
+                    + ": `program` wants a program number";
                 return false;
             }
         }
@@ -172,7 +174,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             if (!(is >> m.a))
             {
                 err = path + ":" + std::to_string(lineNo)
-                    + ": `bend` chce hodnotu 0..16383";
+                    + ": `bend` wants a value 0..16383";
                 return false;
             }
         }
@@ -183,7 +185,7 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             if (!(is >> v))
             {
                 err = path + ":" + std::to_string(lineNo)
-                    + ": `trigger_mute` chce 0 nebo 1";
+                    + ": `trigger_mute` wants 0 or 1";
                 return false;
             }
             triggerMute = (v != 0);
@@ -194,15 +196,15 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
             if (!(is >> master) || master < 0 || master > 127)
             {
                 err = path + ":" + std::to_string(lineNo)
-                    + ": `master_volume` chce hodnotu 0..127";
+                    + ": `master_volume` wants a value 0..127";
                 return false;
             }
-            continue;                       // neni to zprava na kanal
+            continue;                       // not a channel message
         }
         else
         {
             err = path + ":" + std::to_string(lineNo)
-                + ": neznamy prikaz '" + word + "'";
+                + ": unknown command '" + word + "'";
             return false;
         }
         out.push_back(m);
@@ -210,9 +212,9 @@ bool LoadConf(const std::string& path, std::vector<ConfMessage>& out,
     return true;
 }
 
-// Posle nactene zpravy na vsech sestnact kanalu, v poradi ze souboru.
-// Na poradi zalezi: CC100/CC101 musi predchazet CC6, jinak by se rozsah
-// ohybu nikam nezapsal.
+// Sends the loaded messages on all sixteen channels, in file order. The
+// order matters: CC100/CC101 have to come before CC6, or the bend range
+// would not be written anywhere.
 void ApplyConf(Synth& synth, const std::vector<ConfMessage>& msgs)
 {
     for (uint8_t ch = 0; ch < 16; ++ch)
@@ -229,9 +231,9 @@ void ApplyConf(Synth& synth, const std::vector<ConfMessage>& msgs)
                 synth.ProgramChange(ch, static_cast<uint8_t>(m.a));
                 break;
             case ConfMessage::Kind::Bend:
-                // V souboru je surova hodnota z MIDI (0..16383, stred 8192),
-                // `Synth::PitchBend` ale chce odchylku se stredem v nule -
-                // stejne jako Sequencer, ktery odecita tuhle konstantu.
+                // The file holds the raw MIDI value (0..16383, centre 8192);
+                // `Synth::PitchBend` wants the deviation around zero - the
+                // same as the Sequencer, which subtracts this constant.
                 synth.PitchBend(ch, static_cast<int16_t>(m.a - 8192));
                 break;
             }
@@ -282,12 +284,12 @@ int main(int argc, char** argv)
     std::string confPath;
     int revPreset = -1, choPreset = -1;
     double revRoom = -1, revDamp = -1, revReturn = -1, choReturn = -1;
-    // (cesta, vzorky lezi ve wave ROM, cislo MIDI banky nebo -1) v poradi nacitani
+    // (path, samples lie in the wave ROM, MIDI bank number or -1) in load order
     struct BankArg { std::string path; bool inRom; int midiBank; };
     std::vector<BankArg> bankPaths;
 
-    // "soubor.sbk@1" nacte banku do MIDI banky 1 (CC0). Uzivatelske banky
-    // maji v `phdr` bezne banku 0 a bez presunu by prebily GM presety.
+    // "file.sbk@1" loads the bank into MIDI bank 1 (CC0). User banks usually
+    // have bank 0 in `phdr` and without the move would override the GM presets.
     auto splitBank = [](std::string a) {
         const size_t at = a.rfind('@');
         int b = -1;
@@ -457,8 +459,8 @@ int main(int argc, char** argv)
         {
             if (!Awe32::DriverFromName(argv[++i], driver))
             {
-                std::cerr << "Neznama varianta ovladace '" << argv[i]
-                          << "'. Pouzij 'dos' nebo 'win95'.\n";
+                std::cerr << "Unknown driver variant '" << argv[i]
+                          << "'. Use 'dos', 'win95' or 'sdk'.\n";
                 return 1;
             }
         }
@@ -473,10 +475,10 @@ int main(int argc, char** argv)
         }
     }
 
-    // Pri exportu banky se nic neprehrava, takze vstupni skladba neni potreba.
+    // A bank export plays nothing, so no input song is needed.
     if (inputPath.empty() && exportSf2.empty() && replayPath.empty())
     {
-        std::cerr << "Chybi vstupni soubor.\n\n";
+        std::cerr << "No input file.\n\n";
         PrintUsage();
         return 1;
     }
@@ -497,22 +499,22 @@ int main(int argc, char** argv)
         }
         else
         {
-            std::cerr << "Nerozpoznana pripona '" << ext << "' - ocekavam .mid nebo .xmi\n";
+            std::cerr << "Unrecognised extension '" << ext << "' - expected .mid or .xmi\n";
             return 1;
         }
 
         if (!sequence.valid)
         {
-            std::cerr << "Chyba pri nacitani '" << inputPath << "': " << sequence.errorMessage << "\n";
+            std::cerr << "Error loading '" << inputPath << "': " << sequence.errorMessage << "\n";
             return 1;
         }
 
-        std::cout << "Nacteno: " << inputPath << " (" << sequence.events.size() << " udalosti, "
-            << sequence.ticksPerQuarterNote << " ticku/ctvrtovou notu)\n";
+        std::cout << "Loaded: " << inputPath << " (" << sequence.events.size() << " events, "
+            << sequence.ticksPerQuarterNote << " ticks per quarter note)\n";
     }
 
-    // Konfigurace se cte driv, nez se nastavi hlavni hlasitost - muze ji
-    // totiz sama urcovat. Prepinac `--master-volume` ma prednost.
+    // The configuration is read before the master volume is set - it may set
+    // the master volume itself. `--master-volume` takes precedence.
     std::vector<ConfMessage> confMessages;
     int confMaster = -1;
     bool confTriggerMute = false;
@@ -521,7 +523,7 @@ int main(int argc, char** argv)
         std::string err;
         if (!LoadConf(confPath, confMessages, confMaster, confTriggerMute, err))
         {
-            std::cerr << "Chyba v konfiguraci: " << err << "\n";
+            std::cerr << "Error in the configuration: " << err << "\n";
             return 1;
         }
         if (confMaster >= 0 && !masterFromCmdline)
@@ -530,7 +532,7 @@ int main(int argc, char** argv)
 
     constexpr uint32_t kSampleRate = 44100;
     constexpr uint32_t kFramesPerBuffer = 1024;
-    constexpr double kTailSeconds = 1.5; // cas navic po posledni udalosti, aby dozneli release hlasy
+    constexpr double kTailSeconds = 1.5; // extra time after the last event so that released voices fade out
 
     Synth synth(kSampleRate);
 
@@ -538,17 +540,17 @@ int main(int argc, char** argv)
     {
         std::string err;
         if (!synth.LoadWaveRom(romPath, err))
-            std::cerr << "Varovani: " << err << "\n";
+            std::cerr << "Warning: " << err << "\n";
         else
-            std::cout << "Wave ROM '" << romPath << "' nactena ("
-                      << synth.Core().RomSize() << " vzorku).\n";
+            std::cout << "Wave ROM '" << romPath << "' loaded ("
+                      << synth.Core().RomSize() << " samples).\n";
     }
 
-    // Cip z 86Boxu se musi zapnout drive, nez pujde prvni zapis na porty -
-    // tedy pred SetDriver/PowerOnInit nize.
-    // The chip is snd_emu8k.c, the same file 86Box is built from (with the
-    // measured corrections). Our older core stays available as --chip nas
-    // and is used when no wave ROM is given.
+    // The 86Box chip has to be switched on before the first port write -
+    // that is, before SetDriver/PowerOnInit below.
+    // The chip is snd_emu8k.c from 86Box (with the measured corrections).
+    // Our older core stays available as --chip nas and is used when no wave
+    // ROM is given.
     const bool chipDefault = chip.empty();
     if (chipDefault)
         chip = romPath.empty() ? "nas" : "86box";
@@ -558,24 +560,25 @@ int main(int argc, char** argv)
         synth.Core().SetChipRamKb(chipRamKb);
         if (!synth.Core().UseBox86Chip(romPath, err))
         {
-            std::cerr << "Cip 86box se nepodarilo zapnout: " << err << "\n";
+            std::cerr << "Could not switch on the 86box chip: " << err << "\n";
             return 1;
         }
-        std::cout << "Jadro cipu: snd_emu8k.c z 86Boxu (latence "
-                  << synth.Core().ChipLatencyFrames() << " snimku).\n";
+        std::cout << "Chip core: snd_emu8k.c from 86Box (latency "
+                  << synth.Core().ChipLatencyFrames() << " frames).\n";
     }
     else if (!chip.empty() && chip != "nas")
     {
-        std::cerr << "Neznamy --chip '" << chip << "'; znamé jsou nas a 86box.\n";
+        std::cerr << "Unknown --chip '" << chip << "'; known are nas and 86box.\n";
         return 1;
     }
 
-    // Banky se nacitaji v poradi, v jakem byly zadany; pozdejsi prebiji
-    // drivejsi. Typicky nejdriv popis GM banky v ROM, pak banka hry.
-    // Varianta ovladace se musi nastavit **pred** nactenim bank: rodiny
-    // se lisi v tom, kde zacina uzivatelska DRAM (viz Synth::DramReserve).
-    // Varianta ovladace musi byt nastavena pred PowerOnInit, protoze meni
-    // osm hodnot v init polich.
+    // Banks are loaded in the order given; later ones override earlier
+    // ones. Typically the description of the GM bank in ROM first, then the
+    // game's bank.
+    // The driver variant has to be set **before** the banks are loaded: the
+    // families differ in where the user DRAM starts (see Synth::DramReserve).
+    // It also has to be set before PowerOnInit, because it changes eight
+    // values in the init arrays.
     synth.Core().SetDriver(driver);
 
     for (const auto& [path, inRom, midiBank] : bankPaths)
@@ -583,32 +586,33 @@ int main(int argc, char** argv)
         std::string err;
         if (!synth.LoadBank(path, err, inRom, midiBank))
         {
-            std::cerr << "Varovani: banku '" << path << "' se nepodarilo nacist: " << err << "\n";
+            std::cerr << "Warning: could not load bank '" << path << "': " << err << "\n";
             continue;
         }
         const SoundFont::Bank& b = synth.BankAt(synth.BankCount() - 1);
         const bool fromMdi = (b.name == "SBAWE32.MDI GM");
-        std::cout << "Banka '" << path << "': "
-                  << (fromMdi ? "GM presety z ovladace SBAWE32.MDI"
+        std::cout << "Bank '" << path << "': "
+                  << (fromMdi ? "GM presets from the SBAWE32.MDI driver"
                               : (b.version == SoundFont::Version::Sf1 ? "SoundFont 1.0" : "SoundFont 2.0"))
-                  << ", " << b.presets.size() << " presetu, "
-                  << b.instruments.size() << " instrumentu, "
-                  << b.samples.size() << " vzorku";
-        if (inRom) std::cout << ", vzorky ve wave ROM";
-        if (midiBank >= 0) std::cout << ", MIDI banka " << midiBank;
-        if (!b.romName.empty()) std::cout << ", ocekava ROM '" << b.romName << "'";
+                  << ", " << b.presets.size() << " presets, "
+                  << b.instruments.size() << " instruments, "
+                  << b.samples.size() << " samples";
+        if (inRom) std::cout << ", samples in the wave ROM";
+        if (midiBank >= 0) std::cout << ", MIDI bank " << midiBank;
+        if (!b.romName.empty()) std::cout << ", expects ROM '" << b.romName << "'";
         std::cout << ".\n";
 
         size_t romRefs = 0;
         for (const SoundFont::Sample& sm : b.samples) if (sm.inRom) ++romRefs;
         if ((romRefs || inRom) && !synth.Core().RomSize())
-            std::cerr << "Varovani: banka odkazuje vzorky do ROM, ale zadna ROM"
-                         " neni nactena (--rom).\n";
+            std::cerr << "Warning: the bank refers to samples in ROM, but no ROM"
+                         " is loaded (--rom).\n";
     }
 
-    // Export do SF2 se dela hned po nacteni bank - dal uz se nic nerenderuje,
-    // takze se nemusi cekat na zvuk. ROM se pro nej cte znovu ze souboru:
-    // `Synth::LoadWaveRom` ji predava dal presunem, takze ji uz nemame.
+    // The SF2 export is done right after the banks are loaded - nothing is
+    // rendered after it, so there is no need to wait for the sound. The ROM
+    // is read again from the file for it: `Synth::LoadWaveRom` moves it on,
+    // so we no longer have it.
     if (!exportSf2.empty())
     {
         std::vector<const SoundFont::Bank*> banks;
@@ -633,15 +637,15 @@ int main(int argc, char** argv)
         std::string err;
         if (!SoundFont::ExportSf2(banks, rom, exportSf2, eo, err))
         {
-            std::cerr << "Export do SF2 selhal: " << err << "\n";
+            std::cerr << "SF2 export failed: " << err << "\n";
             return 1;
         }
-        std::cout << "Zapsano do '" << exportSf2 << "'.\n";
+        std::cout << "Written to '" << exportSf2 << "'.\n";
         return 0;
     }
 
-    // Vzorky bank lezi v nasi DRAM; cip z 86Boxu ma svoji vlastni, takze se
-    // musi prekopirovat. Obe zacinaji na EMU8K_RAM_MEM_START, takze bez posunu.
+    // The bank samples lie in our DRAM; the 86Box chip has its own, so they
+    // have to be copied over. Both start at EMU8K_RAM_MEM_START, so no offset.
     if (synth.Core().ChipVariant() == Emu8000Core::Chip::Box86)
     {
         if (int16_t* ram = synth.Core().ChipRam())
@@ -649,7 +653,7 @@ int main(int argc, char** argv)
             const size_t n = std::min(synth.Core().DramSize(),
                                       synth.Core().ChipRamWords());
             std::memcpy(ram, synth.Core().DramData(), n * sizeof(int16_t));
-            std::cout << "Do cipu 86box nakopirovano " << n << " vzorku DRAM.\n";
+            std::cout << "Copied " << n << " DRAM samples into the 86box chip.\n";
         }
     }
 
@@ -658,7 +662,7 @@ int main(int argc, char** argv)
     // chorus HWCF writes) than the VM had.
     if (replayPath.empty())
         synth.Core().PowerOnInit();
-    std::cout << "Ovladac: " << Awe32::DriverName(driver) << "\n";
+    std::cout << "Driver: " << Awe32::DriverName(driver) << "\n";
 
     if (debugVoices > 0) synth.SetVoiceDebug(debugVoices);
     synth.SetChannelMask(channelMask);
@@ -678,7 +682,7 @@ int main(int argc, char** argv)
         synth.Core().SetSincTaps(sincTaps);
     else if (sincTaps != 0)
     {
-        std::cerr << "--sinc-taps musi byt sude cislo 4 az 32.\n";
+        std::cerr << "--sinc-taps has to be an even number from 4 to 32.\n";
         return 1;
     }
     if (eqMode == "off")         synth.Core().SetEqualizer(false);
@@ -706,19 +710,20 @@ int main(int argc, char** argv)
         synth.Core().SetEffectReturns(static_cast<float>(revReturn < 0 ? 1.0 : revReturn),
                                       static_cast<float>(choReturn < 0 ? 0.7 : choReturn));
 
-    // Zaznam portovych zapisu pro srovnani s 86Boxem. Vzorky uz jsou v DRAM
-    // (nahravaji se memcpy, ne pres SMLD), takze se vedle stopy ulozi i obraz
-    // DRAM - ref86box/emu8k_ref.exe si ho nacte pres --dram.
+    // Record of the port writes, for the comparison with 86Box. The samples
+    // are already in DRAM (they are loaded by memcpy, not through SMLD), so
+    // an image of the DRAM is saved next to the trace - emu8k_ref.exe loads
+    // it with --dram.
     if (!tracePath.empty())
     {
         if (!synth.Core().OpenTrace(tracePath.c_str()))
         {
-            std::cerr << "Nepodarilo se otevrit stopu '" << tracePath << "'.\n";
+            std::cerr << "Could not open the trace '" << tracePath << "'.\n";
             return 1;
         }
-        // Inicializacni sekvence probehla uz v konstruktoru Synthu, takze by
-        // ve stope chybela. Zopakujeme ji - registry se tim vrati do stejneho
-        // stavu, jen ted i se zaznamem.
+        // The initialisation sequence already ran in the Synth constructor,
+        // so it would be missing from the trace. It is repeated - the
+        // registers return to the same state, now with the record.
         synth.Core().PowerOnInit();
 
         const std::string dramPath = tracePath + ".dram.raw";
@@ -727,33 +732,34 @@ int main(int argc, char** argv)
             std::fwrite(synth.Core().DramData(), sizeof(int16_t),
                         synth.Core().DramSize(), df);
             std::fclose(df);
-            std::cout << "Stopa '" << tracePath << "' + DRAM "
-                      << synth.Core().DramSize() << " vzorku.\n";
+            std::cout << "Trace '" << tracePath << "' + DRAM "
+                      << synth.Core().DramSize() << " samples.\n";
         }
     }
 
     if (!noteDumpPath.empty() && !synth.OpenNoteDump(noteDumpPath))
-        std::cerr << "Nepodarilo se otevrit '" << noteDumpPath << "'.\n";
+        std::cerr << "Could not open '" << noteDumpPath << "'.\n";
 
-    // Az za zapnutim stopy, aby se pocatecni stav kanalu do stopy zapsal -
-    // ovladac ve hre ho taky posila az po inicializaci cipu.
+    // Only after the trace is switched on, so that the initial channel state
+    // gets into the trace - the game's driver also sends it only after the
+    // chip is initialised.
     if (!confPath.empty())
     {
         ApplyConf(synth, confMessages);
-        std::cout << "Konfigurace '" << confPath << "': "
-                  << confMessages.size() << " zprav na kazdy z 16 kanalu";
+        std::cout << "Configuration '" << confPath << "': "
+                  << confMessages.size() << " messages on each of the 16 channels";
         if (confMaster >= 0)
-            std::cout << ", hlavni hlasitost " << confMaster;
+            std::cout << ", master volume " << confMaster;
         std::cout << ".\n";
     }
 
-    // Prehrani stopy portovych zapisu - misto MIDI se do jadra poslou presne
-    // ty zapisy, ktere zachytil 86Box (napr. AWETEST s bankou ze SDK).
+    // Replay of a port-write trace - instead of MIDI, the core gets exactly
+    // the writes 86Box captured (e.g. AWETEST with the SDK's bank).
     if (!replayPath.empty())
     {
         if (wavPath.empty())
         {
-            std::cerr << "--replay potrebuje --wav <soubor>.\n";
+            std::cerr << "--replay needs --wav <file>.\n";
             return 1;
         }
         struct Ev { unsigned long long t; unsigned port, val; };
@@ -777,14 +783,14 @@ int main(int argc, char** argv)
         }
         else
         {
-            std::cerr << "Nepodarilo se otevrit stopu '" << replayPath << "'.\n";
+            std::cerr << "Could not open the trace '" << replayPath << "'.\n";
             return 1;
         }
 
         WavWriter wav;
         if (!wav.Open(wavPath, kSampleRate))
         {
-            std::cerr << "Nepodarilo se otevrit vystupni soubor '" << wavPath << "'.\n";
+            std::cerr << "Could not open the output file '" << wavPath << "'.\n";
             return 1;
         }
         std::vector<int16_t> buf(static_cast<size_t>(kFramesPerBuffer) * 2);
@@ -813,10 +819,10 @@ int main(int argc, char** argv)
         for (unsigned long long done = 0; done < tail; done += kFramesPerBuffer)
             emit(kFramesPerBuffer);
         wav.Close();
-        std::cout << "Stopa '" << replayPath << "': " << evs.size() << " zapisu"
-                  << (byteWrites ? ", bajtove zapisy preskoceny: " : "")
+        std::cout << "Trace '" << replayPath << "': " << evs.size() << " writes"
+                  << (byteWrites ? ", byte writes skipped: " : "")
                   << (byteWrites ? std::to_string(byteWrites) : std::string())
-                  << ", " << cur << " snimku -> '" << wavPath << "'.\n";
+                  << ", " << cur << " frames -> '" << wavPath << "'.\n";
         return 0;
     }
 
@@ -828,21 +834,21 @@ int main(int argc, char** argv)
     const uint32_t tailBlocks =
         static_cast<uint32_t>((kTailSeconds * kSampleRate) / kFramesPerBuffer) + 1;
 
-    // Offline render do .wav - pro regresni testy a A/B srovnani
-    // s referencnimi nahravkami (TODO sekce 8) je realny cas nepouzitelny.
+    // Offline render to .wav - for regression tests and A/B comparisons with
+    // reference recordings real time is of no use.
     if (!wavPath.empty())
     {
         WavWriter wav;
         if (!wav.Open(wavPath, kSampleRate))
         {
-            std::cerr << "Nepodarilo se otevrit vystupni soubor '" << wavPath << "'.\n";
+            std::cerr << "Could not open the output file '" << wavPath << "'.\n";
             return 1;
         }
 
-        std::cout << "Renderuji do '" << wavPath << "'...\n";
-        // Cip z 86Boxu vydava zvuk o blok pozadu; ta latence se na zacatku
-        // zahodi a na konci se dorenderuje, takze soubor sedi snimek na snimek
-        // s emu8k_ref.exe.
+        std::cout << "Rendering to '" << wavPath << "'...\n";
+        // The 86Box chip delivers its sound one block late; that latency is
+        // dropped at the start and rendered on at the end, so the file
+        // matches emu8k_ref.exe frame for frame.
         uint32_t skip = synth.Core().ChipLatencyFrames();
         auto writeTrimmed = [&](const int16_t* buf, uint32_t frames)
         {
@@ -864,24 +870,24 @@ int main(int argc, char** argv)
         }
         wav.Close();
         synth.Core().CloseTrace();
-        std::cout << "Hotovo.\n";
+        std::cout << "Done.\n";
         return 0;
     }
 
 #ifndef _WIN32
-    // Zive prehravani jede pres `winmm`, takze mimo Windows umime jen
-    // renderovat do souboru. Neni to omezeni jadra - to je prenositelne.
-    std::cerr << "Zive prehravani je jen na Windows; pouzij --wav <soubor>.\n";
+    // Live playback goes through `winmm`, so outside Windows we can only
+    // render to a file. It is no limitation of the core - that is portable.
+    std::cerr << "Live playback is Windows only; use --wav <file>.\n";
     return 1;
 #else
     AudioOutputWin audioOut;
     if (!audioOut.Open(kSampleRate, kFramesPerBuffer))
     {
-        std::cerr << "Nepodarilo se otevrit audio vystup (waveOutOpen selhal).\n";
+        std::cerr << "Could not open the audio output (waveOutOpen failed).\n";
         return 1;
     }
 
-    std::cout << "Prehravam... (Ctrl+C pro preruseni)\n";
+    std::cout << "Playing... (Ctrl+C to stop)\n";
 
     while (sequencer.HasMoreEvents())
     {
@@ -889,8 +895,8 @@ int main(int argc, char** argv)
         audioOut.Write(block.data(), kFramesPerBuffer);
     }
 
-    // "Tail" - dorenderovat jeste kus ticha/doznivani po posledni udalosti,
-    // aby se release faze obalky (viz Synth.h) nezarizla.
+    // "Tail" - render a bit more silence / decay after the last event, so
+    // that the release stage of the envelope (see Synth.h) is not cut off.
     for (uint32_t i = 0; i < tailBlocks; ++i)
     {
         sequencer.RenderBlock(synth, block.data(), kFramesPerBuffer, kSampleRate);
@@ -898,7 +904,7 @@ int main(int argc, char** argv)
     }
 
     audioOut.Close();
-    std::cout << "Hotovo.\n";
+    std::cout << "Done.\n";
     return 0;
 #endif
 }

@@ -6,36 +6,38 @@
 // ---------------------------------------------------------------------------
 // Prevodni krivky MIDI -> utlum, presne podle ovladacu Creative.
 //
-// Tri po sobe jdouci tabulky po 128 bajtech. Overeno ve TRECH nezavislych
-// binarkach:
+// Three consecutive tables of 128 bytes. Verified in THREE independent
+// binaries:
 //   SBAWE32.MDI (Miles/AIL driver)      0x142D, 0x14AD, 0x152D
-//   SBAWE32.DRV (45632 B, WINDRV kopie) ds:0592, ds:0692, ds:0612
-//   SBAWE.VXD   (86054 B, ten, ktery skutecne bezel pri mereni)
+//   SBAWE32.DRV (45632 B, WINDRV copy)  ds:0592, ds:0692, ds:0612
+//   SBAWE.VXD   (86054 B, the one that really ran during the measurements)
 //               kChannelVolumeDb 0x8F10, kExpressionDb 0x8F90,
 //               kVelocityDb 0x8E90
 //
-// Pozor na dve veci:
-//  1) V novejsim SBAWE.VXD ma kVelocityDb[0] hodnotu **99**, zatimco MDI
-//     i WINDRV maji 50. Zbylych 127 bajtu je ve vsech trech shodnych.
-//     Nechavame 50 (dva zdroje ze tri); velocity 0 je v MIDI note-off,
-//     takze se hudebne nepouzije. Viz docs/re-notes/86box_srovnani.md 8.
-//  2) Verze SBAWE32.DRV, ktera skutecne bezela pri mereni (45008 B), tyhle
-//     tabulky **neobsahuje vubec** - presunuly se do VXD. Odkazy na
-//     `ds:0592` plati pro kopii ve WINDRV, ne pro tu merenou.
+// Two things to watch:
+//  1) In the newer SBAWE.VXD kVelocityDb[0] is **99**, while MDI and WINDRV
+//     have 50. The other 127 bytes are the same in all three. We keep 50
+//     (two sources of three); velocity 0 is a note-off in MIDI, so it is
+//     never used musically. See docs/re-notes/86box_comparison.md 8.
+//  2) The SBAWE32.DRV version that really ran during the measurements
+//     (45008 B) does **not contain these tables at all** - they moved into
+//     the VXD. The `ds:0592` references are for the copy in WINDRV, not for
+//     the measured one.
 //
-// Vzorec pro vysledny utlum (registr IFATN, spodni bajt, jednotka 0.375 dB)
-// je prepsany z note-on rutiny v SBAWE32.MDI na offsetu 0x2102:
+// The formula of the resulting attenuation (register IFATN, low byte, unit
+// 0.375 dB) is transcribed from the note-on routine of SBAWE32.MDI at
+// offset 0x2102:
 //
-//     if (cc7 <= 10) return 255;                       // ticho
+//     if (cc7 <= 10) return 255;                       // silence
 //     atten = ( 8*(volDb[cc7] + velDb[velocity])
 //               + ((3*(127 - patchAtten)) & ~7) ) / 3;
 //     if (atten >= 255) return 255;
 //     if (expression < 127)
 //         atten += exprDb[expression] * (255 - atten) / 127;
 //
-// Vsimni si, ze utlum patche se pricita rovnou v jednotkach registru
-// (127 - hodnota), zatimco hlasitost a velocity jsou v dB a prepocitavaji
-// se pomerem 8/3 (= 1 / 0.375).
+// Note that the patch attenuation is added directly in register units
+// (127 - value), while volume and velocity are in dB and converted with the
+// ratio 8/3 (= 1 / 0.375).
 // ---------------------------------------------------------------------------
 
 namespace Awe32Curves
@@ -77,12 +79,12 @@ namespace Awe32Curves
           2,   2,   2,   2,   2,   2,   1,   1,   1,   1,   1,   0,   0,   0,   0,   0,
     };
 
-    // Prepis vypoctu z SBAWE32.MDI, offset 0x2102.
-    // patchAttenUnits = utlum patche v jednotkach registru (0 = bez utlumu).
-    // Velocity v `SBAWE.VXD` ma na indexu 0 hodnotu 99, zatimco `SBAWE32.MDI`
-    // i starsi `SBAWE32.DRV` maji 50. Zbylych 127 bajtu je shodnych.
-    // Velocity 0 je v MIDI note-off, takze se to hudebne neprojevi, ale
-    // pro vernost to drzime oddelene.
+    // Transcription of the computation in SBAWE32.MDI, offset 0x2102.
+    // patchAttenUnits = patch attenuation in register units (0 = none).
+    // The velocity table of `SBAWE.VXD` has 99 at index 0, while
+    // `SBAWE32.MDI` and the older `SBAWE32.DRV` have 50. The other 127 bytes
+    // are the same. Velocity 0 is a note-off in MIDI, so it makes no audible
+    // difference, but we keep them apart for fidelity.
     inline int VelocityDb(int velocity, Driver drv)
     {
         velocity = std::clamp(velocity, 0, 127);
@@ -112,24 +114,25 @@ namespace Awe32Curves
     //   if (expression < 127)
     //       atten += (256 - atten) * exprDb[expression] / 128
     //
-    // Klicove je pole `word[esi+0x60]` = X, tedy **utlum patche v 1/20 dB**.
-    // Odectene z instrukcni stopy: pro preset s `initialAttenuation` 107 tam
-    // ovladac ma 150, a 150 * 0,05 dB = 7,5 dB = (127-107) * 0,375 dB. Nase
-    // `patchAttenUnits` je v jednotkach registru (0,375 dB), prevod je tedy
-    // `* 15 / 2`.
+    // The key is the field `word[esi+0x60]` = X, the **patch attenuation in
+    // 1/20 dB**. Read off the instruction trace: for a preset with
+    // `initialAttenuation` 107 the driver has 150 there, and 150 * 0.05 dB =
+    // 7.5 dB = (127-107) * 0.375 dB. Our `patchAttenUnits` is in register
+    // units (0.375 dB), so the conversion is `* 15 / 2`.
     //
-    // Proti variante Dos jsou tri rozdily:
-    //  1) utlum patche se pricita **do souctu v dB jeste pred prevodem**
-    //     (a celociselnym delenim 24 se pritom orizne), ne az za nim
-    //     v jednotkach registru pres `(3*p) & ~7`;
-    //  2) expression deli 128 misto 127 a vychazi z 256 misto 255;
-    //  3) `[edi+0x10]` je jeste jeden, globalni utlum - ve vsech 242 merenych
-    //     notach byl 0, takze ho zatim nemodelujeme.
+    // Three differences from the Dos variant:
+    //  1) the patch attenuation is added **into the dB sum before the
+    //     conversion** (and truncated by the integer division by 24), not
+    //     after it in register units through `(3*p) & ~7`;
+    //  2) expression divides by 128 instead of 127 and starts from 256
+    //     instead of 255;
+    //  3) `[edi+0x10]` is one more, global attenuation - 0 on all 242
+    //     measured notes, so it is not modelled yet.
     //
-    // Overeno: velocity 109 -> velDb 3, CC7 127 -> volDb 0, X 150.
-    //   soucet = 0 + 3 + (150+12)/24 = 9,  atten = 9*8/3 = 24 = 0x18
-    // a po pricteni 16 za ROM "1MGM" (viz Synth.cpp) vychazi 0x28, coz je
-    // presne to, co ovladac zapsal.
+    // Verified: velocity 109 -> velDb 3, CC7 127 -> volDb 0, X 150.
+    //   sum = 0 + 3 + (150+12)/24 = 9,  atten = 9*8/3 = 24 = 0x18
+    // and after adding 16 for ROM "1MGM" (see Synth.cpp) it comes to 0x28,
+    // exactly what the driver wrote.
     inline int ComputeAttenuationVxd(int cc7, int velocity, int expression,
                                      int patchAttenUnits)
     {
@@ -171,7 +174,7 @@ namespace Awe32Curves
         velocity = std::clamp(velocity, 0, 127);
         expression = std::clamp(expression, 0, 127);
 
-        // Obe rodiny umlci kanal, kdyz je hlasitost velmi nizka.
+        // Both families mute the channel when the volume is very low.
         if (cc7 <= 10) return 255;
 
         if (drv == Driver::Sdk)
@@ -189,29 +192,31 @@ namespace Awe32Curves
     //     sar eax, 4                        ; utlum >> 4
     //     shr si, cl                        ; mantisa >> (utlum >> 4)
     //
-    // Tedy 6 dB na posun a 16 kroku mezi tim, coz dela 0,3763 dB na jednotku.
-    // Nasli jsme ji tak, ze se z 844 not Georgie zpetne dopocitaly meze pro
-    // kazdou z 16 polozek a v cele binarce vyslo **jedine** misto, ktere je
-    // splnuje.
+    // So 6 dB per shift and 16 steps in between, which makes 0.3763 dB per
+    // unit. It was found by back-computing the bounds of each of the 16
+    // entries from 844 notes of Georgia; in the whole binary **one** place
+    // satisfies them.
     //
-    // Offsety: v souboru je tabulka na **0x8DB0** (overeno hledanim tech
-    // sestnacti slov v binarce), staticky disassembler ji ukazuje na
-    // 0x409010 a za behu je na 0xC10001BC. Drivejsi komentar tvrdil, ze
-    // v souboru je na 0x09010 - to byla linearni adresa vydavana za offset
-    // v souboru, objekt LE ale nezacina na zacatku souboru.
+    // Offsets: in the file the table is at **0x8DB0** (verified by searching
+    // for the sixteen words in the binary), the static disassembler shows it
+    // at 0x409010 and at run time it is at 0xC10001BC. An earlier comment
+    // claimed 0x09010 in the file - that was the linear address passed off
+    // as a file offset; the LE object does not start at the start of the
+    // file.
     //
-    // Pozor: neni to `attentable` z 86Boxu (ta ma krok presne 0,375 dB
-    // a zacina na 65535), takze zadny hladky vzorec na to nesedne.
+    // Careful: this is not 86Box's `attentable` (which has a step of exactly
+    // 0.375 dB and starts at 65535), so no smooth formula fits it.
     inline constexpr uint16_t kAttenToAmp16[16] = {
         60096, 57544, 55104, 52768, 50528, 48392, 46336, 44376,
         42488, 40688, 38960, 37312, 35728, 34216, 32768, 31376
     };
 
-    // Patnact slov, ktera v binarce **predchazeji** tabulce (0x8D92..0x8DAE).
-    // Ovladac je cte, kdyz je utlum zaporny: index si dela jako `utlum % 16`
-    // s utinanim k nule, takze je pak taky zaporny a sahne pred tabulku.
-    // Je to konec jine tabulky a posledni tri slova jsou nuly, takze utlum
-    // -1 az -3 da ticho.
+    // Fifteen words that **precede** the table in the binary
+    // (0x8D92..0x8DAE). The driver reads them when the attenuation is
+    // negative: it makes the index as `atten % 16` truncated towards zero, so
+    // the index is negative too and reaches before the table. It is the end
+    // of another table and the last three words are zeros, so an
+    // attenuation of -1 to -3 gives silence.
     inline constexpr uint16_t kAttenBeforeTable[15] = {
         1542, 1286, 1285, 1028, 1028, 772, 771, 515, 514, 258, 257, 257, 0, 0, 0
     };
@@ -224,12 +229,14 @@ namespace Awe32Curves
     //     cdq / and edx,0xF / add / sar eax,4     ; posun = utlum / 16 k nule
     //     mov cl, al / shr si, cl
     //
-    // Obe deleni utinaji **k nule**, ne dolu - proto `%` a `/` v C++, ne
-    // `& 15` a `>> 4`. Pro utlum >= 0 je to totez, pro zaporny ne.
+    // Both divisions truncate **towards zero**, not down - hence `%` and `/`
+    // in C++, not `& 15` and `>> 4`. For an attenuation >= 0 it is the same,
+    // for a negative one it is not.
     //
-    // Zmereno: na Georgii, JUMPu a RELAXu (14 931 not) je utlum vzdy 16..255
-    // a `ComputeAttenuation*` ho stejne orezava na 0..255, takze zaporna
-    // vetev dnes nenastane. Je tu kvuli shode s ovladacem, ne kvuli zvuku.
+    // Measured: on Georgia, JUMP and RELAX (14 931 notes) the attenuation is
+    // always 16..255, and `ComputeAttenuation*` clips it to 0..255 anyway,
+    // so the negative branch does not occur today. It is here to match the
+    // driver, not for the sound.
     inline uint16_t VolumeTarget(int attenUnits)
     {
         const int index = attenUnits % 16;
@@ -237,8 +244,9 @@ namespace Awe32Curves
         const uint16_t base = (index >= 0) ? kAttenToAmp16[index]
                                            : kAttenBeforeTable[15 + index];
 
-        // `shr si, cl` bere jen dolni bajt posunu a procesor pocet maskuje
-        // na peti bitu; posun 16 a vys da u 16bitoveho registru nulu.
+        // `shr si, cl` takes only the low byte of the shift and the CPU masks
+        // the count to five bits; a shift of 16 and more gives zero in a
+        // 16-bit register.
         const unsigned count =
             static_cast<unsigned>(static_cast<uint8_t>(shift)) & 31u;
         return (count >= 16u) ? uint16_t{0}

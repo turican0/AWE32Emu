@@ -7,20 +7,22 @@
 // ---------------------------------------------------------------------------
 // Chorus a reverb EMU8000.
 //
-// POZOR na rozsah teto casti: smerovani je registrove presne (send kazdeho
-// hlasu se bere z PTRX bity 15..8 pro reverb a z CSL bity 31..24 pro chorus,
-// pred panoramou - viz signalovy diagram v Programmer's Guide), ale samotny
-// ALGORITMUS obou efektu presny neni a byt nemuze:
+// NOTE the scope of this part: the routing is register-exact (the send of
+// each voice is taken from PTRX bits 15..8 for reverb and from CSL bits
+// 31..24 for chorus, before the pan - see the signal diagram in the
+// Programmer's Guide), but the ALGORITHM of the two effects itself is not
+// exact and cannot be:
 //
-// Efektovy procesor EMU8000 je pevna funkce konfigurovana poli INIT1..INIT4.
-// Ta pole jsou syrove koeficienty vnitrni DSP site, ne pojmenovane parametry,
-// a jejich prehrani do emulace nedava smysl (viz docs/re-notes, sekce 4).
-// Struktura te site se z ovladacu vycist neda - ovladace ji jen nakrmi daty.
+// The EMU8000 effects processor is a fixed function configured by the arrays
+// INIT1..INIT4. Those arrays are raw coefficients of an internal DSP network,
+// not named parameters, and replaying them into the emulation makes no sense
+// (see docs/re-notes, section 4). The structure of that network cannot be
+// read from the drivers - they only feed it data.
 //
-// Implementace nize je tedy standardni chorus (modulovana zpozdovaci linka)
-// a reverb (hrebenove + allpass filtry) s parametry, ktere odpovidaji
-// dokumentovanemu chovani presetu AWE32. Je to zamerne oddelene, aby bylo
-// jasne, co je odvozene z hardwaru a co je nahrada.
+// The implementation below is therefore a standard chorus (a modulated delay
+// line) and reverb (comb + allpass filters) whose parameters are fitted to
+// recordings of the real card. It is kept apart on purpose, to make clear
+// what is derived from the hardware and what is a substitute.
 // ---------------------------------------------------------------------------
 
 namespace Emu8000Fx
@@ -107,20 +109,21 @@ namespace Emu8000Fx
     };
 
     // ----------------------------------------------------------------------
-    // Chorus - parametry prevzate z tabulky presetu v SBAWE32.DRV (ds:0x19A2,
-    // 8 presetu po 7 slovech, vychozi je cislo 2). Format zaznamu:
+    // Chorus - parameters taken from the preset table in SBAWE32.DRV
+    // (ds:0x19A2, 8 presets of 7 words, the default is number 2). Record
+    // format:
     //
-    //   word 0  feedback      0xE600..0xE6FF, uroven ve spodnim bajtu
-    //   word 1  delay_offset  ve vzorcich pri 44100 Hz
-    //   word 2  lfo_depth     0xBC00..0xBCFF, hloubka ve spodnim bajtu
-    //   word 3-4 delay        (dword, jde do HWCF4)
-    //   word 5-6 lfo_freq     (dword, jde do HWCF5)
+    //   word 0  feedback      0xE600..0xE6FF, level in the low byte
+    //   word 1  delay_offset  in samples at 44100 Hz
+    //   word 2  lfo_depth     0xBC00..0xBCFF, depth in the low byte
+    //   word 3-4 delay        (dword, goes to HWCF4)
+    //   word 5-6 lfo_freq     (dword, goes to HWCF5)
     //
-    // Ze `lfo_freq` presetu 2 je 0x83 se da overit, ze AWEUTIL pouziva prave
-    // tenhle preset - zapisuje HWCF5 = 0x83. Pomery frekvenci napric presety
-    // (109 : 380 : 131 : 91 : 38) sedi na dokumentovane rychlosti
-    // Chorus 1 / Chorus 2 / Chorus 3 / Feedback / Flanger, z cehoz vychazi
-    // jednotka zhruba 0.0073 Hz.
+    // From `lfo_freq` of preset 2 being 0x83 one can verify that AWEUTIL
+    // uses exactly this preset - it writes HWCF5 = 0x83. The frequency
+    // ratios across the presets (109 : 380 : 131 : 91 : 38) match the
+    // documented speeds of Chorus 1 / Chorus 2 / Chorus 3 / Feedback /
+    // Flanger, which gives a unit of about 0.0073 Hz.
     // ----------------------------------------------------------------------
     struct ChorusPreset
     {
@@ -233,7 +236,7 @@ namespace Emu8000Fx
             const double rateHz = p.lfoFreq * 0.0073;
             m_feedback = (p.feedback & 0xFF) / 255.0f;
 
-            // Druhy hlas o pul periody posunuty, aby byl vysledek siroky.
+            // The second voice shifted by half a period, for a wide result.
             m_voices[0].Init(m_sampleRate, delayMs, depthMs, rateHz, 0.0);
             m_voices[1].Init(m_sampleRate, delayMs * 1.4, depthMs, rateHz * 0.8, 3.14159);
         }
@@ -253,9 +256,9 @@ namespace Emu8000Fx
     };
 
     // ----------------------------------------------------------------------
-    // Reverb: osm hrebenovych filtru a ctyri allpass na kanal.
-    // Delky jsou prvocisla v okoli klasickych hodnot, prepocitane na
-    // vzorkovaci kmitocet cipu.
+    // Reverb: eight comb filters and four allpasses per channel.
+    // The lengths are primes near the classic values, converted to the
+    // sample rate of the chip.
     // ----------------------------------------------------------------------
     class Reverb
     {
@@ -267,7 +270,7 @@ namespace Emu8000Fx
             const double scale = sampleRate / 44100.0;
             for (int ch = 0; ch < 2; ++ch)
             {
-                const int spread = ch ? 23 : 0;   // rozprostreni pravého kanalu
+            const int spread = ch ? 23 : 0;   // spread of the right channel
                 for (int i = 0; i < 8; ++i)
                     m_comb[ch][i].Init(static_cast<size_t>((kComb[i] + spread) * scale));
                 for (int i = 0; i < 4; ++i)
@@ -289,12 +292,12 @@ namespace Emu8000Fx
                 in = delayed;
             }
 
-            // POZOR na zisk: hrebenovy filtr se zpetnou vazbou f ma
-            // stejnosmerne zesileni 1/(1-f). Pri f = 0.854 je to 6.85x,
-            // takze bez vstupniho skalovani reverb nekolikanasobne zesiluje
-            // a vystup klipuje. Skalovanim (1-f) se prumerny zisk banky
-            // hrebenovych filtru srovna na jednicku a o mnozstvi efektu
-            // pak rozhoduje jen send a navratova uroven.
+            // NOTE the gain: a comb filter with feedback f has a DC gain
+            // of 1/(1-f). At f = 0.854 that is 6.85x, so without input
+            // scaling the reverb amplifies several times and the output
+            // clips. Scaling by (1-f) brings the average gain of the comb
+            // bank to one, and the amount of effect is then decided only by
+            // the send and the return level.
             const float scaled = in * m_inputGain;
 
             float acc[2] = { 0.0f, 0.0f };
@@ -318,11 +321,11 @@ namespace Emu8000Fx
             m_inputGain = 1.0f - m_feedback;
         }
 
-        // Preset 0..7 podle tabulky v SBAWE32.DRV (ds:0x1A12, 8 zaznamu po
-        // 28 slovech, vychozi je cislo 4). Tech 28 slov jsou koeficienty
-        // vnitrni DSP site cipu - nedaji se prelozit na topologii, takze
-        // z indexu odvozujeme jen velikost prostoru a tlumeni. Poradi
-        // odpovida standardni sade AWE32.
+        // Preset 0..7 per the table in SBAWE32.DRV (ds:0x1A12, 8 records of
+        // 28 words, the default is number 4). Those 28 words are
+        // coefficients of the chip's internal DSP network - they cannot be
+        // translated into a topology, so the index gives only the room size
+        // and damping. The order matches the standard AWE32 set.
         void SetPreset(int preset)
         {
             // Values fitted to the tester's card, AWETST25 block 22 (internal
@@ -371,16 +374,17 @@ namespace Emu8000Fx
     };
 
     // -----------------------------------------------------------------------
-    // Ekvalizer (bass / treble) na vystupu cipu.
+    // Equalizer (bass / treble) at the chip output.
     //
-    // Na rozdil od reverbu a chorusu vyse je tohle ZMERENE na skutecne karte:
-    // AWETST25 u testera, blok 35 - sum z ROM na 1:1, vsech 12 poloh treble
-    // pri bass 5 a 12 poloh bass pri treble 5, kazda proti plochemu (5,5).
-    // Kazda poloha je prolozena RBJ shelf filtrem se strmosti S = 0,5; zbytek
-    // proti mereni je do 0,07 dB rms (treble 10 a 11 do 0,17 a 0,32 dB).
-    // SDK i ovladac hry nastavuji bass 5 a treble 9, coz je shelf +7,9 dB
-    // s f0 2457 Hz (+1,2 dB na 1 kHz, +5,7 na 4 kHz, +7,3 na 8 kHz). Ani
-    // 86Box ho nema.
+    // Unlike the reverb and chorus above, this is MEASURED on a real card:
+    // AWETST25 at the tester, block 35 - noise from ROM at 1:1, all 12 treble
+    // positions at bass 5 and 12 bass positions at treble 5, each against the
+    // flat (5,5). Each position is fitted with an RBJ shelf filter of slope
+    // S = 0.5; the residual against the measurement is within 0.07 dB rms
+    // (treble 10 and 11 within 0.17 and 0.32 dB). The SDK and the game driver
+    // set bass 5 and treble 9, which is a shelf of +7.9 dB at f0 2457 Hz
+    // (+1.2 dB at 1 kHz, +5.7 at 4 kHz, +7.3 at 8 kHz). Not even 86Box has
+    // it.
     // -----------------------------------------------------------------------
     struct EqShelf { double gainDb, f0, S; };
 
@@ -395,8 +399,8 @@ namespace Emu8000Fx
         {   6.0, 636, 0.5 }, {  8.0, 718, 0.5 }, {  9.6, 778, 0.5 }, { 12.0, 914, 0.5 },
     };
 
-    // Hodnoty, ktere ovladac zapisuje do slotu EQ (alsa_emu8000_init.c,
-    // bass_parm a treble_parm; poradi slotu viz Emu8000Core::UpdateEqualizer).
+    // Values the driver writes to the EQ slots (alsa_emu8000_init.c,
+    // bass_parm and treble_parm; slot order see Emu8000Core::UpdateEqualizer).
     inline constexpr uint16_t kEqBassParm[12][2] = {
         {0xD26A, 0xD36A}, {0xD25B, 0xD35B}, {0xD24C, 0xD34C}, {0xD23D, 0xD33D},
         {0xD21F, 0xD31F}, {0xC208, 0xC308}, {0xC219, 0xC319}, {0xC22A, 0xC32A},
@@ -417,9 +421,10 @@ namespace Emu8000Fx
         {0x821C, 0xD22A, 0x031C, 0xD32A, 0x0219, 0xD26E, 0x8319, 0xD36E},
     };
 
-    // Ovladac hry (SBAWE32 DOS, stopa dos97) pise tytez hodnoty s prohozenymi
-    // pulbajty dolniho bajtu (C208 -> C280, D26E -> D2E6). Na karte zni
-    // na 0,1 dB stejne (blok 35), takze se berou jako shodne.
+    // The game driver (SBAWE32 DOS, trace dos97) writes the same values with
+    // the nibbles of the low byte swapped (C208 -> C280, D26E -> D2E6). On the
+    // card they sound the same within 0.1 dB (block 35), so they are taken as
+    // equal.
     inline bool EqWordMatch(uint16_t reg, uint16_t table)
     {
         const uint16_t swapped = static_cast<uint16_t>(
@@ -490,8 +495,8 @@ namespace Emu8000Fx
             }
         };
 
-        // RBJ Audio EQ Cookbook, shelf se strmosti S. Stav filtru se pri
-        // zmene polohy nenuluje, aby prestaveni neluplo.
+        // RBJ Audio EQ Cookbook, shelf with slope S. The filter state is not
+        // reset when the position changes, so that the change does not click.
         void Design(Biquad& q, const EqShelf& s, bool high)
         {
             const double A = std::pow(10.0, s.gainDb / 40.0);

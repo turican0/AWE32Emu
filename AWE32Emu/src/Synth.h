@@ -9,19 +9,20 @@
 
 // MIDI/MPU-401 interpretacni vrstva nad register-level jadrem Emu8000Core.
 //
-// Synth nedrzi zadny zvukovy stav - prelozi MIDI udalost na presne ty zapisy
-// do registru EMU8000, ktere by udelal ovladac na realne karte (poradi zapisu
-// vcetne toho, ze DCYSUSV se zapisuje jako posledni, protoze prave on spousti
-// envelope engine - viz docs/re-notes/emu8000_register_map.md).
+// The Synth holds no sound state - it translates a MIDI event into exactly
+// the EMU8000 register writes the driver on a real card would make (write
+// order included - DCYSUSV is written last, because it is what starts the
+// envelope engine - see docs/re-notes/emu8000_register_map.md).
 //
-// Zdroje zvuku, presne jako na realne karte:
-//   - wave ROM karty (`--rom`), mapovana od adresy 0
-//   - popis GM banky v ROM (`--rombank`), ktery jen rika, kde v ROM co lezi
-//   - uzivatelske banky (`--sf`), jejich vzorky se nahravaji do DRAM
+// Sound sources, exactly as on a real card:
+//   - the card's wave ROM (`--rom`), mapped from address 0
+//   - the description of the GM bank in ROM (`--rombank`), which only says
+//     what lies where in the ROM
+//   - user banks (`--sf`), whose samples are loaded into DRAM
 //
-// Banky se vrstvi: hleda se od naposledy nactene, takze uzivatelska banka
-// prebije GM preset se stejnym cislem. Bez jakekoli banky hraje nahradni
-// sinusova tabulka.
+// Banks are layered: the search starts at the last one loaded, so a user
+// bank overrides a GM preset with the same number. Without any bank a
+// substitute sine table plays.
 class Synth
 {
 public:
@@ -30,13 +31,13 @@ public:
     // Wave ROM = surovy dump, 16bit little-endian vzorky.
     bool LoadWaveRom(const std::string& path, std::string& error);
 
-    // Nacte banku (.SBK i .SF2). samplesInRom = banka jen popisuje obsah
-    // wave ROM (typicky 1mgm.sf2 k awe32.raw), jeji `smpl` se ignoruje.
-    // `midiBank` >= 0 presune vsechny presety banky, ktere maji cislo banky
-    // 0, na tohle cislo. Uzivatelske banky (`.SBK` s vlastnimi vzorky) maji
-    // totiz v `phdr` bezne banku 0 a ovladac je pri nacteni prirazuje do
-    // uzivatelskeho slotu - jinak by prebily GM presety. Bicí banka 128
-    // zustava, kde je.
+    // Loads a bank (.SBK or .SF2). samplesInRom = the bank only describes
+    // the contents of the wave ROM (typically 1mgm.sf2 for awe32.raw); its
+    // `smpl` is ignored. `midiBank` >= 0 moves all presets of the bank that
+    // have bank number 0 to this number. User banks (`.SBK` with their own
+    // samples) usually have bank 0 in `phdr`, and the driver assigns them to
+    // the user slot on loading - otherwise they would override the GM
+    // presets. The drum bank 128 stays where it is.
     bool LoadBank(const std::string& path, std::string& error,
                   bool samplesInRom = false, int midiBank = -1);
 
@@ -46,10 +47,10 @@ public:
     // Vypise prvnich N spustenych hlasu i s vyslednymi registry.
     void SetVoiceDebug(int count) { m_debugVoices = count; }
 
-    // Zaznam mezivysledku pri note-onu, pojmenovany podle **bloku parametru
-    // hlasu v `SBAWE.VXD`** (ukazuje na nej EBX, 0x94 B). Sloupce se schvalne
-    // jmenuji jako jeho pole, aby sly postavit vedle vystupu z
-    // `tests/patch_struct.py` a porovnavat 1:1.
+    // Record of intermediate values at note-on, named after the **voice
+    // parameter block in `SBAWE.VXD`** (EBX points to it, 0x94 B). The
+    // columns are named like its fields on purpose, so they can be put next
+    // to the output of the driver-structure dump and compared 1:1.
     bool OpenNoteDump(const std::string& path);
     void CloseNoteDump();
 
@@ -57,10 +58,10 @@ public:
     // k izolaci jednotlivych stop pri ladeni.
     void SetChannelMask(uint16_t mask) { m_channelMask = mask; }
 
-    // Hlavni hlasitost sekvenceru AIL (`AIL_set_XMIDI_master_volume`).
-    // Neni to vec ovladace - ovladac dostane CC7 uz prenasobene - ale bez
-    // ni se nedaji reprodukovat mereni z her, ktere si hlasitost hudby
-    // nastavuji. Viz docs/re-notes/86box_srovnani.md 15.8.
+    // Master volume of the AIL sequencer (`AIL_set_XMIDI_master_volume`).
+    // Not a driver matter - the driver gets CC7 already multiplied - but
+    // without it measurements of games that set their music volume cannot be
+    // reproduced. See docs/re-notes/86box_comparison.md 15.8.
     void SetMasterVolume(int v) { m_masterVolume = v; }
 
     void NoteOn(uint8_t channel, uint8_t note, uint8_t velocity);
@@ -140,8 +141,8 @@ private:
         bool sustain = false;        // CC64
         int16_t pitchBend = 0;
         uint8_t pitchBendRangeSemitones = 2;
-        // Vybrany RPN (CC101 horni, CC100 dolni bajt). 0x7F/0x7F je
-        // "zadny" - po nem uz data entry nic nenastavuje.
+        // Selected RPN (CC101 high, CC100 low byte). 0x7F/0x7F is "none" -
+        // after it data entry sets nothing.
         uint8_t rpnMsb = 0x7F;
         uint8_t rpnLsb = 0x7F;
 
@@ -195,25 +196,26 @@ private:
 
     Emu8000Core m_core;
     std::vector<LoadedBank> m_banks;
-    // Prvni vzorek nezacina uplne na zacatku DRAM. Ovladac pred nej necha
-    // 50 slov: CCCA ukazuje 46 slov pred zacatek vzorku (viz
-    // Awe32::StartAddressOffset) a bez rezervy by mirilo jeste do ROM.
-    // Zmereno proti SBAWE32.MDI - jeho prvni vzorek v DRAM zacina na
-    // 0x200032 a nas na 0x200000, u vsech 52 not bicich z Magic Carpet 2
-    // vychazel rozdil presne 50.
-    // **Rodiny se lisi.** U SBAWE32.MDI zacina prvni vzorek na 0x200032
-    // (rezerva 50), u SBAWE.VXD o 34 niz - rezerva 16. Zmereno vymenou
-    // banky v guestu: se SYNTH02S.SBK misto SYNTHGM.SBK mel ovladac
-    // u vsech 242 not MINUETu CCCA, PSST i CSL presne o 34 nizsi nez my.
+    // The first sample does not start right at the start of DRAM. The
+    // driver leaves 50 words before it: CCCA points 46 words before the
+    // sample start (see Awe32::StartAddressOffset) and without a reserve it
+    // would still point into the ROM. Measured against SBAWE32.MDI - its
+    // first sample in DRAM starts at 0x200032 and ours did at 0x200000; on
+    // all 52 drum notes of Magic Carpet 2 the difference was exactly 50.
+    // **The families differ.** With SBAWE32.MDI the first sample starts at
+    // 0x200032 (reserve 50), with SBAWE.VXD 34 lower - reserve 16. Measured
+    // by swapping the bank in the guest: with SYNTH02S.SBK instead of
+    // SYNTHGM.SBK the driver had CCCA, PSST and CSL exactly 34 lower than
+    // ours on all 242 notes of MINUET.
     static constexpr uint32_t kDramReserveDos   = 50;
     static constexpr uint32_t kDramReserveWin95 = 16;
-    uint32_t m_nextDramBase = 0;   // dopocita se pri prvnim nacteni banky
+    uint32_t m_nextDramBase = 0;   // computed when the first bank is loaded
     int m_debugVoices = 0;
     void* m_noteDump = nullptr;   // FILE*
     uint16_t m_channelMask = 0xFFFF;
     int      m_masterVolume = 127;
 
-    // Nahradni vzorek, kdyz zadna banka notu nepokryva.
+    // Substitute sample when no bank covers the note.
     uint32_t m_fallbackStart = 0, m_fallbackLoopStart = 0, m_fallbackLoopEnd = 0;
     double   m_fallbackUnityHz = 0.0;
 
@@ -221,9 +223,9 @@ private:
     std::array<ChannelState, 16> m_channels{};
     uint32_t m_ageCounter = 0;
 
-    // Hlasy 30 a 31 zabira ovladac na DRAM refresh, pro noty zbyva 30.
-    // SBAWE.VXD je ale pouziva taky (georg_win95.trace: note-on na v30 i v31),
-    // takze rodina `win95` bere vsech 32.
+    // The driver takes voices 30 and 31 for the DRAM refresh; 30 remain for
+    // notes. SBAWE.VXD uses them too, though (a Georgia win95 trace has
+    // note-ons on v30 and v31), so the `win95` family takes all 32.
     static constexpr int kUsableVoices = 30;
     static constexpr int kVxdVoices = 32;
     // Voices the driver family hands out: 32 for win95, 30 otherwise.
@@ -233,6 +235,6 @@ private:
     }
     // Zvukovy fond wave ROM zacina na tomto slove (viz docs/re-notes).
     static constexpr uint32_t kRomPoolBase = 495;
-    // Cislo banky bicich podle GM/SoundFont konvence.
+    // Drum bank number per the GM/SoundFont convention.
     static constexpr int kDrumBank = 128;
 };

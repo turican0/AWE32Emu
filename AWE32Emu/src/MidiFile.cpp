@@ -47,7 +47,7 @@ namespace
 
             if (statusByte < 0x80)
             {
-                // Running status - opakuje se predchozi status byte, tohle je uz data1
+                // Running status - the previous status byte repeats, this is already data1
                 statusByte = runningStatus;
             }
             else
@@ -149,33 +149,34 @@ namespace MidiFile
         std::ifstream file(path, std::ios::binary);
         if (!file)
         {
-            seq.errorMessage = "Nelze otevrit soubor: " + path;
+            seq.errorMessage = "Cannot open file: " + path;
             return seq;
         }
 
         std::vector<uint8_t> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         if (buffer.size() < 14 || std::memcmp(buffer.data(), "MThd", 4) != 0)
         {
-            seq.errorMessage = "Chybi MThd hlavicka - nejde o platny SMF soubor";
+            seq.errorMessage = "Missing MThd header - not a valid SMF file";
             return seq;
         }
 
         uint32_t headerLen = ReadBE32(&buffer[4]);
-        // format (SMF 0/1/2) se z hlavicky cte, ale zatim se nikde nevyuziva -
-        // slouceni vice stop funguje stejne pro format 0 i 1 (viz merge nize).
+        // The format (SMF 0/1/2) is read from the header but not used yet -
+        // merging several tracks works the same for format 0 and 1 (see the
+        // merge below).
         uint16_t numTracks = ReadBE16(&buffer[10]);
         uint16_t division = ReadBE16(&buffer[12]);
 
         if (division & 0x8000)
         {
-            // SMPTE format (frames/sec + ticks/frame) - TODO: podpora, viz sekce 1.1
-            seq.errorMessage = "SMPTE division neni zatim podporovana";
+            // SMPTE format (frames/sec + ticks/frame) - TODO: support, see docs/TODO.md 1.1
+            seq.errorMessage = "SMPTE division is not supported yet";
             return seq;
         }
         seq.ticksPerQuarterNote = division;
 
-        // Za MThd chunkem: 4 bajty ID + 4 bajty delky + headerLen dat
-        // (headerLen je typicky 6, tj. prvni MTrk zacina na offsetu 14).
+        // After the MThd chunk: 4 bytes ID + 4 bytes length + headerLen of data
+        // (headerLen is typically 6, i.e. the first MTrk starts at offset 14).
         size_t pos = 8 + headerLen;
         std::vector<MidiEvent> merged;
 
@@ -202,8 +203,8 @@ namespace MidiFile
             pos = trackEnd;
         }
 
-        // Stabilni razeni podle absoluteTick - udalosti ze stejneho ticku ze stejne stopy
-        // si zachovaji puvodni poradi, coz je dulezite napr. pro CC pred Note On.
+        // Stable sort by absoluteTick - events of the same tick and track keep
+        // their original order, which matters e.g. for a CC before a Note On.
         std::stable_sort(merged.begin(), merged.end(),
             [](const MidiEvent& a, const MidiEvent& b) { return a.absoluteTick < b.absoluteTick; });
 

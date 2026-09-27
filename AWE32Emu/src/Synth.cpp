@@ -14,20 +14,21 @@ namespace
 {
     constexpr double kPi = 3.14159265358979323846;
 
-    // Delka nahradni tabulky vzorku (pouziva se, kdyz neni nactena banka).
+    // Length of the substitute sample table (used when no bank is loaded).
     constexpr uint32_t kDefaultWaveLen = 64;
 
-    // Prevod logaritmicke vysky (registr IP) na linearni prirustek, ktery
-    // ovladac zapisuje do horni pulky PTRX a CPF.
+    // Conversion of the logarithmic pitch (register IP) to the linear
+    // increment the driver writes to the upper half of PTRX and CPF.
     //
-    // Prepis z SBAWE.VXD, objekt 1, 0x212E. Pocita 2^(ip/4096) v pevne radove
-    // carce: celociselna cast dava posun, tri nejvyssi bity zlomku pridavaji
-    // 2^(1/2), 2^(1/4) a 2^(1/8) pres zlomky s jmenovatelem 10000. Nakonec
-    // nasobeni 1,25 pres `esi += esi >> 2`.
+    // Transcribed from SBAWE.VXD, object 1, 0x212E. Computes 2^(ip/4096) in
+    // fixed point: the integer part gives a shift, the three top bits of the
+    // fraction add 2^(1/2), 2^(1/4) and 2^(1/8) through fractions with the
+    // denominator 10000. At the end a multiplication by 1.25 through
+    // `esi += esi >> 2`.
     //
-    //   0x102E/0x2710 = 0,41420   (2^0.5  - 1 = 0,41421)
-    //   0x764 /0x2710 = 0,18920   (2^0.25 - 1 = 0,18921)
-    //   0x389 /0x2710 = 0,09050   (2^0.125- 1 = 0,09051)
+    //   0x102E/0x2710 = 0.41420   (2^0.5  - 1 = 0.41421)
+    //   0x764 /0x2710 = 0.18920   (2^0.25 - 1 = 0.18921)
+    //   0x389 /0x2710 = 0.09050   (2^0.125- 1 = 0.09051)
     uint32_t PitchIncrement(uint16_t ip)
     {
         if (ip == 0xFFFF) return 0xFFFF;
@@ -84,13 +85,13 @@ Synth::Synth(uint32_t sampleRate)
 }
 
 // ---------------------------------------------------------------------------
-// Nahradni vzorek v DRAM - jedna perioda sinusovky ve smycce. Prochazi celou
-// skutecnou cestou cipu, jen misto realnych vzorku hraje sinus.
+// Substitute sample in DRAM - one period of a sine in a loop. It goes through
+// the whole real path of the chip, only a sine plays instead of real samples.
 // ---------------------------------------------------------------------------
 void Synth::BuildDefaultWaveform()
 {
     if (m_core.DramSize() < kDefaultWaveLen + 8)
-        m_core.ResizeDram(kDefaultWaveLen + 8);   // par vzorku navic pro interpolaci
+        m_core.ResizeDram(kDefaultWaveLen + 8);   // a few extra samples for the interpolation
 
     int16_t* dram = m_core.DramData();
     for (uint32_t i = 0; i < kDefaultWaveLen + 8; ++i)
@@ -116,11 +117,11 @@ bool Synth::LoadWaveRom(const std::string& path, std::string& error)
 
     std::vector<uint8_t> raw((std::istreambuf_iterator<char>(f)),
                               std::istreambuf_iterator<char>());
-    if (raw.size() < 2) { error = "ROM je prazdna: " + path; return false; }
+    if (raw.size() < 2) { error = "ROM is empty: " + path; return false; }
 
-    // Surovy dump = 16bit little-endian vzorky. Textova hlavicka ROM je
-    // ulozena po slovech (proto vypada prohozene), ale vzorkova data se
-    // ctou primo - viz docs/re-notes/rom_vs_sf2.md.
+    // A raw dump = 16-bit little-endian samples. The ROM's text header is
+    // stored by words (that is why it looks swapped), but the sample data
+    // are read directly - see docs/re-notes/rom_vs_sf2.md.
     std::vector<int16_t> rom(raw.size() / 2);
     std::memcpy(rom.data(), raw.data(), rom.size() * 2);
 
@@ -166,8 +167,9 @@ bool Synth::LoadBank(const std::string& path, std::string& error, bool samplesIn
 
     if (!samplesInRom && !bank.sampleData.empty())
     {
-        // Vzorky banky jdou do DRAM za uz nactene banky - presne jak to dela
-        // ovladac, kdyz nahrava uzivatelskou banku do RAM karty.
+        // The bank's samples go into DRAM after the banks already loaded -
+        // exactly as the driver does when it loads a user bank into the
+        // card's RAM.
         const size_t offset = lb.dramBase - Emu8000::kDramOffset;
         const size_t needed = offset + bank.sampleData.size() + 8;
         if (m_core.DramSize() < needed)
@@ -248,7 +250,7 @@ int Synth::AllocateVoice()
         if (!m_alloc[i].inUse && !m_alloc[i].heldBySustain)
             return i;
 
-    // Vse obsazene - vzit nejstarsi, prednostne ten drzeny jen pedalem.
+    // All busy - take the oldest, preferably one held only by the pedal.
     int best = 0;
     uint32_t bestAge = 0xFFFFFFFFu;
     bool foundSustained = false;
@@ -895,9 +897,9 @@ void Synth::StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& 
             if (cls != 0) KillExclusiveVxd(exclKey, cls);
         }
 
-    // Preset muze mit vic vrstev na jednu notu - kazda dostane hlas.
-    // Rodina win95 vybira hlas jako SBAWE.VXD (cte pritom cip), ostatni
-    // nasim vlastnim pravidlem.
+    // A preset can have several layers per note - each gets a voice.
+    // The win95 family selects the voice like SBAWE.VXD (reading the chip),
+    // the others by our own rule.
     for (size_t i = 0; i < regions.size(); ++i)
     {
         const int voice = vxd ? AllocateVoiceVxd(0xFFFE) : AllocateVoice();
@@ -913,7 +915,7 @@ void Synth::StartLayers(size_t bankIndex, const std::vector<SoundFont::Region>& 
 
 int Synth::BankNumberFor(uint8_t channel) const
 {
-    // Kanal 10 (index 9) je podle GM bicí. SoundFont je ma v bance 128.
+    // Channel 10 (index 9) is drums per GM. SoundFont has them in bank 128.
     if (channel == 9) return kDrumBank;
     return m_channels[channel].bankMsb;
 }
@@ -924,25 +926,27 @@ int Synth::PitchBendOffset(uint8_t channel) const
     const long long span =
         static_cast<long long>(ch.pitchBend) * ch.pitchBendRangeSemitones;
 
-    // **Rodiny se lisi v tom, co maji na pulton.** Obe deli celociselne az
-    // nakonec a utinaji k nule, ale konstanta je jina:
+    // **The families differ in what they use per semitone.** Both divide as
+    // integers only at the end and truncate towards zero, but the constant
+    // differs:
     //
-    //   win95  4096/12 presne:  ohyb * rozsah * 4096 / (8192*12)
-    //   dos    341 (utnute):    ohyb * rozsah * 341 / 8192
+    //   win95  4096/12 exactly:  bend * range * 4096 / (8192*12)
+    //   dos    341 (truncated):  bend * range * 341 / 8192
     //
-    // Pro win95 to sedi na jedenacti namerenych bodech (ohyb, rozsah ->
-    // presne -> ovladac), z Georgie a RELAXu:
+    // For win95 it fits eleven measured points (bend, range -> exact ->
+    // driver), from Georgia and RELAX:
     //
-    //    8064,  2 ->  672,000 ->  672     -768, 12 -> -384,000 -> -384
-    //   -4729, 12 -> -2364,50 -> -2364    -682, 12 -> -341,000 -> -341
-    //    1280, 12 ->  640,000 ->  640     -512, 12 -> -256,000 -> -256
-    //   -1280, 12 -> -640,000 -> -640      176, 12 ->   88,000 ->   88
-    //   -1312, 12 -> -656,000 -> -656     8191,  2 ->  682,583 ->  682
-    //   -6720,  2 -> -560,000 -> -560
+    //    8064,  2 ->  672.000 ->  672     -768, 12 -> -384.000 -> -384
+    //   -4729, 12 -> -2364.50 -> -2364    -682, 12 -> -341.000 -> -341
+    //    1280, 12 ->  640.000 ->  640     -512, 12 -> -256.000 -> -256
+    //   -1280, 12 -> -640.000 -> -640      176, 12 ->   88.000 ->   88
+    //   -1312, 12 -> -656.000 -> -656     8191,  2 ->  682.583 ->  682
+    //   -6720,  2 -> -560.000 -> -560
     //
-    // Pro dos je doklad plny ohyb dolu s rozsahem 12 v intru Magic Carpet 2:
-    // ovladac zapsal posun -4092, kdezto 4096/12 by dalo presne -4096.
-    // S 341 sedi cele intro na vsech 24 registrech.
+    // For dos the evidence is a full bend down with range 12 in the Magic
+    // Carpet 2 intro: the driver wrote an offset of -4092, while 4096/12
+    // would give exactly -4096. With 341 the whole intro matches on all 24
+    // registers.
     if (Awe32::IsDosLike(m_core.DriverVariant()))
         return static_cast<int>(span * 341 / 8192);
     return static_cast<int>(span * 4096 / (8192LL * 12));
@@ -965,23 +969,22 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         EffectiveChannelVolume(ch.volume), velocity, ch.expression,
         vp.patchAttenUnits, drv);
 
-    // Kdyz se banka odkazuje na ROM "1MGM", ovladac pricte k utlumu 16
-    // jednotek (= 6 dB). Zmereno instrukcni stopou v SBAWE.VXD (objekt 1,
-    // 0x1CCB): `cmp dword ptr [edi+0x158E], 0x4D474D31` - to je ASCII "1MGM"
-    // pozpatku - a pak `add ecx, 0x10` s oriznutim na 0xFF. Ve stope slo
-    // ecx z 0x18 na 0x28 presne tady.
+    // When the bank refers to the ROM "1MGM", the driver adds 16 units
+    // (= 6 dB) to the attenuation. Measured with an instruction trace in
+    // SBAWE.VXD (object 1, 0x1CCB): `cmp dword ptr [edi+0x158E], 0x4D474D31`
+    // - that is ASCII "1MGM" reversed - and then `add ecx, 0x10` clipped to
+    // 0xFF. In the trace ecx went from 0x18 to 0x28 exactly here.
     //
-    // Ovladac to jeste podminuje bajtovym priznakem (`cmp byte ptr [eax], 0`),
-    // ktery jsme nerozklicovali; u vsech 242 not se vetev provedla.
-    // Ten nerozklicovany bajtovy priznak je **"lezi vzorek v ROM?"**.
-    // Odhalila to vymena banky v guestu: kdyz se misto SYNTHGM.SBK
-    // (popisuje jen ROM) nacte SYNTH02S.SBK (ma vlastni vzorky v DRAM),
-    // ovladac tech 16 jednotek **nepricte** - u vsech 242 not MINUETu
-    // mel utlum presne o 16 nizsi nez my a cilovy objem proto dvojnasobny
-    // (16 jednotek = 6 dB = faktor 2).
+    // The driver also conditions it on a byte flag (`cmp byte ptr [eax], 0`).
+    // That flag is **"does the sample lie in ROM?"**. Swapping the bank in
+    // the guest revealed it: when SYNTH02S.SBK (with its own samples in DRAM)
+    // is loaded instead of SYNTHGM.SBK (describes only the ROM), the driver
+    // does **not** add the 16 units - on all 242 notes of MINUET its
+    // attenuation was exactly 16 lower than ours and the target volume thus
+    // double (16 units = 6 dB = factor 2).
     //
-    // Dava to smysl i fyzikalne: vzorky ve wave ROM jsou o 6 dB hlasitejsi
-    // nez to, co ovladac sam nahraje do DRAM.
+    // It makes physical sense too: the samples in the wave ROM are 6 dB
+    // louder than what the driver itself loads into DRAM.
     const bool sampleInRom = region && region->sample
                           && (region->sample->inRom || bank->samplesInRom);
     // The SDK has the same rule (noteOn 0x0E82: sample address below
@@ -997,17 +1000,17 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
     //     if (kanal != 9 && attackRate < 0x7D)
     //         cutoff = (cutoff * max(velocity, 0x46) + 0x40) / 0x7F;
     //
-    // Bicí (kanal 9) maji vlastni vetev a filtr se jim takhle neupravuje.
-    // **Rodiny se tu lisi** a chvili jsme mely obe stejne (podle VXD),
-    // coz DOSu nesedelo:
+    // Drums (channel 9) have their own branch and the filter is not adjusted
+    // this way for them. **The families differ here**, and for a while we
+    // had both the same (per the VXD), which did not fit DOS:
     //
     //   SBAWE32.DRV 0x021E (dos):    (cutoff * v + 0x40) / 0x7F
     //   SBAWE.VXD   0x1CF6 (win95):  (cutoff * v + 0xA0) >> 7
     //
-    // Rozdil je videt jen nahore: pro cutoff 255 a velocity 127 da DOS
-    // 255 (32449/127 = 255,5), zatimco VXD 254 (32545/128 = 254,3).
-    // Zmereno na dvou notach kanalu 5 v intru Magic Carpet 2 - ovladac
-    // mel 0xFF, my 0xFE.
+    // The difference shows only at the top: for cutoff 255 and velocity 127
+    // DOS gives 255 (32449/127 = 255.5), while the VXD gives 254
+    // (32545/128 = 254.3). Measured on two notes of channel 5 in the Magic
+    // Carpet 2 intro - the driver had 0xFF, we had 0xFE.
     int cutoff = (vp.ifatn >> 8) & 0xFF;
     const int attackRate = vp.atkhldv & Emu8000::kAtkhldAttackMask;
     if (channel != 9 && attackRate < 0x7D)
@@ -1021,42 +1024,38 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
 
     const uint16_t ifatn = static_cast<uint16_t>((cutoff << 8) | atten);
 
-    // Pan z banky se kombinuje s CC10. CC10 64 = stred; v EMU8000 je
-    // 0 = vpravo, takze posun jde opacnym smerem.
-    // `SBAWE32.MDI` pocita panoramu jako `0x17F - 2*(chPan + patchPan)`
-    // (0x22B6, s oriznutim >= 0xFE -> 0xFF a zaporne -> 0). Zkusili jsme to
-    // tak, ale vyslo to **hur** - nase `bankPan` zjevne neodpovida jeho poli
-    // `[si+0x22]`. Puvodni prevod sedi u 233 z 270 not, ten "presny" u zadne,
-    // takze zustava tenhle, dokud se nedohleda, co je `[si+0x22]` zac.
-    // Pan: `0x17F - 2*(panBanky + CC10)` s dvema mezemi. Prepis z obou
-    // ovladacu, ktere ho maji doslova stejny az na spodni mez:
+    // Pan: `0x17F - 2*(bankPan + CC10)` with two limits. Transcribed from
+    // both drivers, which have it literally the same except for the lower
+    // limit (CC10 64 = centre; in the EMU8000 0 = right):
     //   SBAWE32.MDI 0x22B6:  ax = 0x17F; cx = [bx+6] + [si+0x22]; cx += cx;
     //                        ax -= cx;  if (ax >= 0xFE) ax = 0xFF;
-    //                        if (zaporne) ax = 0
-    //   SBAWE.VXD obj 1, 0x4253: tentyz vzorec, jen spodni mez je
+    //                        if (negative) ax = 0
+    //   SBAWE.VXD obj 1, 0x4253: the same formula, only the lower limit is
     //                        `if (ax <= 1) ax = 0`
-    // Drive se tu scitala uz hotova registrova hodnota z banky s posunem
-    // od CC10; vyslo to stejne jen proto, ze v obou merenych bankach
-    // generator `pan` chybi a vychozich 64 dava tentyz vysledek.
+    // Formerly the finished register value from the bank was added to an
+    // offset from CC10 here; it came out the same only because the `pan`
+    // generator is missing in both measured banks and the default 64 gives
+    // the same result.
     int pan = 0x17F - 2 * (vp.patchPan + static_cast<int>(ch.pan));
     if (pan >= 0xFE) pan = 0xFF;
     else if (pan < (drv == Awe32::Driver::Dos ? 0 : 2)) pan = 0;   // SDK 0x0F49 = VXD
     const uint32_t psst = (static_cast<uint32_t>(pan) << Emu8000::kPanShift)
                         | (vp.psst & Emu8000::kLoopAddressMask);
 
-    // Chorus a reverb: kanalovou hodnotu z CC93/CC91 ovladac nejdriv
-    // **zmensi na 90 %** a teprve pak k ni pricte hodnotu z banky
-    // (oriznuto na 255). Skalovani maji obe rodiny doslova stejne:
+    // Chorus and reverb: the driver first **scales the channel value from
+    // CC93/CC91 to 90 %** and only then adds the value from the bank
+    // (clipped to 255). Both families have the scaling literally the same:
     //
-    //   SBAWE32.MDI 0x242A (reverb) a 0x244C (chorus):
-    //       mov ax, 0x5a; mul si; mov cx, 0x64; div cx  -> [kanal+4] / [+5]
-    //   SBAWE.VXD obj 1, 0x314D (reverb) a 0x3174 (chorus):
-    //       imul eax, eax, 0x5a; mov ecx, 0x64; div ecx -> [kanal+0x447] / [+0x448]
+    //   SBAWE32.MDI 0x242A (reverb) and 0x244C (chorus):
+    //       mov ax, 0x5a; mul si; mov cx, 0x64; div cx  -> [channel+4] / [+5]
+    //   SBAWE.VXD obj 1, 0x314D (reverb) and 0x3174 (chorus):
+    //       imul eax, eax, 0x5a; mov ecx, 0x64; div ecx -> [channel+0x447] / [+0x448]
     //
-    // Souctovy tvar je odecteny z MDI (0x2290 reverb, 0x230A chorus:
-    // `al = [bx+4]; add ax, [si+0x20]` a oriznuti na 0xFF). U VXD ho
-    // nemame primo z kodu - MINUET.MID zadne CC91 ani CC93 neposila, takze
-    // to mereni nerozhodne - ale ulozena hodnota je tam pripravena stejne.
+    // The sum form is read from the MDI (0x2290 reverb, 0x230A chorus:
+    // `al = [bx+4]; add ax, [si+0x20]` and clipping to 0xFF). For the VXD we
+    // do not have it directly from the code - MINUET.MID sends no CC91 or
+    // CC93, so that measurement does not decide it - but the stored value is
+    // prepared the same way there.
     const int chChorus = ch.chorusSend * 90 / 100;
     const int chorus = std::clamp(
         static_cast<int>((vp.csl >> Emu8000::kChorusShift) & 0xFF) + chChorus, 0, 255);
@@ -1071,15 +1070,16 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         : (drv == Awe32::Driver::Dos) ? MdiAddBend(vp.ip, ch.mdiBendOffset)
         : std::clamp(vp.ip + PitchBendOffset(channel), 0, 65535);
 
-    // Modulacni kolecko pridava hloubku LFO1 na vysku. `SBAWE.VXD` obsluha
-    // CC1 (0x34A4) deli hodnotu **tricetkou** a vysledek pricita k hloubce
-    // z patche; soucet se orizne na 0x7F a jde do horniho bajtu FMMOD:
+    // The modulation wheel adds LFO1 depth to the pitch. The `SBAWE.VXD`
+    // handler of CC1 (0x34A4) divides the value **by thirty** and adds the
+    // result to the depth from the patch; the sum is clipped to 0x7F and goes
+    // to the high byte of FMMOD:
     //
     //     mov ecx, 0x1E / div ecx      ; CC1 / 30 -> 0..4
-    //     add ebp, edx                 ; + hloubka z patche
+    //     add ebp, edx                 ; + depth from the patch
     //     cmp ebp, 0x7F / shl ebp, 8
     //
-    // Zmereno na RELAXu: ovladac mel 01, 02 a 04 tam, kde jsme meli nulu.
+    // Measured on RELAX: the driver had 01, 02 and 04 where we had zero.
     // `dos` (SBAWE32.MDI 0x2224): CC1 / 30 + channel pressure / 30 + patch
     // depth, capped at 0x7F from above only.
     // `win95` (SBAWE.VXD 0xC0FFB1D5 / 0xC0FFBE0B): CC1 / 30 + pressure / 30
@@ -1098,31 +1098,33 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
 
     const uint32_t reverbByte =
         static_cast<uint32_t>(std::clamp(reverb, 0, 255)) << Emu8000::kReverbShift;
-    // Spodni bajt PTRX je doplnkova panorama. `SBAWE.VXD` tam dava 256 - pan
-    // (pri pan 0x7F zapisuje 0x81), zmereno v poli hlasu na +0x24.
-    // `SBAWE32.MDI` tam nechava **nulu** - zmereno na 341 notach z Magic
-    // Carpet 2, kde PSST nese pan 0x0F a PTRX ma spodni bajt 0x00.
+    // The low byte of PTRX is an auxiliary pan. `SBAWE.VXD` puts 256 - pan
+    // there (writes 0x81 at pan 0x7F), measured in the voice block at +0x24.
+    // `SBAWE32.MDI` leaves **zero** there - measured on 341 notes of Magic
+    // Carpet 2, where PSST carries pan 0x0F and PTRX has the low byte 0x00.
     // The SDK (noteOn 0x0F5B: pan ? -pan : 0xFF) has the same byte.
     const uint32_t panAux = (drv != Awe32::Driver::Dos)
         ? static_cast<uint32_t>(std::clamp(256 - pan, 0, 255))
         : 0u;
-    // Pocatecni adresa se posouva o konstantu zavislou na rodine ovladace.
+    // The start address is shifted by a constant depending on the driver
+    // family.
     const uint32_t ccca = (vp.ccca & ~Emu8000::kCccaAddressMask)
         | ((vp.sampleStart - Awe32::StartAddressOffset(drv))
            & Emu8000::kCccaAddressMask);
 
     if (drv == Awe32::Driver::Win95)
     {
-        // Presny sled zapisu `SBAWE.VXD`, odectený z `georg_win95.trace`
-        // (`tests/voice_seq.py --note N`). Overeno, ze je u vsech not a hlasu
-        // stejny - viz docs/re-notes/driver_note_on.md, "Cely sled zapisu".
+        // The exact write sequence of `SBAWE.VXD`, read from a win95 trace
+        // (`tests/voice_seq.py --note N`). Verified to be the same for all
+        // notes and voices - see docs/re-notes/driver_note_on.md.
         //
-        // Horni pulka PTRX (a stejne tak CPF) neni logaritmicke IP, ale
-        // **linearni prirustek** - prepis z SBAWE.VXD (objekt 1, 0x212E).
-        // `SBAWE.VXD` 0x2099 (modulacni) a 0x219C (volume): kdyz je attack
-        // na maximu a zaroven neni delay, posle se na port konstanta
-        // 0xBFFF misto spocitaneho delay. V bloku parametru pritom zustava
-        // puvodni hodnota, takze ji nemenime ani my.
+        // The upper half of PTRX (and likewise CPF) is not the logarithmic
+        // IP but a **linear increment** - transcribed from SBAWE.VXD
+        // (object 1, 0x212E).
+        // `SBAWE.VXD` 0x2099 (modulation) and 0x219C (volume): when the
+        // attack is at maximum and there is no delay, the constant 0xBFFF is
+        // sent to the port instead of the computed delay. The original value
+        // stays in the parameter block, so we do not change it either.
         const bool volInstant = (vp.atkhldv & 0x7F) == 0x7F && vp.envvol >= 0x8000;
         const bool modInstant = (vp.atkhld  & 0x7F) == 0x7F && vp.envval >= 0x8000;
         const uint32_t envvolReg = volInstant ? 0xBFFFu : vp.envvol;
@@ -1150,24 +1152,27 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
         m_core.Write(Reg::ENVVAL,  voice, envvalReg);
         m_core.Write(Reg::ENVVOL,  voice, envvolReg);
 
-        // Vynulovani pred adresami; teprve na konci se sem daji prave hodnoty.
+        // Cleared before the addresses; the real values come here only at
+        // the end.
         m_core.Write(Reg::PTRX, voice, 0u);
         m_core.Write(Reg::CPF,  voice, 0u);
         m_core.Write(Reg::PSST, voice, psst);
         m_core.Write(Reg::CSL,  voice, csl);
-        // CCCA dvakrat: nejdriv bez Q v hornim bajtu, pak s nim. Kdyz je Q
-        // nula, jsou oba zapisy stejne - to ve stope taky sedi.
+        // CCCA twice: first without Q in the high byte, then with it. When Q
+        // is zero both writes are the same - which matches the trace too.
         m_core.Write(Reg::CCCA, voice, ccca & 0x00FFFFFFu);
-        // Z1/Z2 (Data0 registry 5 a 4) ovladac u kazde noty nuluje. Co presne
-        // znamenaji, nevime; 86Box je drzi jen jako ulozene slovo.
+        // The driver clears Z1/Z2 (Data0 registers 5 and 4) for every note.
+        // What exactly they mean we do not know; 86Box keeps them only as a
+        // stored word.
         m_core.Write(Reg::Unk0088, voice, 0u);   // Z1
         m_core.Write(Reg::Unk0080, voice, 0u);   // Z2
         m_core.Write(Reg::CCCA, voice, ccca);
 
-        // Kdyz obalka nema attack ani delay, ovladac hlas nerozjizdi od nuly,
-        // ale rovnou mu nastavi cilovy objem - do horni pulky VTFT i CVCF.
-        // Podminka i tabulka jsou z `SBAWE.VXD` 0x219C..0x21EF, viz
-        // Awe32Curves.h. Zmereno na 844 notach Georgie.
+        // When the envelope has neither attack nor delay, the driver does not
+        // ramp the voice up from zero but sets the target volume right away -
+        // into the upper half of VTFT and CVCF. The condition and the table
+        // are from `SBAWE.VXD` 0x219C..0x21EF, see Awe32Curves.h. Measured on
+        // 844 notes of Georgia.
         const uint32_t volTarget =
             volInstant ? Awe32Curves::VolumeTarget(atten) : 0u;
         const uint32_t vtft = (volTarget << 16) | filterTarget;
@@ -1316,8 +1321,8 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
 
     if (m_noteDump)
     {
-        // Poradi a nazvy sloupcu odpovidaji poli bloku v `SBAWE.VXD`
-        // (offsety v zavorce), aby se to dalo klast vedle patch_struct.py.
+        // The column order and names follow the block fields of `SBAWE.VXD`
+        // (offsets in brackets), so it can be put next to patch_struct.py.
         std::fprintf(static_cast<FILE*>(m_noteDump),
                      "%d,%d,%d,%d,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%04X,%06X,%06X,%06X,%d,%d,%d\n",
                      static_cast<int>(channel), static_cast<int>(note),
@@ -1335,9 +1340,9 @@ void Synth::StartVoice(int voice, uint8_t channel, uint8_t note, uint8_t velocit
                      static_cast<unsigned>(pitch),
                      static_cast<unsigned>(ccca & Emu8000::kCccaAddressMask),
                      static_cast<unsigned>(vp.csl & Emu8000::kLoopAddressMask),
-                     // Ohyb vysky se do vysledneho IP uz zapocital;
-                     // pro rozbor rozdilu proti ovladaci je potreba
-                     // videt i jeho vstupy a samotny prispevek.
+                     // The pitch bend is already included in the final IP;
+                     // analysing differences against the driver needs its
+                     // inputs and its contribution alone too.
                      static_cast<int>(ch.pitchBend),
                      static_cast<int>(ch.pitchBendRangeSemitones),
                      PitchBendOffset(channel));
@@ -1402,21 +1407,22 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
     const int bankNum = BankNumberFor(channel);
     const int program = m_channels[channel].program;
 
-    // Poradi hledani. Kazdy krok se zkousi pres VSECHNY nactene banky,
-    // teprve pak se jde na dalsi - jinak by uzivatelska banka s presetem 0
-    // prebila GM bicí jen proto, ze byla nactena pozdeji.
+    // Search order. Each step is tried over ALL loaded banks before moving
+    // to the next - otherwise a user bank with preset 0 would override the
+    // GM drums just because it was loaded later.
     //
-    //   1) presna banka + program
-    //   2) u bicich jeste banka 128, program 0 = "Standard" sada.
-    //      GM bicí banka casto obsahuje jen zakladni sadu a skladba pritom
-    //      posle jine cislo programu; bez tohoto kroku by se cely bicí part
-    //      nahradil melodickym presetem z banky 0.
-    //   3) banka 0 se stejnym programem - ale **jen u melodickych kanalu**.
-    // Na bicim kanalu ovladac do banky 0 nesahne: kdyz sadu nenajde,
-    // vezme rovnou prvni preset banky. Zmereno na RELAX.SBK (32 presetu
-    // 0..31, zadna bicí banka) se skladbou RELAX_VX, kde ma kanal 9
-    // program 16: ovladac hral u vsech 1849 not preset 0 (0x20000C),
-    // kdezto my jsme brali melodicky preset 16 z banky 0.
+    //   1) exact bank + program
+    //   2) for drums also bank 128, program 0 = the "Standard" kit.
+    //      A GM drum bank often has only the basic kit while the song sends
+    //      another program number; without this step the whole drum part
+    //      would be replaced by a melodic preset from bank 0.
+    //   3) bank 0 with the same program - but **only on melodic channels**.
+    // On the drum channel the driver does not touch bank 0: when it does not
+    // find the kit, it takes the first preset of the bank right away.
+    // Measured on RELAX.SBK (32 presets 0..31, no drum bank) with the song
+    // RELAX_VX, where channel 9 has program 16: the driver played preset 0
+    // (0x20000C) on all 1849 notes, while we took the melodic preset 16 from
+    // bank 0.
     int chain[3];
     int chainLen = 0;
     chain[chainLen++] = bankNum;
@@ -1430,8 +1436,8 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
         const int wantBank = standardKit ? kDrumBank : chain[pass];
         const int wantProgram = standardKit ? 0 : program;
 
-        // V ramci jednoho pruchodu se hleda od naposledy nactene banky -
-        // uzivatelska banka prebije GM preset se stejnym cislem.
+        // Within one pass the search starts at the last loaded bank - a user
+        // bank overrides a GM preset with the same number.
         for (size_t i = m_banks.size(); i-- > 0; )
         {
             const SoundFont::Bank& b = *m_banks[i].bank;
@@ -1445,12 +1451,12 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
         }
     }
 
-    // Kdyz program v bance neni, ovladac sahne po **prvnim presetu banky**,
-    // ne po nejake vlastni nahrade. Zmereno na RELAX.SBK (32 vokalnich
-    // presetu 0..31) prehravane skladbou RELAX_VX, ktera pouziva GM programy
-    // az do 122: u vsech chybejicich hral ovladac vzorek na 0x20000C, tedy
-    // preset 0. My jsme misto toho pousteli nahradni sinusovku z `kDramOffset`,
-    // coz bylo v CCCA videt jako 0x1FFFFC.
+    // When the program is not in the bank, the driver takes the **first
+    // preset of the bank**, not some substitute of its own. Measured on
+    // RELAX.SBK (32 vocal presets 0..31) played with the song RELAX_VX, which
+    // uses GM programs up to 122: for all the missing ones the driver played
+    // the sample at 0x20000C, i.e. preset 0. We played the substitute sine
+    // from `kDramOffset` instead, which showed in CCCA as 0x1FFFFC.
     for (size_t i = m_banks.size(); i-- > 0; )
     {
         const SoundFont::Bank& b = *m_banks[i].bank;
@@ -1461,8 +1467,8 @@ void Synth::NoteOn(uint8_t channel, uint8_t note, uint8_t velocity)
         return;
     }
 
-    // Az kdyz nema banka ani preset 0 - to uz je banka bez pouzitelneho
-    // obsahu a hraje se nahradni vzorek.
+    // Only when the bank has no preset 0 either - then it is a bank without
+    // usable content and the substitute sample plays.
     const Awe32::Driver drv = m_core.DriverVariant();
     const int fallback = (drv == Awe32::Driver::Sdk) ? AllocateVoiceSdk(0xFFFE)
                        : (drv == Awe32::Driver::Dos) ? AllocateVoiceMdi(0xFFFE)
@@ -1526,13 +1532,13 @@ void Synth::RefreshChannel(uint8_t channel)
         else if ((!a.inUse && !a.heldBySustain) || a.channel != channel) continue;
 
         const uint16_t pitch = static_cast<uint16_t>(std::clamp(a.basePitch + bend, 0, 65535));
-        // Jen IP. PTRX se **nepise** - cilovou vysku v jeho horni pulce si
-        // dopocita cip sam ze zapisu do IP (viz Emu8000Core::PortOut16).
-        // Skutecny ovladac to tak dela taky: v georg_win95.trace je IP
-        // 4418krat, uplne stejne jako u nas, ale PTRX tam zadne zapisy navic
-        // nema. Drive se sem psalo `pitch << 16`, coz je logaritmicke IP -
-        // jenze horni pulka PTRX je linearni prirustek, takze to spravnou
-        // hodnotu spocitanou cipem prepisovalo necim jinym.
+        // IP only. PTRX is **not written** - the chip computes the target
+        // pitch in its upper half from the IP write itself (see
+        // Emu8000Core::PortOut16). The real driver does it that way too: a
+        // win95 trace has IP 4418 times, exactly as we do, but no extra PTRX
+        // writes. Formerly `pitch << 16` was written here, which is the
+        // logarithmic IP - but the upper half of PTRX is a linear increment,
+        // so it overwrote the correct value computed by the chip.
         m_core.Write(Reg::IP, i, pitch);
     }
 }
@@ -1572,19 +1578,19 @@ void Synth::ControlChange(uint8_t channel, uint8_t controller, uint8_t value)
     case 91: ch.reverbSend = value; break;
     case 93: ch.chorusSend = value; break;
 
-    // Rozsah ohybu vysky se nastavuje pres RPN 0,0. Bez toho jsme meli
-    // natvrdo dva pultony, coz je vychozi hodnota MIDI - jenze Miles
-    // ovladac ve hre pouziva **dvanact**, a bylo to videt: ctyri noty
-    // na ch6 v intru Magic Carpet 2 mely IP o 10 pultonu vys, protoze
-    // na nich lezi plny ohyb dolu (u nas 2 pultony misto 12).
+    // The pitch bend range is set through RPN 0,0. Without it we had two
+    // semitones hard-wired, the MIDI default - but the Miles driver in the
+    // game uses **twelve**, and it showed: four notes on ch6 in the Magic
+    // Carpet 2 intro had IP 10 semitones higher, because a full bend down
+    // lies on them (2 semitones for us instead of 12).
     case 101: ch.rpnMsb = value; break;
     case 100: ch.rpnLsb = value; break;
     case 6:
         if (ch.rpnMsb == 0 && ch.rpnLsb == 0)
             ch.pitchBendRangeSemitones = value;
         break;
-    // Jemna cast rozsahu (centy) se do registru stejne nevejde -
-    // ovladac pocita v celych pultonech, takze ji jen prijmeme.
+    // The fine part of the range (cents) does not fit into the register
+    // anyway - the driver computes in whole semitones, so we just accept it.
     case 38: break;
 
     case 64:

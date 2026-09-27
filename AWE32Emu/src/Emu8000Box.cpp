@@ -13,7 +13,7 @@ Emu8000Box::~Emu8000Box() = default;
 
 bool Emu8000Box::Init(const std::string&, uint16_t, int, std::string& err)
 {
-    err = "sestaveno bez jadra z 86Boxu (AWE32EMU_WITH_86BOX=OFF)";
+    err = "built without the 86Box core (AWE32EMU_WITH_86BOX=OFF)";
     return false;
 }
 
@@ -33,22 +33,23 @@ void     Emu8000Box::FlushBlock()      {}
 #include <cstring>
 #include <vector>
 
-// snd_emu8k.c je cecko a preklada se jako cecko; hlavicky i prototypy tedy
-// musi mit C linkage.
+// snd_emu8k.c is C and is compiled as C; its headers and prototypes need
+// C linkage.
 extern "C" {
 #include <86box/86box.h>
 #include <86box/sound.h>
 #include <86box/snd_emu8k.h>
 
-// Tyhle tri nejsou v hlavicce, jen v snd_emu8k.c (stejne to resi harness.c).
+// These three are not in the header, only in snd_emu8k.c (harness.c does
+// the same).
 void     emu8k_outw(uint16_t addr, uint16_t val, void* priv);
 void     emu8k_outb(uint16_t addr, uint8_t val, void* priv);
 uint16_t emu8k_inw(uint16_t addr, void* priv);
 }
 
 // ---------------------------------------------------------------------------
-// Globaly a sluzby, ktere snd_emu8k.c ocekava od 86Boxu. Jsou to tytez stuby
-// jako v ref86box/harness.c - kdyz se jednou vyplati, at jsou stejne.
+// Globals and services snd_emu8k.c expects from 86Box. The same stubs as in
+// the reference harness (ref86box/harness.c) - kept identical on purpose.
 // ---------------------------------------------------------------------------
 namespace
 {
@@ -122,7 +123,7 @@ struct Emu8000Box::Impl
 
     emu8k_t              emu{};
     std::vector<Write>   pending;
-    std::vector<int32_t> fifo;          // prolozene L/R z minuleho bloku
+    std::vector<int32_t> fifo;          // interleaved L/R of the previous block
     size_t               fifoPos = 0;
     int                  frameInBlock = 0;
     bool                 haveBlock = false;
@@ -151,11 +152,11 @@ bool Emu8000Box::Init(const std::string& romPath, uint16_t basePort, int ramKb, 
 
     if (romPath.empty())
     {
-        err = "cip 86box potrebuje wave ROM (--rom)";
+        err = "the 86box chip needs the wave ROM (--rom)";
         return false;
     }
 
-    // rom_fopen si cestu vezme odsud; drzi se v Implu, aby prezila volani.
+    // rom_fopen takes the path from here; it is kept in Impl to outlive the call.
     m_impl->romPathStorage = romPath;
     g_romPath = m_impl->romPathStorage.c_str();
 
@@ -166,14 +167,14 @@ bool Emu8000Box::Init(const std::string& romPath, uint16_t basePort, int ramKb, 
         std::fclose(f);
         if (bytes < 1048574)   // a card dump without the AWE-DUMP word is 2 bytes shorter
         {
-            err = "wave ROM '" + romPath + "' ma jen "
-                + std::to_string(bytes) + " B, cip 86box vyzaduje 1 MB";
+            err = "wave ROM '" + romPath + "' has only "
+                + std::to_string(bytes) + " B, the 86box chip needs 1 MB";
             return false;
         }
     }
     else
     {
-        err = "wave ROM '" + romPath + "' nejde otevrit";
+        err = "cannot open wave ROM '" + romPath + "'";
         return false;
     }
 

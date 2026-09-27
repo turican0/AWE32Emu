@@ -4,31 +4,31 @@
 // ---------------------------------------------------------------------------
 // Inicializacni pole EMU8000 (INIT1..INIT4).
 //
-// Puvod: AWE32 Developer Information Pack (ADIP). Prevzato z linuxoveho
-// ovladace ALSA (sound/isa/sb/emu8000.c, pole init1..init4), ktery je uvadi
-// jako "from ADIP", a **overeno proti dvema skutecnym ovladacum Creative**
-// bezicim v 86Boxu - viz docs/re-notes/86box_srovnani.md sekce 5.3.
+// Origin: AWE32 Developer Information Pack (ADIP). Taken from the Linux
+// ALSA driver (sound/isa/sb/emu8000.c, arrays init1..init4), which gives them
+// as "from ADIP", and **verified against two real Creative drivers** running
+// in 86Box - see docs/re-notes/86box_comparison.md section 5.3.
 //
-// POZOR, tady nejde o jednu spravnou odpoved. kInit1 a kInit2 posilaji vsechny
-// tri zdroje shodne (128/128). U kInit3 a kInit4 se osm hodnot na indexech
-// 83, 97, 103, 109, 113, 115, 121, 123 **lisi mezi ovladaci**:
+// CAREFUL, there is no single right answer here. All three sources send
+// kInit1 and kInit2 alike (128/128). In kInit3 and kInit4 eight values at
+// indices 83, 97, 103, 109, 113, 115, 121, 123 **differ between drivers**:
 //
 //   ALSA (ADIP) == SBAWE32.DRV (Windows)   ... D208 C208 D308 D26E C308 x2FF D36E x3FF
 //   AWEUTIL.COM (DOS)                      ... D280 C280 D380 D2E6 C380 x27F D3E6 x37F
 //
-// Tady jsou hodnoty **AWEUTILu**, protoze PowerOnInit() je prepis jeho
-// inicializacni sekvence a proti nemu je overeny 1611/1611 zapisu. Kdyz se
-// bude emulovat cesta pres windowsovy ovladac, patri sem druha varianta -
-// alternativni hodnoty jsou v kAltInit3Sbawe / kAltInit4Sbawe nize.
+// These are the **AWEUTIL** values, because PowerOnInit() transcribes its
+// initialisation sequence and is verified against it, 1611/1611 writes. The
+// path through the Windows driver uses the other variant - the alternative
+// values are kAltInit3Sbawe / kAltInit4Sbawe below.
 //
-// Kazde ze ctyr poli ma 128 hodnot a posila se ve ctyrech
-// blocich po 32 - prvni blok do registru INIT1 (Data1 reg 2), druhy do INIT2
-// (Data2 reg 2), treti do INIT3 (Data1 reg 3), ctvrty do INIT4 (Data2 reg 3),
-// vzdy pro hlasy 0..31. Viz send_array() v tomtez ovladaci.
+// Each of the four arrays has 128 values and is sent in four blocks of 32 -
+// the first block to register INIT1 (Data1 reg 2), the second to INIT2
+// (Data2 reg 2), the third to INIT3 (Data1 reg 3), the fourth to INIT4
+// (Data2 reg 3), always for voices 0..31. See send_array() in that driver.
 //
-// Jsou to koeficienty interniho DSP cipu. Nase emulace je zatim nepouziva,
-// ale 86Box z nich dekoduje parametry reverbu a chorusu (snd_emu8k.c,
-// case 0xA00/0xA02, cur_reg 2 a 3), takze bez nich neni srovnani mozne.
+// They are coefficients of the chip's internal DSP. Our own core does not
+// use them; the 86Box chip decodes the reverb and chorus parameters and the
+// equaliser from them (snd_emu8k.c, case 0xA00/0xA02, cur_reg 2 and 3).
 // ---------------------------------------------------------------------------
 
 namespace Awe32Init

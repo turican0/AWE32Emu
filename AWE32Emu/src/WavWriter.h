@@ -5,9 +5,9 @@
 
 // Jednoduchy zapis 16bit stereo PCM do .wav.
 //
-// Slouzi k offline renderu (prepinac --wav) - bez nej se emulace da overit
-// jen poslechem v realnem case, coz je na regresni testy a A/B srovnani
-// s referencnimi nahravkami (TODO sekce 8) nepouzitelne.
+// Used for the offline render (--wav) - without it the emulation could only
+// be checked by listening in real time, which is of no use for regression
+// tests and A/B comparisons with reference recordings.
 class WavWriter
 {
 public:

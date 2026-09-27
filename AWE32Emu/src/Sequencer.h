@@ -3,15 +3,16 @@
 #include "Synth.h"
 #include <cstdint>
 
-// Prevadi tikovou casovou osu ParsedSequence (spolecnou pro .mid i .xmi) na
-// realny cas podle tempo mapy a v tomto rytmu vola NoteOn/NoteOff/... na Synth.
+// Converts the tick time line of a ParsedSequence (the same for .mid and
+// .xmi) to real time through the tempo map and calls NoteOn/NoteOff/... on
+// the Synth in that rhythm.
 class Sequencer
 {
 public:
     void Load(ParsedSequence sequence);
 
-    // True, dokud nejsou vycerpany vsechny udalosti v sekvenci
-    // (nezohlednuje jeste dozniva­jici hlasy - o "tail" se stara volajici kod, viz main.cpp).
+    // True until all events of the sequence are used up
+    // (voices still decaying are not counted - the caller takes care of the "tail", see main.cpp).
     bool HasMoreEvents() const;
 
     // Vyrenderuje numFrames stereo snimku, po ceste vola Synth pro udalosti,

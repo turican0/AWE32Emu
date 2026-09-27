@@ -40,7 +40,7 @@ bool AudioOutputWin::Open(uint32_t sampleRate, uint32_t framesPerBuffer)
         headers[i].lpData = reinterpret_cast<LPSTR>(m_bufferData[i].data());
         headers[i].dwBufferLength = static_cast<DWORD>(m_bufferData[i].size() * sizeof(int16_t));
         waveOutPrepareHeader(hwo, &headers[i], sizeof(WAVEHDR));
-        headers[i].dwFlags |= WHDR_DONE; // vsechny buffery jsou zpocatku "volne k zapisu"
+        headers[i].dwFlags |= WHDR_DONE; // all buffers start out "free to write"
     }
 
     m_currentIndex = 0;

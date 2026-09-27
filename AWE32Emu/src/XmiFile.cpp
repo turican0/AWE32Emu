@@ -7,9 +7,9 @@ namespace
 {
     uint32_t ReadBE32(const uint8_t* p) { return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | p[3]; }
 
-    // XMI interval (delta-time i delka noty): bajty 0x00-0x7E ukoncuji soucet,
-    // bajt 0x7F znamena "pricti 127 a pokracuj dalsim bajtem". Prvni bajt >= 0x80
-    // uz neni soucasti intervalu (interval muze byt i nulovy - 0 bajtu).
+    // XMI interval (delta time): bytes 0x00-0x7E end the sum, byte 0x7F
+    // means "add 127 and go on with the next byte". The first byte >= 0x80
+    // is no longer part of the interval (an interval can be zero - 0 bytes).
     uint32_t ReadXmiInterval(const std::vector<uint8_t>& data, size_t& pos)
     {
         uint32_t value = 0;
@@ -24,8 +24,8 @@ namespace
         return value;
     }
 
-    // Standardni SMF-style VLQ - XMI meta/sysex eventy (na rozdil od delta-time
-    // a note-duration) pouzivaji stejne kodovani delky jako SMF.
+    // Standard SMF-style VLQ - XMI meta/sysex events (unlike the delta time)
+    // use the same length encoding as SMF.
     uint32_t ReadSmfVLQ(const std::vector<uint8_t>& data, size_t& pos)
     {
         uint32_t value = 0;
@@ -39,8 +39,9 @@ namespace
         return value;
     }
 
-    // Najde prvni vyskyt 4-bajtoveho IFF tagu v bufferu a vrati offset TESNE ZA tagem
-    // (tj. na zacatek 4-bajtove BE delky, ktera v IFF vzdy nasleduje). -1 pokud nenalezen.
+    // Finds the first 4-byte IFF tag in the buffer and returns the offset RIGHT
+    // AFTER the tag (i.e. the start of the 4-byte BE length that always follows
+    // in IFF). -1 when not found.
     long FindChunk(const std::vector<uint8_t>& buf, const char* tag, size_t searchFrom = 0)
     {
         if (buf.size() < 4) return -1;
@@ -62,31 +63,31 @@ namespace XmiFile
         std::ifstream file(path, std::ios::binary);
         if (!file)
         {
-            seq.errorMessage = "Nelze otevrit soubor: " + path;
+            seq.errorMessage = "Cannot open file: " + path;
             return seq;
         }
 
         std::vector<uint8_t> buffer((std::istreambuf_iterator<char>(file)), std::istreambuf_iterator<char>());
         if (buffer.size() < 12 || std::memcmp(buffer.data(), "FORM", 4) != 0)
         {
-            seq.errorMessage = "Chybi FORM hlavicka - nejde o platny XMI/IFF soubor";
+            seq.errorMessage = "Missing FORM header - not a valid XMI/IFF file";
             return seq;
         }
 
-        // Zjednoduseni pro zakladni verzi (viz TODO v hlavicce): bereme prvni EVNT chunk
-        // v souboru. Vicero-song XMI (CAT XMI s vice FORM XMID) bude potreba doresit
-        // pozdeji - RBRN (loop body) mezitim jen preskocime.
+        // Simplification (see the TODO in the header): the first EVNT chunk of
+        // the file is taken. Multi-song XMI (CAT XMI with several FORM XMID) is
+        // left for later - RBRN (loop body) is skipped for now.
         long evntLenPos = FindChunk(buffer, "EVNT");
         if (evntLenPos < 0)
         {
-            seq.errorMessage = "Nenalezen EVNT chunk - soubor neni platne XMI (nebo je nepodporovana varianta)";
+            seq.errorMessage = "No EVNT chunk - not a valid XMI file (or an unsupported variant)";
             return seq;
         }
 
         size_t pos = static_cast<size_t>(evntLenPos);
         if (pos + 4 > buffer.size())
         {
-            seq.errorMessage = "Poskozeny EVNT chunk (chybi delka)";
+            seq.errorMessage = "Damaged EVNT chunk (length missing)";
             return seq;
         }
         uint32_t evntLen = ReadBE32(&buffer[pos]);
@@ -97,8 +98,8 @@ namespace XmiFile
 
         std::vector<uint8_t> data(buffer.begin() + pos, buffer.begin() + evntEnd);
 
-        // XMI ma pevny fixni "clock": 60 ticku na ctvrtovou notu, vychozi tempo 120 BPM,
-        // pokud neni v datech prepsano meta udalosti 0x51.
+        // XMI has a fixed "clock": 60 ticks per quarter note, 120 BPM by
+        // default, unless meta event 0x51 in the data says otherwise.
         seq.ticksPerQuarterNote = 60;
 
         std::vector<MidiEvent> events;
@@ -119,8 +120,8 @@ namespace XmiFile
             uint8_t status = data[p];
             if (status < 0x80)
             {
-                // Neocekavany bajt tam, kde ma byt status - stream je desynchronizovany
-                // (TODO: podpora running status, viz hlavicka .h). Radeji ukoncit cistě.
+                // An unexpected byte where a status should be - the stream is out of sync
+                // (TODO: running status support, see the header). Better to stop cleanly.
                 break;
             }
             p++;
@@ -134,12 +135,12 @@ namespace XmiFile
                 uint8_t metaType = data[p++];
                 uint32_t len = ReadSmfVLQ(data, p);
 
-                // Tempo meta se v XMI ZAMERNE ignoruje. XMI bezi na pevnem
-                // hodinovem taktu 120 Hz - hodnota v FF 51 slouzi jen pri
-                // konverzi do SMF k dopoctu PPQN, ne k prehravani. Overeno na
-                // 000_C2GAME1_w.xmi: 52755 ticku / 120 Hz = 439.6 s, coz sedi
-                // na referencni nahravku (441.9 s), zatimco s tempem 560748
-                // by vyslo 493 s.
+                // The tempo meta event is ignored ON PURPOSE in XMI. XMI runs
+                // on a fixed 120 Hz clock - the value in FF 51 only serves the
+                // PPQN calculation when converting to SMF, not the playback.
+                // Checked on 000_C2GAME1_w.xmi: 52755 ticks / 120 Hz = 439.6 s,
+                // which matches the reference recording (441.9 s), while tempo
+                // 560748 would give 493 s.
                 if (metaType == 0x2F)
                 {
                     MidiEvent ev;
@@ -161,10 +162,11 @@ namespace XmiFile
                 if (p + 2 > data.size()) break;
                 uint8_t note = data[p++];
                 uint8_t velocity = data[p++];
-                // POZOR: delka noty NENI kodovana jako delta-time interval, ale
-                // jako standardni SMF VLQ (pokracovaci bit 0x80). Zamena obou
-                // kodovani rozhodi cely stream - parser pak skoncil po par
-                // stovkach udalosti misto nekolika tisic.
+                // NOTE: the note length is NOT encoded as a delta-time interval
+                // but as a standard SMF VLQ (continuation bit 0x80). Mixing up
+                // the two encodings derails the whole stream - the parser then
+                // stopped after a few hundred events instead of several
+                // thousand.
                 uint32_t duration = ReadSmfVLQ(data, p);
 
                 MidiEvent onEv;
@@ -221,8 +223,9 @@ namespace XmiFile
             }
         }
 
-        // Note Off odvozene z delky noty muze v case predbihat pozdeji nactene eventy -
-        // stabilni razeni podle absoluteTick to srovna do spravneho poradi pro Sequencer.
+        // A Note Off derived from the note length may come before events read
+        // later - the stable sort by absoluteTick puts them in the right order
+        // for the Sequencer.
         std::stable_sort(events.begin(), events.end(),
             [](const MidiEvent& a, const MidiEvent& b) { return a.absoluteTick < b.absoluteTick; });
 

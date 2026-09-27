@@ -44,9 +44,10 @@ namespace
         if (body.size() & 1) out.u8(0);        // RIFF: liche chunky se zarovnavaji
     }
 
-    // ---- prevody SF1 -> SF2 -----------------------------------------------
-    // Vsechny vychazeji z toho, jak se SF1 cte v SoundFont.cpp; ty prevody
-    // jsou zmerene proti skutecnemu ovladaci, takze tady jen obracime smer.
+    // ---- SF1 -> SF2 conversions -------------------------------------------
+    // All of them start from how SF1 is read in SoundFont.cpp; those
+    // conversions are measured against the real driver, so here we only
+    // reverse the direction.
 
     // SF1 ma casy rovnou v milisekundach, SF2 chce timecents.
     int16_t MsToTimecents(double ms)
@@ -74,8 +75,8 @@ namespace
             q * Emu8000::kResonanceMaxDb * 10.0 / Emu8000::kCccaQMax));
     }
 
-    // SF1 utlum: 127 = bez utlumu, kazda jednotka je 0,375 dB.
-    // SF2 chce centibely (0,1 dB).
+    // SF1 attenuation: 127 = none, each unit is 0.375 dB.
+    // SF2 wants centibels (0.1 dB).
     int16_t Sf1AttenToCentibels(int v)
     {
         const int units = std::clamp(127 - v, 0, 255);
@@ -84,20 +85,21 @@ namespace
 
     // SF1 sustain -> centibely poklesu.
     //
-    // Pozor, **neni** to `0x7F - v`. Ovladac dela `registr = v * 4 / 3`
-    // (orez na 0x7F) a je to zmerene na bance, kterou mame v obou formatech
-    // - `SYNTHGM.SBK` (SF1) a `SYNTHGM.SF2` z DOSoveho SDK popisuji tytez
-    // presety (viz SoundFont.cpp, lambda `sustainReg`):
+    // Note, it is **not** `0x7F - v`. The driver does `register = v * 4 / 3`
+    // (clipped to 0x7F), and that is measured on a bank we have in both
+    // formats - `SYNTHGM.SBK` (SF1) and `SYNTHGM.SF2` of the DOS SDK describe
+    // the same presets (see SoundFont.cpp, lambda `sustainReg`):
     //
-    //     SF1 99 -> registr 127 (bez poklesu),  SF1 93 -> 124,  SF1 87 -> 116
+    //     SF1 99 -> register 127 (no drop),  SF1 93 -> 124,  SF1 87 -> 116
     //
-    // Puvodne tu bylo `0x7F - v`, coz je jina rada: u sustainu 99 by z toho
-    // vyslo 28 kroku poklesu misto nuly. Slysitelne to bylo na tichych
-    // mistech - export intra Magic Carpet 2 hral o 2,3x hlasiteji nez
-    // originalni banka, protoze noty misto poklesu drzely uroven.
+    // Originally there was `0x7F - v`, which is a different series: for
+    // sustain 99 it would give 28 steps of drop instead of zero. It was
+    // audible in quiet places - the export of the Magic Carpet 2 intro played
+    // 2.3x louder than the original bank, because notes held their level
+    // instead of dropping.
     //
-    // Vracime presnou inverzi cteciho vzorce, takze registr projde tam i zpet
-    // beze zmeny.
+    // We return the exact inverse of the reading formula, so the register
+    // makes the round trip unchanged.
     int16_t Sf1SustainToCentibels(int v)
     {
         const int reg   = std::clamp(v * 4 / 3, 0, 0x7F);
@@ -126,8 +128,8 @@ namespace
         }
     }
 
-    // Prevede jeden generator ze zony SF1 banky na hodnotu podle SF2.
-    // Vraci false, kdyz se generator do SF2 neprepisuje vubec.
+    // Converts one generator of an SF1 bank zone to its SF2 value.
+    // Returns false when the generator is not carried over to SF2 at all.
     bool ConvertGen(int op, int16_t v, Version ver, int16_t& out)
     {
         if (ver == Version::Sf2) { out = v; return true; }
@@ -139,15 +141,16 @@ namespace
         case Gen::InitialAttenuation: out = Sf1AttenToCentibels(v); return true;
         case Gen::SustainVolEnv:   out = Sf1SustainToCentibels(v); return true;
         case Gen::SustainModEnv:
-            // Litera SF2 tu chce promile, jenze cteci strana (SoundFont.cpp)
-            // pouziva pro obe obalky **tutez** lambdu `sustainReg`, tedy
-            // centibely - a ta je zmerena proti ovladaci. Kdybychom sem dali
-            // promile, nas vlastni engine by banku precetl jinak, nez ji
-            // zapsal. Drzime se proto mereneho chovani a je to schvalne.
+            // The letter of SF2 wants per mille here, but the reading side
+            // (SoundFont.cpp) uses the **same** lambda `sustainReg` for both
+            // envelopes, i.e. centibels - and that one is measured against the
+            // driver. Were we to put per mille here, our own engine would read
+            // the bank differently from how it wrote it. So we follow the
+            // measured behaviour, on purpose.
             out = Sf1SustainToCentibels(v);
             return true;
         case Gen::ScaleTuning:
-            // SF1 testuje jen "== 1" a pak vysku **puli** (viz SoundFont.cpp).
+            // SF1 tests only "== 1" and then **halves** the pitch (see SoundFont.cpp).
             out = (v == 1) ? 50 : 100;
             return true;
         case Gen::Pan:
@@ -179,19 +182,19 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
                const ExportOptions& opt,
                std::string& error)
 {
-    if (banks.empty()) { error = "zadna banka k exportu"; return false; }
+    if (banks.empty()) { error = "no bank to export"; return false; }
 
-    // ---- 1. posbirat presety -------------------------------------------
-    // Pozdejsi banka prebiji drivejsi, stejne jako pri prehravani.
+    // ---- 1. collect the presets ----------------------------------------
+    // A later bank overrides an earlier one, as in playback.
     struct PresetRef { const Bank* bank; const Preset* preset; };
     std::map<std::pair<int, int>, PresetRef> chosen;
     for (const Bank* b : banks)
         for (const Preset& p : b->presets)
             chosen[{p.bank, p.program}] = PresetRef{b, &p};
 
-    if (chosen.empty()) { error = "banky neobsahuji zadny preset"; return false; }
+    if (chosen.empty()) { error = "the banks contain no preset"; return false; }
 
-    // ---- 2. posbirat nastroje a vzorky, ktere ty presety opravdu pouziji -
+    // ---- 2. collect the instruments and samples those presets really use -
     struct SampleRef { const Bank* bank; const Sample* smp; };
     std::vector<SampleRef> outSamples;
     std::map<std::pair<const Bank*, int>, int> sampleIndex;   // (banka, id) -> novy index
@@ -222,9 +225,9 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         }
     }
 
-    // ---- 3. vzorkova data ------------------------------------------------
-    // SF2 predepisuje mezi vzorky 46 nulovych bodu - proto ten posun, ktery
-    // je videt i v adresach, ktere zapisuje ovladac.
+    // ---- 3. sample data --------------------------------------------------
+    // SF2 prescribes 46 zero points between samples - hence the offset that
+    // is visible in the addresses the driver writes too.
     std::vector<int16_t> smpl;
     struct OutSmp { uint32_t start, end, loopStart, loopEnd; };
     std::vector<OutSmp> outPos(outSamples.size());
@@ -240,9 +243,9 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         if (inRom)
         {
             if (!opt.bakeRom)
-            { error = "banka odkazuje do ROM, ale zapekani ROM je vypnute"; return false; }
+            { error = "the bank refers to ROM, but baking the ROM in is disabled"; return false; }
             if (rom.empty())
-            { error = "banka odkazuje do wave ROM, ale zadna ROM nebyla nactena (--rom)"; return false; }
+            { error = "the bank refers to the wave ROM, but no ROM was loaded (--rom)"; return false; }
             if (s.start >= rom.size()) continue;
             src = rom.data() + s.start;
             avail = std::min<size_t>(s.end, rom.size()) - s.start;
@@ -258,7 +261,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         smpl.insert(smpl.end(), src, src + avail);
         outPos[i].start = base;
         outPos[i].end   = base + static_cast<uint32_t>(avail);
-        // Smycka je v bance ulozena absolutne; prevedeme ji na novy zaklad.
+        // The loop is stored absolute in the bank; move it to the new base.
         const uint32_t ls = (s.loopStart >= s.start) ? (s.loopStart - s.start) : 0;
         const uint32_t le = (s.loopEnd   >= s.start) ? (s.loopEnd   - s.start) : 0;
         outPos[i].loopStart = base + std::min<uint32_t>(ls, static_cast<uint32_t>(avail));
@@ -272,7 +275,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     auto writeZoneGens = [&](Buf& gens, const Bank* b, const Zone& z,
                              bool isPreset)
     {
-        // Rozsahy jdou podle specifikace jako prvni.
+        // Ranges come first, per the specification.
         if (z.keyLo != 0 || z.keyHi != 127)
         {
             gens.u16(Gen::KeyRange);
@@ -295,7 +298,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
             gens.u16(static_cast<uint16_t>(op));
             gens.u16(static_cast<uint16_t>(v));
         }
-        // Ukazatel na nastroj/vzorek musi byt posledni generator zony.
+        // The instrument/sample pointer must be the last generator of a zone.
         if (isPreset)
         {
             auto it = instrIndex.find({b, z.instrument});
@@ -365,32 +368,35 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
 
     // vzorky
     //
-    // Posun +1/+2/+3 neni kosmetika. SF1 uklada rovnou adresy pro cip
-    // (uz s korekci na interpolator), kdezto SF2 uklada indexy - a Creative
-    // ve svych **vlastnich** bankach tyz vzorek popisuje o 1/2/3 slova jinak.
-    // Cteci strana to zohlednuje (SoundFont.cpp: `- 1`, `- 2`, `- 3` ve vetvi
-    // pro SF2), takze kdybychom tady zapsali holé SF1 adresy, vysla by po
-    // znovunacteni smycka o **dve** slova kratsi.
+    // The +1/+2/+3 offset is not cosmetic. SF1 stores chip addresses
+    // directly (already with the interpolator correction), while SF2 stores
+    // indices - and Creative describes the same sample 1/2/3 words
+    // differently in its **own** banks. The reading side accounts for it
+    // (SoundFont.cpp: `- 1`, `- 2`, `- 3` in the SF2 branch), so if we wrote
+    // bare SF1 addresses here, the loop would come out **two** words shorter
+    // after reloading.
     //
-    // Zmereno: 671 not z intra Magic Carpet 2 pres `--dump-notes`. Bez
-    // kompenzace se lisily `ccca` a `csl` u 668 z nich (napr. 04B63F-0498ED
-    // = 0x1D52 z SBK proti 0x1D50 z exportu); s ni sedi vsech dvacet
-    // sloupcu na vsech 671 notach.
+    // Measured: 671 notes of the Magic Carpet 2 intro through
+    // `--dump-notes`. Without the compensation `ccca` and `csl` differed on
+    // 668 of them (e.g. 04B63F-0498ED = 0x1D52 from the SBK against 0x1D50
+    // from the export); with it all twenty columns match on all 671 notes.
     for (size_t i = 0; i < outSamples.size(); ++i)
     {
         const Sample& s = *outSamples[i].smp;
         const bool sf1 = outSamples[i].bank->version == Version::Sf1;
 
-        // Hvezdicka na zacatku jmena je Creativi znacka "tenhle vzorek lezi
-        // ve wave ROM karty" - cte ji i nase nacitani (SoundFont.cpp: `type
-        // & 0x8000 || name[0] == '*'`). Kdyz vzorek zapecem do souboru, uz v
-        // ROM neni a znacka musi pryc, jinak si ho prehravac zase pujde hledat
-        // do ROM na adresu, kde jsou uplne jina data.
+        // An asterisk at the start of the name is Creative's mark for "this
+        // sample lies in the card's wave ROM" - our loader reads it too
+        // (SoundFont.cpp: `type & 0x8000 || name[0] == '*'`). Once the sample
+        // is baked into the file it is no longer in ROM and the mark must go,
+        // otherwise the player would look for it in ROM again, at an address
+        // with completely different data.
         //
-        // Stalo se to: intro Magic Carpet 2 hralo z exportu na kanalu 1
-        // (zvonkohra z ROM) 2,2x hlasiteji, protoze cetlo ROM na adrese
-        // 0x14D1F misto zapecene kopie. Vsech dvacet registru pritom sedelo -
-        // chyba byla jen v tom, **odkud** se ctou vzorky.
+        // It happened: the Magic Carpet 2 intro played channel 1 (a glocken
+        // from ROM) 2.2x louder from the export, because it read ROM at
+        // address 0x14D1F instead of the baked copy. All twenty registers
+        // matched meanwhile - the error was only in **where** the samples
+        // are read from.
         std::string nm = s.name.empty() ? std::string("sample") : s.name;
         if (!nm.empty() && nm[0] == '*') nm.erase(0, 1);
         shdr.name20(nm);
@@ -402,7 +408,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
         shdr.u8(s.originalKey);
         shdr.u8(static_cast<uint8_t>(s.correction));
         shdr.u16(0);                       // sampleLink
-        shdr.u16(1);                       // monoSample - ROM uz je zapecena
+        shdr.u16(1);                       // monoSample - the ROM is baked in already
     }
     shdr.name20("EOS");
     shdr.u32(0); shdr.u32(0); shdr.u32(0); shdr.u32(0); shdr.u32(0);
@@ -450,7 +456,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     body.raw(pdta.d.data(), pdta.d.size());
 
     FILE* f = std::fopen(path.c_str(), "wb");
-    if (!f) { error = "nelze zapsat '" + path + "'"; return false; }
+    if (!f) { error = "cannot write '" + path + "'"; return false; }
     const uint32_t len = static_cast<uint32_t>(body.size());
     std::fwrite("RIFF", 1, 4, f);
     uint8_t l[4] = { uint8_t(len), uint8_t(len >> 8), uint8_t(len >> 16), uint8_t(len >> 24) };
@@ -458,7 +464,7 @@ bool ExportSf2(const std::vector<const Bank*>& banks,
     std::fwrite(body.d.data(), 1, body.d.size(), f);
     std::fclose(f);
 
-    std::printf("SF2: %zu presetu, %zu nastroju, %zu vzorku, %zu tisic vzorku dat\n",
+    std::printf("SF2: %zu presets, %zu instruments, %zu samples, %zu thousand sample points\n",
                 chosen.size(), outInstr.size(), outSamples.size(), smpl.size() / 1000);
     return true;
 }

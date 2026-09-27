@@ -3,9 +3,9 @@
 #include <vector>
 #include <string>
 
-// Sjednocena reprezentace MIDI udalosti, spolecna pro .mid (SMF) i .xmi vstup.
-// XmiFile a MidiFile obe produkuji std::vector<MidiEvent> serazeny podle absoluteTick,
-// ktery pak konzumuje Sequencer.
+// One representation of MIDI events for both .mid (SMF) and .xmi input.
+// XmiFile and MidiFile both produce a std::vector<MidiEvent> sorted by
+// absoluteTick, which the Sequencer then consumes.
 
 enum class MidiEventType : uint8_t
 {
@@ -16,7 +16,7 @@ enum class MidiEventType : uint8_t
     ProgramChange,
     ChannelPressure,
     PitchBend,
-    TempoChange,   // meta 0x51 (SMF) / odvozeno z XMI, hodnota v microsekundach na ctvrtovou notu
+    TempoChange,   // meta 0x51 (SMF) / derived from XMI, value in microseconds per quarter note
     EndOfTrack
 };
 
@@ -27,11 +27,11 @@ struct MidiEvent
     uint8_t channel = 0;   // 0-15, nevyuzito u TempoChange/EndOfTrack
     uint8_t data1 = 0;     // note / controller / program
     uint8_t data2 = 0;     // velocity / hodnota controlleru
-    uint32_t tempoUsPerQuarter = 500000; // platne jen pro TempoChange
+    uint32_t tempoUsPerQuarter = 500000; // valid for TempoChange only
 };
 
-// Vysledek parsovani vstupniho souboru (spolecny pro MidiFile i XmiFile),
-// ktery Sequencer prehrava.
+// Result of parsing an input file (the same for MidiFile and XmiFile),
+// played by the Sequencer.
 struct ParsedSequence
 {
     std::vector<MidiEvent> events;   // serazeno podle absoluteTick

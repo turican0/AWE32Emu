@@ -61,9 +61,9 @@ void Sequencer::RenderBlock(Synth& synth, int16_t* out, uint32_t numFrames, uint
 {
     for (uint32_t frame = 0; frame < numFrames; ++frame)
     {
-        // Vypustit vsechny udalosti, jejichz cas jiz nastal, drive nez se
-        // vyrenderuje tento snimek - poradi v ramci stejneho ticku je dane
-        // stabilnim razenim v parseru (napr. CC pred Note On).
+        // Send out all events whose time has come before this frame is
+        // rendered - the order within one tick comes from the stable sort
+        // in the parser (e.g. a CC before a Note On).
         while (m_nextEventIndex < m_sequence.events.size() &&
                static_cast<double>(m_sequence.events[m_nextEventIndex].absoluteTick) <= m_currentTick)
         {
@@ -73,13 +73,13 @@ void Sequencer::RenderBlock(Synth& synth, int16_t* out, uint32_t numFrames, uint
 
         synth.RenderBlock(out + frame * 2, 1);
 
-        // Pozn.: hodiny prehravace v guestovi jdou o 0,0153 % rychleji -
-        // Windows programuji milisekundovy timer PIT delickou 1193 misto
-        // 1193,182. Zmereno (0,015271 %) i predpovezeno z delicky
-        // (0,015253 %). **Nenapodobujeme to**: registrovym proudem to
-        // nehne (parovani je podle poradi a rovnomerna zmena rychlosti
-        // preskaluje noty i ohyby stejne) a prehravac by kvuli tomu hral
-        // rychleji, nez MIDI predepisuje.
+        // Note: the player's clock in the guest runs 0.0153 % fast - Windows
+        // programs the millisecond PIT timer with divisor 1193 instead of
+        // 1193.182. Measured (0.015271 %) and predicted from the divisor
+        // (0.015253 %). **We do not imitate it**: it does not move the
+        // register stream (pairing goes by order, and a uniform speed change
+        // rescales notes and bends alike), and the player would then play
+        // faster than the MIDI file says.
         double ticksPerSample = TicksPerSecond() / static_cast<double>(sampleRate);
         m_currentTick += ticksPerSample;
     }
