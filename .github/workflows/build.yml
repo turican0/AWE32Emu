@@ -37,7 +37,7 @@ jobs:
         run: cmake --build build --config Release --parallel
 
       - name: Install
-        run: cmake --install build --config Release --prefix dist
+        run: cmake --install build --config Release --prefix dist --component awe32emu
 
       - name: Smoke test
         shell: bash

@@ -50,7 +50,7 @@ jobs:
       - name: Collect
         shell: bash
         run: |
-          cmake --install build --config Release --prefix dist
+          cmake --install build --config Release --prefix dist --component awe32emu
           mkdir -p dist/docs
           cp README.md dist/
           cp docs/USAGE.md docs/TESTING.md dist/docs/

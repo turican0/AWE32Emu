@@ -162,11 +162,13 @@ if(AWE32EMU_NLS)
                         ${CMAKE_BINARY_DIR}/locale $<TARGET_FILE_DIR:AWE32Emu>/locale)
             add_dependencies(AWE32Emu awe32emu_mo)
         endif()
-        install(DIRECTORY ${CMAKE_BINARY_DIR}/locale DESTINATION .)
+        install(DIRECTORY ${CMAKE_BINARY_DIR}/locale DESTINATION . COMPONENT awe32emu)
         message(STATUS "gettext: messages translated (${PO_FILES})")
     else()
         message(STATUS "gettext: libintl or msgfmt not found - messages stay English")
     endif()
 endif()
 
-install(TARGETS AWE32Emu RUNTIME DESTINATION .)
+# Own component, so that `cmake --install --component awe32emu` skips the
+# install rules of the fetched RtAudio (library, headers, pkg-config).
+install(TARGETS AWE32Emu RUNTIME DESTINATION . COMPONENT awe32emu)
