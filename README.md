@@ -24,9 +24,10 @@ generic softsynth.
   interchangeable
 - 32-voice playback with six-stage volume and modulation envelopes, both LFOs,
   a resonant low-pass filter, panning, and the global reverb/chorus buses
-- **The unmodified `snd_emu8k.c` from 86Box as an alternative core**
-  (`--chip 86box`) — literally the same file that gets compiled into the
-  emulator, so any difference is a difference in our code, not in transcription
+- **The EMU8000 core from 86Box** (`snd_emu8k.c`, `--chip 86box`, the
+  default with `--rom`), tuned against recordings of a real AWE32 (filter,
+  envelopes, interpolation, effects, output level); the DOS test VM runs the
+  same code from its own copy in the 86Box tree
 - SBK → SF2 conversion (`--export-sf2`), converting units and semantics rather
   than just repackaging
 - Offline rendering to `.wav`, per-note register dumps (`--dump-notes`) and
@@ -40,9 +41,8 @@ generic softsynth.
 ### Visual Studio (Windows)
 
 Open `AWE32Emu.sln`, pick `Release|x64`, build. The result lands in
-`bin\x64\Release\`. No external libraries. This build includes the 86Box core,
-which it compiles straight out of the data directory (`../AWE32EmuData`, or
-wherever `AWE32EMU_DATA` points).
+`bin\x64\Release\`. No external libraries. The 86Box core is compiled from
+`AWE32Emu/src/86box`.
 
 ### CMake (Windows and Linux)
 
@@ -51,13 +51,8 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build --config Release
 ```
 
-This build does **not** include the 86Box core — `snd_emu8k.c` lives in the
-data directory, which is not part of this repository. Everything else is
-identical. To include it:
-
-```bash
-cmake -B build -DAWE32EMU_WITH_86BOX=ON -DAWE32EMU_DATA=../AWE32EmuData
-```
+This build includes the 86Box core as well; `-DAWE32EMU_WITH_86BOX=OFF`
+leaves it out (`--chip 86box` then reports that it is missing).
 
 ### Prebuilt binaries
 
@@ -99,6 +94,8 @@ AWE32Emu/src/
   Emu8000.h/.cpp          the chip core
   Emu8000Effects.h        reverb and chorus buses
   Emu8000Box.h/.cpp       wrapper around 86Box's snd_emu8k.c
+  86box/                  snd_emu8k.c from 86Box (GPL-2.0-or-later) and the
+                          headers it needs, see 86box/README.md
   SoundFont.h/.cpp        .sbk / .sf2 loader and generator conversion
   SoundFontExport.h/.cpp  SF2 writer (--export-sf2)
   WavWriter.h             offline .wav output
@@ -136,5 +133,8 @@ the committed repository history.
 ## License
 
 The code in this repository is an original implementation, not derived from
-any DOS driver or existing SoundFont player. Project license: to be decided
-(e.g. MIT) before publishing.
+any DOS driver or existing SoundFont player - with one exception:
+`AWE32Emu/src/86box/snd_emu8k.c` comes from 86Box and is licensed under the
+GNU General Public License, version 2 or later; a build that includes it
+(the default) is a derivative work of 86Box and has to be distributed under
+the GPL. Project license: to be decided before publishing.

@@ -2,23 +2,17 @@ cmake_minimum_required(VERSION 3.16)
 project(AWE32Emu LANGUAGES C CXX)
 
 # ---------------------------------------------------------------------------
-# Sestaveni bez Visual Studia - pro CI a pro Linux.
+# Build without Visual Studio - for CI and Linux.
 #
-# Ve Windows zustava hlavni cestou `AWE32Emu.sln` (soubor .vcxproj je bohatsi:
-# pripojuje `snd_emu8k.c` primo z datoveho adresare). Tenhle CMake je vedle nej
-# a dela **tutez binarku**, jen bez zavislosti na veci, ktera v repozitari
-# neni:
+# On Windows `AWE32Emu.sln` stays the main path; this CMake builds the same
+# binary:
 #
 #   cmake -B build -DCMAKE_BUILD_TYPE=Release
 #   cmake --build build --config Release
 #
-# Jadro z 86Boxu (`--chip 86box`) potrebuje `snd_emu8k.c` z datoveho adresare
-# `AWE32EmuData`, ktery je mimo repozitar. Zapina se rucne:
-#
-#   cmake -B build -DAWE32EMU_WITH_86BOX=ON -DAWE32EMU_DATA=../AWE32EmuData
-#
-# Bez nej se prelozi vsechno ostatni a `--chip 86box` jen ohlasi, ze v tehle
-# binarce neni.
+# The chip from 86Box (`--chip 86box`) is in the repository
+# (AWE32Emu/src/86box, GPL-2.0-or-later); -DAWE32EMU_WITH_86BOX=OFF builds
+# without it and `--chip 86box` then reports that it is missing.
 # ---------------------------------------------------------------------------
 
 set(CMAKE_CXX_STANDARD 17)
@@ -28,9 +22,7 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     set(CMAKE_BUILD_TYPE Release CACHE STRING "" FORCE)
 endif()
 
-option(AWE32EMU_WITH_86BOX "Prilozit jadro cipu z 86Boxu (--chip 86box)" OFF)
-set(AWE32EMU_DATA "${CMAKE_CURRENT_SOURCE_DIR}/../AWE32EmuData"
-    CACHE PATH "Datovy adresar se zdrojaky 86Boxu")
+option(AWE32EMU_WITH_86BOX "Include the chip core from 86Box (--chip 86box)" ON)
 
 set(SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/AWE32Emu/src)
 
@@ -59,14 +51,8 @@ if(WIN32)
 endif()
 
 if(AWE32EMU_WITH_86BOX)
-    set(EMU8K_C "${AWE32EMU_DATA}/docs/86box-src/master-full/src/sound/snd_emu8k.c")
-    if(NOT EXISTS "${EMU8K_C}")
-        message(FATAL_ERROR
-            "AWE32EMU_WITH_86BOX=ON, ale nenasel jsem ${EMU8K_C}. "
-            "Nastav -DAWE32EMU_DATA=<cesta k AWE32EmuData>.")
-    endif()
-    target_sources(AWE32Emu PRIVATE "${EMU8K_C}")
-    target_include_directories(AWE32Emu PRIVATE "${AWE32EMU_DATA}/ref86box/include")
+    target_sources(AWE32Emu PRIVATE ${SRC_DIR}/86box/snd_emu8k.c)
+    target_include_directories(AWE32Emu PRIVATE ${SRC_DIR}/86box/include)
     target_compile_definitions(AWE32Emu PRIVATE AWE32EMU_WITH_86BOX)
 endif()
 

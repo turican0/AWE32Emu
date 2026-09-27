@@ -3,14 +3,9 @@
 #ifndef AWE32EMU_WITH_86BOX
 
 // ---------------------------------------------------------------------------
-// Zaslepka pro sestaveni bez zdrojaku 86Boxu.
-//
-// `snd_emu8k.c` lezi v datovem adresari (`AWE32EmuData`), ktery neni soucasti
-// tohohle repozitare - je moc velky a je v nem i obsah, ktery se sirit nesmi.
-// Bez nej se `--chip 86box` proste nenabizi; vsechno ostatni, vcetne naseho
-// vlastniho jadra, funguje beze zmeny.
-//
-// Zapnout jde pres CMake: `-DAWE32EMU_WITH_86BOX=ON -DAWE32EMU_DATA=<cesta>`.
+// Stub for a build without the 86Box core (CMake -DAWE32EMU_WITH_86BOX=OFF):
+// `--chip 86box` is then not offered; everything else, our own core
+// included, works unchanged. The core itself is in src/86box.
 // ---------------------------------------------------------------------------
 
 Emu8000Box::Emu8000Box() = default;

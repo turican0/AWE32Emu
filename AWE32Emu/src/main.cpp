@@ -1,6 +1,6 @@
 // AWE32Emu - CLI pro prehravani .mid/.xmi pres emulaci EMU8000
 //
-// Cip je snd_emu8k.c spolecny s 86Boxem, vrstva ovladace kopiruje ovladace
+// Cip je snd_emu8k.c z 86Boxu (src/86box, vlastni kopie), vrstva ovladace kopiruje ovladace
 // Creative (dos = SBAWE32.MDI, win95 = SBAWE.VXD), viz docs/re-notes.
 //
 // Pouziti:
@@ -62,7 +62,7 @@ namespace
             "                      (format jako emu8k_ref; MIDI soubor se pak nezadava)\n"
             "  --driver dos|win95|sdk  Varianta ovladace Creative; vychozi je win95\n"
             "                      (sdk = AWE32 DOS SDK, jak ho vola DOSMid; rozpracovano)\n"
-            "  --chip nas|86box    Jadro cipu: 86box = snd_emu8k.c spolecny s 86Boxem\n"
+            "  --chip nas|86box    Jadro cipu: 86box = snd_emu8k.c z 86Boxu\n"
             "                      (vychozi, kdyz je --rom), nas = starsi vlastni jadro\n"
             "  --ram <KB>          DRAM cipu 86box v KB (onboard_ram), vychozi 8192\n"
             "  --conf <soubor>     Pocatecni stav MIDI kanalu, jak ho posila hra\n"
@@ -561,7 +561,7 @@ int main(int argc, char** argv)
             std::cerr << "Cip 86box se nepodarilo zapnout: " << err << "\n";
             return 1;
         }
-        std::cout << "Jadro cipu: snd_emu8k.c spolecny s 86Boxem (latence "
+        std::cout << "Jadro cipu: snd_emu8k.c z 86Boxu (latence "
                   << synth.Core().ChipLatencyFrames() << " snimku).\n";
     }
     else if (!chip.empty() && chip != "nas")

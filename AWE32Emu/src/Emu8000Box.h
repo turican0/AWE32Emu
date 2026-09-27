@@ -5,13 +5,10 @@
 #include <string>
 
 // ---------------------------------------------------------------------------
-// Emu8000Box - obal nad **nezmenenym** `snd_emu8k.c` z 86Boxu.
-//
-// Cil je, aby cip byl v nasem projektu a v 86Boxu doslova tentyz kod. Soubor
-// se proto nekopiruje ani neprepisuje - preklada se primo z datoveho adresare
-// (`../AWE32EmuData/ref86box/upstream/`), stejne jako to uz dela
-// `ref86box/build/emu8k_ref.exe`. Shoda tim neni vysledek peclivosti pri
-// opisovani, ale konstrukce.
+// Emu8000Box - wrapper around `snd_emu8k.c` from 86Box (src/86box, with the
+// AWE32Emu changes measured on a real card). The DOS test VM builds the same
+// code from its own copy in the 86Box tree; chipcheck.py (against
+// emu8k_ref.exe, built from that tree) shows whether the two still agree.
 //
 // Casovani. 86Box zene cip po blocich `WTBUFLEN` = 980 snimku: nejdriv se
 // aplikuji vsechny zapisy, kazdy na svem offsetu v bloku, pak se jednim
