@@ -12,6 +12,11 @@ Two things are emulated, and each is checked against its own reference:
 | **driver** | turns MIDI into EMU8000 register writes (voice allocation, SoundFont conversion, volume curves, pitch, filter, effect sends) | the original Creative drivers — `SBAWE.VXD` (Windows 95), `SBAWE32.MDI` (DOS games, Miles/AIL) and the AWE32 DOS SDK — run inside 86Box and traced register by register: **every register at every note-on matches** |
 | **chip** | the EMU8000 itself: sample playback, interpolation, envelopes, LFOs, the resonant filter, reverb, chorus, EQ | **recordings of a real AWE32** made with a calibration program written for this project ([AWETEST](tools/awetest/README.md)) |
 
+**Play DOS games with it:** the same EMU8000 core is built into
+[DOSBox-X AWE32](https://github.com/turican0/dosbox-x-AWE32), a DOSBox-X fork with
+a complete Sound Blaster AWE32, where the games drive the chip through their own
+Creative drivers.
+
 ## Listen: Magic Carpet 2, real card vs AWE32Emu
 
 Short excerpts, the real Sound Blaster AWE32 (line output, recorded by a
