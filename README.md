@@ -12,10 +12,12 @@ Two things are emulated, and each is checked against its own reference:
 | **driver** | turns MIDI into EMU8000 register writes (voice allocation, SoundFont conversion, volume curves, pitch, filter, effect sends) | the original Creative drivers — `SBAWE.VXD` (Windows 95), `SBAWE32.MDI` (DOS games, Miles/AIL) and the AWE32 DOS SDK — run inside 86Box and traced register by register: **every register at every note-on matches** |
 | **chip** | the EMU8000 itself: sample playback, interpolation, envelopes, LFOs, the resonant filter, reverb, chorus, EQ | **recordings of a real AWE32** made with a calibration program written for this project ([AWETEST](tools/awetest/README.md)) |
 
-**Play DOS games with it:** the same EMU8000 core is built into
+**Play DOS games with it:** the same EMU8000 core, byte for byte, is built into
 [DOSBox-X AWE32](https://github.com/turican0/dosbox-x-AWE32), a DOSBox-X fork with
-a complete Sound Blaster AWE32, where the games drive the chip through their own
-Creative drivers.
+a complete Sound Blaster AWE32, and into
+[86Box AWE32](https://github.com/turican0/86Box-AWE32) (branch `masterAWE32`), an
+86Box 6.0 fork whose AWE32 sounds like the real card. In both, the games drive the
+chip through their own Creative drivers.
 
 ## Listen: Magic Carpet 2, real card vs AWE32Emu
 
@@ -205,6 +207,8 @@ and banks, the SDK, game music, VM images.
   chip (`Awe32InitArrays.h`, also published in the ALSA driver) and the
   volume/velocity/expression curves (`Awe32Curves.h`). The envelope time
   tables are reproduced by formulas.
-- Thanks to the tester who ran AWETEST on a real Sound Blaster AWE32 many
-  times.
+- Many thanks to **Mysterium Xerxes** (orzipan), who patiently recorded a real
+  Sound Blaster AWE32 again and again - AWETEST round after round, the games,
+  the line output and the card's own capture. Every measured detail of the
+  EMU8000 here comes from those recordings.
 - The license of the rest of the project is to be decided.
