@@ -49,12 +49,20 @@ namespace
             if (statusByte < 0x80)
             {
                 // Running status - the previous status byte repeats, this is already data1
+                if (runningStatus == 0)
+                    break; // data without any status: a damaged track
                 statusByte = runningStatus;
             }
             else
             {
                 pos++;
-                runningStatus = statusByte;
+                // Only the channel messages set the running status. A meta
+                // event or SysEx used to set it too, so notes going on by
+                // running status after a tempo change were read as a meta
+                // event of their key and a length of their velocity - the
+                // track came apart (fewer / bogus events, wrong timing).
+                if (statusByte < 0xF0)
+                    runningStatus = statusByte;
             }
 
             uint8_t hiNibble = statusByte & 0xF0;
