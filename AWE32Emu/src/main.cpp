@@ -826,6 +826,9 @@ int main(int argc, char** argv)
         }
         std::vector<int16_t> buf(static_cast<size_t>(kFramesPerBuffer) * 2);
         uint32_t skip = synth.Core().ChipLatencyFrames();
+        // No note goes through Synth here, nothing asks the state of our own
+        // core: beside the 86Box chip it is not rendered.
+        synth.Core().SetRenderOwnCore(false);
         auto emit = [&](uint32_t frames)
         {
             synth.Core().RenderBlock(buf.data(), frames);
